@@ -1,98 +1,133 @@
-from ophyd.controls import EpicsMotor, PVPositioner
-
-############# DCM ############# 
-# MOT005 dcm_y  DCM_Y XF:10IDA-OP{Mono:DCM-Ax:Y}Mtr.VAL
-dcm_y = EpicsMotor('XF:10IDA-OP{Mono:DCM-Ax:Y}Mtr', name='dcm_y') 
-# MOT006 dcm_th  DCM_theta  XF:10IDA-OP{Mono:DCM-Ax:P}Mtr.VAL
-dcm_th = EpicsMotor('XF:10IDA-OP{Mono:DCM-Ax:P}Mtr', name='dcm_th') 
-# MOT007 dcm_z2  DCM_Z2  XF:10IDA-OP{Mono:DCM-Ax:Z2}Mtr.VAL
-dcm_z2 = EpicsMotor('XF:10IDA-OP{Mono:DCM-Ax:Z2}Mtr', name='dcm_z2')
-# MOT008 dcm_p1  DCM_P1  XF:10IDA-OP{Mono:DCM-Ax:P1}Mtr.VAL
-dcm_p1 = EpicsMotor('XF:10IDA-OP{Mono:DCM-Ax:P1}Mtr', name='dcm_p1') 
-# MOT009 dcm_r2  DCM_R2  XF:10IDA-OP{Mono:DCM-Ax:R2}Mtr.VAL
-dcm_r2 = EpicsMotor('XF:10IDA-OP{Mono:DCM-Ax:R2}Mtr', name='dcm_r2') 
-# MOT010 dcm_pf  DCM_PF  XF:10IDA-OP{Mono:DCM-Ax:PF}Mtr.VAL
-dcm_pf = EpicsMotor('XF:10IDA-OP{Mono:DCM-Ax:PF}Mtr', name='dcm_pf')
-
-############## Mirrors  ############# 
-# VFM
-# MOT027 vmux  VFM_USX  XF:10IDD-OP{VFM:1-Ax:UX}Mtr.VAL
-vmux = EpicsMotor('XF:10IDD-OP{VFM:1-Ax:UX}Mtr', name='vmux') 
-# MOT028 vmuy  VFM_USY  XF:10IDD-OP{VFM:1-Ax:UY}Mtr.VAL
-vmuy = EpicsMotor('XF:10IDD-OP{VFM:1-Ax:UY}Mtr', name='vmuy') 
-# MOT029 vmdx  VFM_DSX  XF:10IDD-OP{VFM:1-Ax:DX}Mtr.VAL
-vmdx = EpicsMotor('XF:10IDD-OP{VFM:1-Ax:DX}Mtr', name='vmdx') 
-# MOT030 vmdy  VFM_DSY  XF:10IDD-OP{VFM:1-Ax:DY}Mtr.VAL
-vmdy = EpicsMotor('XF:10IDD-OP{VFM:1-Ax:DY}Mtr', name='vmdy')
-
-# HFM
-# MOT031 hmux  HFM_USX  XF:10IDD-OP{HFM:1-Ax:UX}Mtr.VAL
-hmux = EpicsMotor('XF:10IDD-OP{HFM:1-Ax:UX}Mtr', name='hmux')
-# MOT032 hmuy  HFM_USY  XF:10IDD-OP{HFM:1-Ax:UY}Mtr.VAL
-hmuy = EpicsMotor('XF:10IDD-OP{HFM:1-Ax:UY}Mtr', name='hmuy')
-# MOT033 hmdx  HFM_DSX  XF:10IDD-OP{HFM:1-Ax:DX}Mtr.VAL
-hmdx = EpicsMotor('XF:10IDD-OP{HFM:1-Ax:DX}Mtr', name='hmdx')
-# MOT034 hmdy  HFM_DSY  XF:10IDD-OP{HFM:1-Ax:DY}Mtr.VAL
-hmdy = EpicsMotor('XF:10IDD-OP{HFM:1-Ax:DY}Mtr', name='hmdy')
+from ophyd import (Device, Component as Cpt, EpicsMotor, PVPositioner,
+                   FormattedComponent as FCpt)
 
 
-############## Slits ############### 
-# MOT017 s1t  Slit1Top  XF:10IDA-OP{Slt:1-Ax:T}Mtr.VAL
-s1t = EpicsMotor('XF:10IDA-OP{Slt:1-Ax:T}Mtr', name='s1t')
-# MOT018 s1b  Slit1Bot  XF:10IDA-OP{Slt:1-Ax:B}Mtr.VAL
-s1b = EpicsMotor('XF:10IDA-OP{Slt:1-Ax:B}Mtr', name='s1b') 
-# MOT019 s1o  Slit1Out  XF:10IDA-OP{Slt:1-Ax:O}Mtr.VAL
-s1o = EpicsMotor('XF:10IDA-OP{Slt:1-Ax:O}Mtr', name='s1o') 
-# MOT020 s1i  Slit1In  XF:10IDA-OP{Slt:1-Ax:I}Mtr.VAL
-s1i = EpicsMotor('XF:10IDA-OP{Slt:1-Ax:I}Mtr', name='s1i')
-# x width
-s1xg = PVPositioner('XF:10IDA-OP{Slt:1-Ax:X}size',
-                    readback='XF:10IDA-OP{Slt:1-Ax:X}t2.C',
-                    done='XF:10IDA-OP{Slt:1-Ax:X}DMOV',
-                    done_val=1,
-                    name='s1xg')
-s1xc = PVPositioner('XF:10IDA-OP{Slt:1-Ax:X}center',
-                    readback='XF:10IDA-OP{Slt:1-Ax:X}t2.D',
-                    done='XF:10IDA-OP{Slt:1-Ax:X}DMOV',
-                    done_val=1,
-                    name='s1xc')
-s1yg = PVPositioner('XF:10IDA-OP{Slt:1-Ax:Y}size',
-                    readback='XF:10IDA-OP{Slt:1-Ax:Y}t2.C',
-                    done='XF:10IDA-OP{Slt:1-Ax:Y}DMOV',
-                    done_val=1,
-                    name='s1yg')
-s1yc = PVPositioner('XF:10IDA-OP{Slt:1-Ax:Y}center',
-                    readback='XF:10IDA-OP{Slt:1-Ax:Y}t2.D',
-                    done='XF:10IDA-OP{Slt:1-Ax:Y}DMOV',
-                    done_val=1,
-                    name='s1xy')
+# defined here, also used in 10-optics.py
+# why do none of the 'slits' constructs feature gap, center motions?
+class Blades(Device):
+    top = Cpt(EpicsMotor, '-Ax:T}Mtr')
+    bottom = Cpt(EpicsMotor, '-Ax:B}Mtr')
+    outboard = Cpt(EpicsMotor, '-Ax:O}Mtr')
+    inboard = Cpt(EpicsMotor, '-Ax:I}Mtr')
 
-##
-# SSA
-# MOT025 ssat  SSA_T  XF:10IDB-OP{SSA:1-Ax:T}Mtr.VAL
-ssat = EpicsMotor('XF:10IDB-OP{SSA:1-Ax:T}Mtr', name='ssat')
-# MOT026 ssab  SSA_B  XF:10IDB-OP{SSA:1-Ax:B}Mtr.VAL
-ssab = EpicsMotor('XF:10IDB-OP{SSA:1-Ax:B}Mtr', name='ssab')
 
-# MOT021 s2t  Slit2Top  XF:10IDC-OP{Slt:4-Ax:T}Mtr.VAL
-s2t = EpicsMotor('XF:10IDC-OP{Slt:4-Ax:T}Mtr', name='s2t') 
-# MOT022 s2b  Slit2Bot  XF:10IDC-OP{Slt:4-Ax:B}Mtr.VAL
-s2b = EpicsMotor('XF:10IDC-OP{Slt:4-Ax:B}Mtr', name='s2b') 
-# MOT023 s2o  Slit2Out  XF:10IDC-OP{Slt:4-Ax:O}Mtr.VAL
-s2o = EpicsMotor('XF:10IDC-OP{Slt:4-Ax:O}Mtr', name='s2o') 
-# MOT024 s2i  Slit2In  XF:10IDC-OP{Slt:4-Ax:I}Mtr.VAL
-s2i = EpicsMotor('XF:10IDC-OP{Slt:4-Ax:I}Mtr', name='s2i')
+class DCM(Device):
+    y =  Cpt(EpicsMotor, '-Ax:Y}Mtr')
+    th = Cpt(EpicsMotor, '-Ax:P}Mtr')
+    z2 = Cpt(EpicsMotor, '-Ax:Z2}Mtr')
+    p1 = Cpt(EpicsMotor, '-Ax:P1}Mtr')
+    r2 = Cpt(EpicsMotor, '-Ax:R2}Mtr')
+    pf = Cpt(EpicsMotor, '-Ax:PF}Mtr')
 
-############## Diagnostic Manipulators ############## 
-# MOT011 bpm1_y  BPM1_Y  XF:10IDA-BI{BPM:1-Ax:YFoil}Mtr.VAL
-bpm1_y = EpicsMotor('XF:10IDA-BI{BPM:1-Ax:YFoil}Mtr', name='bpm1_y')
-# MOT012 bpm1_dx  BPM1_DX  XF:10IDA-OP{BPM:1-Ax:X}Mtr.VAL
-bpm1_dx = EpicsMotor('XF:10IDA-OP{BPM:1-Ax:X}Mtr', name='bpm1_dx') 
-# MOT013 bpm1_dy  BPM1_DY  XF:10IDA-OP{BPM:1-Ax:Y}Mtr.VAL
-bpm1_dy = EpicsMotor('XF:10IDA-OP{BPM:1-Ax:Y}Mtr', name='bpm1_dy') 
-# MOT014 bpm2_y  BPM2_Y  XF:10IDC-BI{BPM:2-Ax:Y}Mtr.VAL
-bpm2_y = EpicsMotor('XF:10IDC-BI{BPM:2-Ax:Y}Mtr', name='bpm2_y') 
-# MOT015 bpm2_dx  BPM2_DX  XF:10IDC-OP{BPM:2-Ax:X}Mtr.VAL
-bpm2_dx = EpicsMotor('XF:10IDC-OP{BPM:2-Ax:X}Mtr', name='bpm2_dx') 
-# MOT016 bpm2_dy  BPM2_DY  XF:10IDC-OP{BPM:2-Ax:Y}Mtr.VAL
-bpm2_dy = EpicsMotor('XF:10IDC-OP{BPM:2-Ax:Y}Mtr', name='bpm2_dy') 
+
+class HRM2(Device):
+    ux =  Cpt(EpicsMotor, '-Ax:UX}Mtr')
+    uy =  Cpt(EpicsMotor, '-Ax:UY}Mtr')
+    uth = Cpt(EpicsMotor, '-Ax:UTc}Mtr')
+    uch = Cpt(EpicsMotor, '-Ax:UC}Mtr')
+    uif = Cpt(EpicsMotor, '-Ax:UTI}Mtr')
+    uof = Cpt(EpicsMotor, '-Ax:UTO}Mtr')
+    dx =  Cpt(EpicsMotor, '-Ax:DX}Mtr')
+    dy =  Cpt(EpicsMotor, '-Ax:DY}Mtr')
+    dth = Cpt(EpicsMotor, '-Ax:DTc}Mtr')
+    dch = Cpt(EpicsMotor, '-Ax:DC}Mtr')
+    dif = Cpt(EpicsMotor, '-Ax:DTI}Mtr')
+    dof = Cpt(EpicsMotor, '-Ax:DTO}Mtr')
+    d1 =  Cpt(EpicsMotor, '-Pico:m1}Mtr')
+    d2 =  Cpt(EpicsMotor, '-Pico:m2}Mtr')
+    d3 =  Cpt(EpicsMotor, '-Pico:m3}Mtr')
+    d4 =  Cpt(EpicsMotor, '-Pico:m4}Mtr')
+    d5 =  Cpt(EpicsMotor, '-Pico:m5}Mtr')
+    bs =  Cpt(EpicsMotor, '-Pico:m6}Mtr')
+
+
+
+class VFM(Device):
+    ux = Cpt(EpicsMotor, '-Ax:UX}Mtr')
+    uy = Cpt(EpicsMotor, '-Ax:UY}Mtr')
+    dx = Cpt(EpicsMotor, '-Ax:DX}Mtr')
+    dy = Cpt(EpicsMotor, '-Ax:DY}Mtr')
+    ub = Cpt(EpicsMotor, '-Ax:UB}Mtr')
+    db = Cpt(EpicsMotor, '-Ax:DB}Mtr')
+
+
+class HFM(Device):
+    ux = Cpt(EpicsMotor, '-Ax:UX}Mtr')
+    uy = Cpt(EpicsMotor, '-Ax:UY}Mtr')
+    dx = Cpt(EpicsMotor, '-Ax:DX}Mtr')
+    dy = Cpt(EpicsMotor, '-Ax:DY}Mtr')
+    ub = Cpt(EpicsMotor, '-Ax:UB}Mtr')
+    db = Cpt(EpicsMotor, '-Ax:DB}Mtr')
+
+
+class XYMotor(Device):
+    x = Cpt(EpicsMotor, '-Ax:X}Mtr')
+    y = Cpt(EpicsMotor, '-Ax:Y}Mtr')
+
+
+class SSA(Device):
+    top = Cpt(EpicsMotor, '-Ax:T}Mtr')
+    bottom = Cpt(EpicsMotor, '-Ax:B}Mtr')
+
+
+class Table(Device):
+    x = Cpt(EpicsMotor, '-Ax:X4}Mtr')
+    y = Cpt(EpicsMotor, '-Ax:Y4}Mtr')
+    th =Cpt(EpicsMotor, '-Ax:X4a1}Mtr')
+
+
+class Pinhole(Device):
+    ux = Cpt(EpicsMotor, '-Ax:UX}Mtr')
+    uy = Cpt(EpicsMotor, '-Ax:UY}Mtr')
+    dx = Cpt(EpicsMotor, '-Ax:DX}Mtr')
+    dy = Cpt(EpicsMotor, '-Ax:DY}Mtr')
+
+
+class MCMBase(PVPositioner):
+    setpoint = FCpt(EpicsSignal, '{self.prefix}{self._ch_name}')
+    readback = FCpt(EpicsSignal, '{self.prefix}{self._ch_name}')
+    actuate = Cpt(EpicsSignal, '}Mov')
+    actuate_value = 1
+    stop_signal = Cpt(EpicsSignal, '}Kill')
+    stop_value = 1
+    # all six axes are coupled, so 'InPos' is an array of six values
+    done = Cpt(EpicsSignal, '}InPos')
+    done_value = True
+
+    def __init__(self, prefix, ch_name=None, **kwargs):
+        self._ch_name = ch_name
+        super().__init__(prefix, **kwargs)
+
+    @property
+    def moving(self):
+        return (self.done_value != all(self.done.get(use_monitor=False)))
+
+
+class MCM(Device):
+    x = Cpt(MCMBase, '', ch_name='-Ax:X}Mtr')
+    y = Cpt(MCMBase, '', ch_name='-Ax:Y}Mtr')
+    z = Cpt(MCMBase, '', ch_name='-Ax:Z}Mtr')
+    theta = Cpt(MCMBase, '', ch_name='-Ax:Rx}Mtr')
+    phi = Cpt(MCMBase, '', ch_name='-Ax:Ry}Mtr')
+    chi = Cpt(MCMBase, '', ch_name='-Ax:Rz}Mtr')
+
+
+dcm = DCM('XF:10IDA-OP{Mono:DCM', name='dcm')
+vfm = VFM('XF:10IDD-OP{VFM:1', name='vfm')
+hfm = HFM('XF:10IDD-OP{HFM:1', name='hfm')
+hrm2 = HRM2('XF:10IDB-OP{Mono:HRM2', name='hrm2')
+
+s1 = Blades('XF:10IDA-OP{Slt:1', name='s1')
+s2 = Blades('XF:10IDC-OP{Slt:4', name='s2')
+s3 = Blades('XF:10IDD-OP{Slt:5', name='s3')
+
+bpm1 = XYMotor('XF:10IDA-OP{BPM:1', name='bpm1')
+bpm1_diag = EpicsMotor('XF:10IDA-BI{BPM:1-Ax:YFoil}Mtr', name='bpm1_diag')
+bpm2 = XYMotor('XF:10IDC-OP{BPM:2', name='bpm2')
+bpm2_diag = EpicsMotor('XF:10IDC-BI{BPM:2-Ax:Y}Mtr', name='bpm2_diag')
+
+ssa = SSA('XF:10IDB-OP{SSA:1', name='ssa')
+k3 = Table('XF:10IDC-OP{Tbl:1', name='k3')
+ph = Pinhole('XF:10IDD-OP{Pinh:1', name='ph')
+
+mcm = MCM('XF:10IDD-OP{MCM:1', name='mcm')

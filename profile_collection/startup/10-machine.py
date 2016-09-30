@@ -1,55 +1,67 @@
-from ophyd.controls import EpicsSignal, EpicsMotor
+from ophyd import (Device, EpicsSignal, EpicsSignalRO,
+                   EpicsMotor, PVPositioner, PVPositionerPC,
+                   Component as Cpt)
+
 
 # SR current
 # CNT012 src  SRcur  SR:C03-BI{DCCT:1}I:Real-I
-SRcur = EpicsSignal('SR:C03-BI{DCCT:1}I:Real-I', rw=False, name='SRcur')
+sr_curr = EpicsSignalRO('SR:C10-BI{DCCT:1}I:Real-I', name='sr_curr')
 
-# Undulator: this is an example
+class CRL(Device):
+    x = Cpt(EpicsMotor, '-Ax:X}Mtr')
+    y = Cpt(EpicsMotor, '-Ax:Y}Mtr')
+    th =Cpt(EpicsMotor, '-Ax:P}Mtr')
 
-#epu1_gap = PVPositioner('XF:23ID-ID{EPU:1-Ax:Gap}Pos-SP',
-#                        readback='XF:23ID-ID{EPU:1-Ax:Gap}Pos-I',
-#                        stop='SR:C23-ID:G1A{EPU:1-Ax:Gap}-Mtr.STOP',
-#                        stop_val=1,
-#                        put_complete=True,
-#                        name='epu1_gap')
 
-############# Front End Slits (Primary Slits) ############
-# MOT001 fst  FSlitTop  FE:C10A-OP{Slt:1-Ax:T}Mtr.VAL
-fst = EpicsMotor('FE:C10A-OP{Slt:1-Ax:T}Mtr', name='fst')
+class Slit2DGap(PVPositionerPC):
+    readback = Cpt(EpicsSignalRO, 't2.C')
+    setpoint = Cpt(EpicsSignal, 'size')
+    done = Cpt(EpicsSignalRO, 'DMOV')
+    done_value = 1
 
-# MOT002 fsb  FSlitBot  FE:C10A-OP{Slt:2-Ax:B}Mtr.VAL
-fsb = EpicsMotor('FE:C10A-OP{Slt:2-Ax:B}Mtr', name='fsb')
 
-# MOT003 fso  FSlitOut  FE:C10A-OP{Slt:1-Ax:O}Mtr.VAL
-fso = EpicsMotor('FE:C10A-OP{Slt:1-Ax:O}Mtr', name='fso')
+class Slit2DCenter(PVPositionerPC):
+    readback = Cpt(EpicsSignalRO, 't2.D')
+    setpoint = Cpt(EpicsSignal, 'center')
+    done = Cpt(EpicsSignalRO, 'DMOV')
+    done_value = 1
 
-# MOT004 fsi  FSlitIn  FE:C10A-OP{Slt:2-Ax:I}Mtr.VAL
-fsi = EpicsMotor('FE:C10A-OP{Slt:2-Ax:I}Mtr', name='fsi')
 
-''' Example of how to configure the Frontend slit composite motions
-fe_xc = PVPositioner('FE:C23A-OP{Slt:12-Ax:X}center',
-                     readback='FE:C23A-OP{Slt:12-Ax:X}t2.D',
-                     stop='FE:C23A-CT{MC:1}allstop',
-                     stop_val=1, put_complete=True,
-                     name='fe_xc')
+class Slit2D(Device):
+    "Center and gap with virtual motors"
+    xc = Cpt(Slit2DCenter, '12-Ax:X}')
+    yc = Cpt(Slit2DCenter, '12-Ax:Y}')
+    xg = Cpt(Slit2DGap, '12-Ax:X}')
+    yg = Cpt(Slit2DGap, '12-Ax:Y}')
 
-fe_yc = PVPositioner('FE:C23A-OP{Slt:12-Ax:Y}center',
-                     readback='FE:C23A-OP{Slt:12-Ax:Y}t2.D',
-                     stop='FE:C23A-CT{MC:1}allstop',
-                     stop_val=1,
-                     put_complete=True,
-                     name='fe_yc')
 
-fe_xg = PVPositioner('FE:C23A-OP{Slt:12-Ax:X}size',
-                     readback='FE:C23A-OP{Slt:12-Ax:X}t2.C',
-                     stop='FE:C23A-CT{MC:1}allstop',
-                     stop_val=1, put_complete=True,
-                     name='fe_xg')
+class Slit2DBlades(Device):
+    top = Cpt(EpicsMotor, '1-Ax:T}Mtr')
+    bottom = Cpt(EpicsMotor, '2-Ax:B}Mtr')
+    outboard = Cpt(EpicsMotor, '1-Ax:O}Mtr')
+    inboard = Cpt(EpicsMotor, '2-Ax:I}Mtr')
 
-fe_yg = PVPositioner('FE:C23A-OP{Slt:12-Ax:Y}size',
-                     readback='FE:C23A-OP{Slt:12-Ax:Y}t2.C',
-                     stop='FE:C23A-CT{MC:1}allstop',
-                     stop_val=1,
-                     put_complete=True,
-                     name='fe_yg')
-'''
+
+class FESlits(Slit2DBlades, Slit2D):
+    "combine t b i o and xc yc xg yg"
+    pass
+
+
+# TODO: revisit the IVU as a PseudoPositioner
+class Undulator(PVPositioner):
+    setpoint = Cpt(EpicsSignal, '}Man:SP:Gap')
+    # Note: there are actually 2 readbacks for gap position, Y1 & Y2.
+    # This should be fixed at the EPICS level to provide an avg gap
+    readback = Cpt(EpicsSignalRO, '}Y1:Rbv')
+    actuate = Cpt(EpicsSignal, '}ManG:Go_.PROC')
+    done = Cpt(EpicsSignalRO, '-Mtr:Gap}.DMOV')
+    stop_signal = Cpt(EpicsSignal, '}Man:Stop_.PROC')
+
+    actuate_value = 1
+    done_value = 1
+    stop_value = 1
+
+
+ivu22 = Undulator('SR:C10-ID:G1{IVU22:1', name='ivu22')
+fes = FESlits('FE:C10A-OP{Slt:', name='fes')
+crl = CRL('FE:C10A-OP{CRL:1', name='crl')
