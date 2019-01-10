@@ -81,6 +81,7 @@ class QuadEM(SingleTrigger, DetectorBase):
 
 
 class AH501(QuadEM):
+    _default_configuration_attrs = ['image']
     image = ADCpt(ImagePlugin, 'image1:')
     current1 = ADCpt(StatsPlugin, 'Current1:')
     current2 = ADCpt(StatsPlugin, 'Current2:')
