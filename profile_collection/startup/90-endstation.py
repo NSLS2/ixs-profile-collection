@@ -35,6 +35,9 @@ class AnalyzerDXtals(Device):
 class AnalyzerSlits(Device):
     top = Cpt(EpicsMotor,  '5-Ax:2}Mtr')
     bottom = Cpt(EpicsMotor,  '5-Ax:3}Mtr')
+    outboard = Cpt(EpicsMotor,  '7-Ax:2}Mtr')
+    inboard = Cpt(EpicsMotor,  '7-Ax:4}Mtr')
+
 
 class MCMSlits(Device):
     top = Cpt(EpicsMotor, '6-Ax:3}Mtr')
