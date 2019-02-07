@@ -7,7 +7,7 @@ class Analyzer(Device):
     ay = Cpt(EpicsMotor, '-OP{Analy:1-Ax:A}Mtr')
     by = Cpt(EpicsMotor, '-OP{Analy:1-Ax:B}Mtr')
     tth = Cpt(EpicsMotor, '-OP{Spec:1-Ax:2Th}Mtr')
-    th =  Cpt(EpicsMotor, '-OP{Spec:1-Ax:Th}Mtr')
+    th = Cpt(EpicsMotor, '-OP{Spec:1-Ax:Th}Mtr')
     chi = Cpt(EpicsMotor, '-OP{Spec:1-Ax:ChiA}Mtr')
     phi = Cpt(EpicsMotor, '-OP{Spec:1-Ax:PhiA}Mtr')
     cfth = Cpt(EpicsMotor, '-ES{Ez4:1-Ax:1}Mtr')
@@ -55,10 +55,8 @@ class SampleStage(Device):
     sz = Cpt(EpicsMotor, '{Env:1-Ax:Z}Mtr')
 
 
-
 analyzer = Analyzer('XF:10IDD', name='analyzer')
 analyzer_xtals = AnalyzerDXtals('XF:10IDD-ES{Ez4:', name='analyzer_xtals')
 analyzer_slits = AnalyzerSlits('XF:10IDD-ES{Ez4:', name='analyzer_slits')
 mcm_slits = MCMSlits('XF:10IDD-OP{Ez4:', name='mcm_slits')
 sample_stage = SampleStage('XF:10IDD-OP', name='sample_stage')
-
