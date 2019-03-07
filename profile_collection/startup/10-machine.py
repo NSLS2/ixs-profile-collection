@@ -5,7 +5,7 @@ from ophyd import (Device, EpicsSignal, EpicsSignalRO,
 
 # SR current
 # CNT012 src  SRcur  SR:C03-BI{DCCT:1}I:Real-I
-sr_curr = EpicsSignalRO('SR:C10-BI{DCCT:1}I:Real-I', name='sr_curr')
+sr_curr = EpicsSignalRO('SR:OPS-BI{DCCT:1}I:Real-I', name='sr_curr')
 
 class CRL(Device):
     x = Cpt(EpicsMotor, '-Ax:X}Mtr')
