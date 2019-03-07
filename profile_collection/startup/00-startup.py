@@ -3,9 +3,9 @@ import nslsii
 nslsii.configure_base(get_ipython().user_ns, 'ixs')
 
 # After the above call, you will now have the following in your namespace:
-# 
-#	RE : RunEngine 
-#	db : databroker 
+#
+#	RE : RunEngine
+#	db : databroker
 #	sd : SupplementalData
 #	pbar_manager : ProgressBarManager
 #	bec : BestEffortCallback
@@ -50,9 +50,10 @@ RE.md['beamline_id'] = 'IXS'
 RE.md['owner'] = 'xf10id'
 RE.md['group'] = 'ixs'
 
+from pyOlog.ophyd_tools import get_all_positioners
+
 def relabel_motors():
     mtrs = get_all_positioners()
     for mtr in mtrs:
         attr = getattr(mtr, 'user_readback')
         attr.name = mtr.name
-
