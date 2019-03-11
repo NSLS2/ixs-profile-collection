@@ -90,6 +90,8 @@ def generic_alignment_plan(det, motor, start, stop, num_steps,
         target = num_steps * (local_peaks.cen // num_steps)  # nearest step
         if (move_centre and abs(target-initial_pos)<=move_tolerance):
             yield from bps.mov(motor, target)
+        # TODO add a section here that optionally sets the found centre value
+        # to zero on the user scale
     elif move_centre:  # if move_centre add a print statemnt for summarize_plan
         print (f'may move {motor.name} to the centre value if it is within '
-               f'{move_tolerance} of the initial motor value')
+               f'{move_tolerance} of the initial {motor.name} position')
