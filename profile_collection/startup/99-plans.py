@@ -12,13 +12,12 @@ def check_zero():
         # set the exposure times
         pass
 
-    local_peaks = bluesky.callbacks.fitting.PeakStats(hrmE.energy.name, 
+    local_peaks = bluesky.callbacks.fitting.PeakStats(hrmE.energy.name,
                                                       dets[0].hints['fields'][0])
-    plan = bpp.subs_wrapper(rel_scan(dets, hrmE, 0, 40, 200, md={'reason': 'alignment'}), 
+    plan = bpp.subs_wrapper(rel_scan(dets, hrmE, 0, 40, 200, md={'reason': 'alignment'}),
                             [local_peaks])
-                                                      
+
     yield from plan
     cen = local_peaks.cen
     target = 0.2 * (cen // .2)
     yield from bps.mov(hrmE, target)
-
