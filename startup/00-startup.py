@@ -6,8 +6,8 @@ import nslsii
 
 nslsii.configure_base(
     get_ipython().user_ns,
-    'ixs',
-    publish_documents_with_kafka=True
+    'temp',
+    publish_documents_with_kafka=False
 )
 
 # After the above call, you will now have the following in your namespace:
