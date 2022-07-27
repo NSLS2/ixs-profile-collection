@@ -6,14 +6,18 @@ class Analyzer(Device):
     dy = Cpt(EpicsMotor, '-OP{Analy:1-Ax:DY}Mtr')
     ay = Cpt(EpicsMotor, '-OP{Analy:1-Ax:A}Mtr')
     by = Cpt(EpicsMotor, '-OP{Analy:1-Ax:B}Mtr')
-    tth = Cpt(EpicsMotor, '-OP{Spec:1-Ax:2Th}Mtr')
-    th = Cpt(EpicsMotor, '-OP{Spec:1-Ax:Th}Mtr')
-    chi = Cpt(EpicsMotor, '-OP{Spec:1-Ax:ChiA}Mtr')
-    phi = Cpt(EpicsMotor, '-OP{Spec:1-Ax:PhiA}Mtr')
+
     cfth = Cpt(EpicsMotor, '-ES{Ez4:1-Ax:1}Mtr')
     cchi = Cpt(EpicsMotor, '-ES{Ez4:1-Ax:2}Mtr')
     wfth = Cpt(EpicsMotor, '-ES{Ez4:1-Ax:3}Mtr')
     wchi = Cpt(EpicsMotor, '-ES{Ez4:1-Ax:4}Mtr')
+
+
+class Spectrometer(Device):
+    tth = Cpt(EpicsMotor, '-OP{Spec:1-Ax:2Th}Mtr')
+    th = Cpt(EpicsMotor, '-OP{Spec:1-Ax:Th}Mtr')
+    chi = Cpt(EpicsMotor, '-OP{Spec:1-Ax:ChiA}Mtr')
+    phi = Cpt(EpicsMotor, '-OP{Spec:1-Ax:PhiA}Mtr')
 
 
 class AnalyzerDXtals(Device):
@@ -56,10 +60,12 @@ class SampleStage(Device):
 
 
 analyzer = Analyzer('XF:10IDD', name='analyzer')
+spec = Spectrometer('XF:10IDD', name='spec')
 analyzer_xtals = AnalyzerDXtals('XF:10IDD-ES{Ez4:', name='analyzer_xtals')
 analyzer_slits = AnalyzerSlits('XF:10IDD-ES{Ez4:', name='analyzer_slits')
 mcm_slits = MCMSlits('XF:10IDD-OP{Ez4:', name='mcm_slits')
-sample_stage = SampleStage('XF:10IDD-OP', name='sample_stage')
+sample_stage = SampleStage('XF:10IDD-OP', name='s')
 
 whl = EpicsMotor('XF:10IDD-OP{Abs:1-Ax:Wheel}Mtr', name='whl')
+
 anapd = EpicsMotor('XF:10IDD-ES{Ez4:8-Ax:3}Mtr', name='anapd')
