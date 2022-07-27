@@ -59,3 +59,23 @@ def relabel_motors():
     for mtr in mtrs:
         attr = getattr(mtr, 'user_readback')
         attr.name = mtr.name
+
+# ## Live specfile exporting
+import time
+from event_model import RunRouter
+from suitcase.specfile import Serializer
+
+
+def spec_factory(name, doc):
+    if not spec_factory.enabled:
+        return [], []
+    directory = "/nsls2/data/ixs/legacy/specfiles/"
+    file_prefix = "spec_" + time.strftime("%Y-%m-%d")
+    spec_cb = Serializer(directory, file_prefix=file_prefix, flush=True)
+    return [spec_cb], []
+
+
+spec_factory.enabled = True
+
+spec_router = RunRouter([spec_factory])
+RE.subscribe(spec_router)
