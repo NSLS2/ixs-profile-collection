@@ -151,6 +151,7 @@ class AnalyzerCXtal(PseudoPositioner):
     def inverse(self, realpos):
         ccp = np.zeros((2,), dtype=float)
         # d2y == a2uy, d1y == a2dy
+        #TODO use realpos input!
         d1y = self.uy.position
         d2y = self.dy.position
 
