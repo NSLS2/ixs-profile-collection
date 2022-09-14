@@ -52,6 +52,7 @@ class Lambda(SingleTriggerV33, LambdaDetector):
 lambda_det = Lambda('XF:10IDC-BI{Lambda-Cam:1}', name='lambda_det')
 for j in range(1, 8):
     getattr(lambda_det, f'stats{j}').kind = 'normal'
+lambda_det.stats7.total.kind = 'hinted'
 
 
 # Impose Stats4 to be ROI4 if in the future we need to exclude bad pixels
