@@ -80,7 +80,7 @@ def spec_factory(name, doc):
     if not spec_factory.enabled:
         return [], []
     directory = "/nsls2/data/ixs/legacy/specfiles/"
-    file_prefix = "spec_" + time.strftime("%Y-%m-%d")
+    file_prefix = "spec_test" 
     spec_cb = Serializer(directory, file_prefix=file_prefix, flush=True)
     return [spec_cb], []
 
