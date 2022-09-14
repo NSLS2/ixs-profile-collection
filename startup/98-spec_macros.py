@@ -33,3 +33,55 @@ def set_acquire_time(t):
     yield from bps.mv(sclr.preset_time, t)
     yield from bps.mv(lambda_det.cam.acquire_time, t*0.995)
     yield from bps.mv(lambda_det.cam.acquire_period, t*0.995)
+
+
+def hrmE_dscan(start, stop, steps, t):
+    """
+    Run a relative (delta) hmre scan with lambda and scalar
+
+    Paramameters
+    ------------
+    start, stop : float
+        The relative start and stop points
+
+    steps : int
+        The number of gaps (take steps + 1 measurements)
+
+    t : float
+        The exposure time in seconds
+    """
+    yield from set_acquire_time(t)
+    return (
+        yield from bp.rel_scan(
+            [lambda_det, sclr], 
+            hrmE.energy, 
+            start, stop, steps+1, 
+            md={'count_time': t}
+            )
+    )
+
+
+def hrmE_ascan(start, stop, steps, t):
+    """
+    Run a absolute hmre scan with lambda and scalar
+
+    Paramameters
+    ------------
+    start, stop : float
+        The absolute start and stop points
+
+    steps : int
+        The number of gaps (take steps + 1 measurements)
+
+    t : float
+        The exposure time in seconds
+    """
+    yield from set_acquire_time(t)
+    return (
+        yield from bp.scan(
+            [lambda_det, sclr], 
+            hrmE.energy, 
+            start, stop, steps+1, 
+            md={'count_time': t}
+            )
+    )
