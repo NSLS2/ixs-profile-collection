@@ -1,3 +1,5 @@
+import bluesky.plan_stubs as bps
+
 def check_zero():
     ssxop = 0
     E0
@@ -21,4 +23,18 @@ def check_zero():
     cen = local_peaks.cen
     target = 0.2 * (cen // .2)
     yield from bps.mov(hrmE, target)
+
+def do_the_right_thing(i_time):
+    yield from bps.mv(det1.integration_time, i_time)
+    yield from count([det1])
+
+def ct(exp_time):
+    yield from bps.mv(sclr.preset_time, exp_time)
+    yield from bp.count([sclr])
+
+
+def double_ct(exp_time):
+    yield from ct(exp_time)
+    # yield from bps.mv(sample_stage.sx, 0)
+    yield from ct(exp_time)
 
