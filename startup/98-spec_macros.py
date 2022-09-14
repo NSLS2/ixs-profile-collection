@@ -28,3 +28,8 @@ def hrm_in():
 
 def hrm_out():
     yield from bps.mv(hrm2.ux, -20, hrm2.dx, -20, hrm2.bs, 0)
+
+def set_acquire_time(t):
+    yield from bps.mv(sclr.preset_time, t)
+    yield from bps.mv(lambda_det.cam.acquire_time, t*0.995)
+    yield from bps.mv(lambda_det.cam.acquire_period, t*0.995)
