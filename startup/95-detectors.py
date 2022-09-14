@@ -30,3 +30,12 @@ for j, det in enumerate([tm1, tm2]):
     det.conf.port_name.put(f'TM17{2*j+6}')
 
 sclr = EpicsScaler('XF:10IDD-ES{Sclr:1}', name='sclr')
+for j in range(1, 33):
+    if j == 21:
+        continue
+    getattr(sclr.channels, f'chan{j}').kind='normal'
+
+sclr.channels.chan21.name = 'I0'
+sclr.channels.chan21.kind = 'omitted'
+
+    
