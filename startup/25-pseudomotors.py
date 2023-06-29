@@ -90,7 +90,9 @@ class HRMEnergy(PseudoPositioner):
 
 
 hrmE = HRMEnergy('', name='hrmE', egu='eV')
-
+hrmE.energy.readback.name = hrmE.name
+hrmE.uof.user_readback.kind = 'normal'
+hrmE.dof.user_readback.kind = 'normal'
 
 # ripped from Spec file, "site.mac"
 th0 = 38.5857476
