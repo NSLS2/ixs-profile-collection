@@ -61,3 +61,10 @@ def set_defaut_stat_roi():
     yield from bps.mv(lambda_det.stats2.nd_array_port, 'ROI2')
     yield from bps.mv(lambda_det.stats3.nd_array_port, 'ROI3')
     yield from bps.mv(lambda_det.stats4.nd_array_port, 'ROI4')
+
+
+def set_lambda_exposure(exposure):
+    # Sets the Lambda detector exposure time (exposure)
+    det = lambda_det
+    yield from bps.mv(det.cam.acquire_time, exposure, det.cam.acquire_period, exposure)
+

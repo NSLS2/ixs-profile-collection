@@ -29,10 +29,33 @@ def hrm_in():
 def hrm_out():
     yield from bps.mv(hrm2.ux, -20, hrm2.dx, -20, hrm2.bs, 0)
 
-def set_acquire_time(t):
-    yield from bps.mv(sclr.preset_time, t)
-    yield from bps.mv(lambda_det.cam.acquire_time, t*0.995)
-    yield from bps.mv(lambda_det.cam.acquire_period, t*0.995)
+
+def qq2th(Qq,En=9.1317):
+    # Calculates scattering TH-angle from the Q-value. Energy En is set in keV.
+    if En > 15.0:
+       print("Wrong energy value")
+       return
+
+    Wl = 1.24/En
+    Th = np.degrees(2.0*np.arcsin(Wl*Qq/(4.0*np.pi)))
+    return Th
+
+
+def th2qq(Th,En=9.1317):
+    # Calculates the Q-value from the scattering TH-angle. Energy En is set in keV.
+    if En > 15.0:
+       print("Wrong energy value")
+       return
+
+    Wl = 1.24/En
+    Qq = 4.*np.pi*np.sin(np.radians(Th/2.))/Wl
+    return Qq
+
+
+#def set_acquire_time(t):
+#    yield from bps.mv(sclr.preset_time, t)
+#    yield from bps.mv(lambda_det.cam.acquire_time, t*0.995)
+#    yield from bps.mv(lambda_det.cam.acquire_period, t*0.995)
 
 
 def hrmE_dscan(start, stop, steps, t):
@@ -50,7 +73,7 @@ def hrmE_dscan(start, stop, steps, t):
     t : float
         The exposure time in seconds
     """
-    yield from set_acquire_time(t)
+    yield from set_lambda_exposure(t)
     return (
         yield from bp.rel_scan(
             [lambda_det, sclr], 
@@ -76,7 +99,7 @@ def hrmE_ascan(start, stop, steps, t):
     t : float
         The exposure time in seconds
     """
-    yield from set_acquire_time(t)
+    yield from set_lambda_exposure(t)
     return (
         yield from bp.scan(
             [lambda_det, sclr], 

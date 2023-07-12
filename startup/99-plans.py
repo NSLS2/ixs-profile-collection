@@ -5,6 +5,8 @@ import bluesky.callbacks.fitting
 
 
 def align_with_fit(dets, mtr, start, stop, gaps, md=None):
+    # Performs relative scan of motor and retuns data staistics
+
     md = md or {}
 
     local_peaks = []
@@ -26,6 +28,8 @@ def set_lambda_exposure(exposure):
     yield from bps.mv(det.cam.acquire_time, exposure, det.cam.acquire_period, exposure)
 
 def check_zero(dets=None, start=-20, stop=20, gaps=200):
+    # Performs relative scan of the HRM energy at tth = 0 and positions it to the peak center
+
     ssxop = 0
     print('scanning zero')
     yield from bps.mov(spec.tth, 0, spec.phi, 0, sample_stage.sx, -1)
