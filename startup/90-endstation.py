@@ -39,7 +39,7 @@ class AnalyzerDXtals(Device):
 class AnalyzerSlits(Device):
     top = Cpt(EpicsMotor,  '5-Ax:2}Mtr')
     bottom = Cpt(EpicsMotor,  '5-Ax:3}Mtr')
-    outboard = Cpt(EpicsMotor,  '7-Ax:2}Mtr')
+    outboard = Cpt(EpicsMotor,  '7-Ax:3}Mtr')
     inboard = Cpt(EpicsMotor,  '7-Ax:4}Mtr')
 
 
@@ -69,3 +69,4 @@ sample_stage = SampleStage('XF:10IDD-OP', name='s')
 whl = EpicsMotor('XF:10IDD-OP{Abs:1-Ax:Wheel}Mtr', name='whl')
 
 anapd = EpicsMotor('XF:10IDD-ES{Ez4:8-Ax:3}Mtr', name='anapd')
+# name_you_want = EpicsMotor(PVNAME_BASE, name='name_you_want')

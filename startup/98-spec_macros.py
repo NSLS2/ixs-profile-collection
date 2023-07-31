@@ -75,12 +75,7 @@ def hrmE_dscan(start, stop, steps, t):
     """
     yield from set_lambda_exposure(t)
     return (
-        yield from bp.rel_scan(
-            [lambda_det, sclr], 
-            hrmE.energy, 
-            start, stop, steps+1, 
-            md={'count_time': t}
-            )
+        yield from bp.rel_scan([lambda_det], hrmE, start, stop, steps+1, md={'count_time': t})
     )
 
 
@@ -101,10 +96,5 @@ def hrmE_ascan(start, stop, steps, t):
     """
     yield from set_lambda_exposure(t)
     return (
-        yield from bp.scan(
-            [lambda_det, sclr], 
-            hrmE.energy, 
-            start, stop, steps+1, 
-            md={'count_time': t}
-            )
+        yield from bp.scan([lambda_det], hrmE, start, stop, steps+1, md={'count_time': t})
     )
