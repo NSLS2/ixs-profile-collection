@@ -2,11 +2,15 @@ import bluesky.plans as bp
 import bluesky.plan_stubs as bps
 import bluesky.preprocessors as bpp
 import bluesky.callbacks.fitting
+import numpy as np
+import lmfit
+from bluesky.callbacks import LiveFit
 from bluesky.suspenders import SuspendFloor
 from ophyd import EpicsSignal
+from tabulate import tabulate
 
-tm1sum = EpicsSignal('XF:10ID-BI:TM176:SumAll:MeanValue.RBV')
-susp = SuspendFloor(tm1sum, 1.e-5, resume_thresh = 1.e-5, sleep = 30*60)
+tm1sum = EpicsSignal('XF:10ID-BI:TM176:SumAll:MeanValue_RBV')
+susp = SuspendFloor(tm1sum, 1.e-5, resume_thresh = 1.e-5, sleep = 1*60)
 
 def align_with_fit(dets, mtr, start, stop, gaps, md=None):
     # Performs relative scan of motor and retuns data staistics
@@ -111,22 +115,98 @@ def Lipid_Qscan():
 
 def Lipid_Qscan_wBC():
     # Lipid_Qscan with beam check
-    yield from bluesky.preprocessors.suspend_wrapper(Lipid_Qscan, susp)
+    yield from bpp.suspend_wrapper(Lipid_Qscan(), susp)
 
 
 def GCarbon_Qscan():
     # Test plan for the energy resolution at Q=1.2 with the Glassy Carbon
     Qq = [1.2]
     yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+    plt.clf()
 
-    for kk in range(2):
+    for kk in range(1):
         yield from bps.mv(anapd, 25)
         #yield from set_lambda_exposure(2)
-        yield from check_zero(start=-10, stop=10, gaps=80,exp_time=2)
+     #   yield from check_zero(start=-10, stop=10, gaps=80,exp_time=2)
         yield from bps.mv(whl, 0)
 
         for q in Qq:
             th = qq2th(q)
             yield from bps.mv(spec.tth, th)
-            yield from hrmE_dscan(-20, 20, 200, 2)
+            yield from hrmE_dscan(-10, 10, 100, 2)
 
+
+def gaussian(x, A, sigma, x0):
+    return A*np.exp(-(x - x0)**2/(2 * sigma**2))
+
+#model = lmfit.Model(gaussian)
+#init_guess = {'A': 800, 'sigma': 0.7, 'x0': 0}
+#lf = LiveFit(model,'lambda_det_stats7_total', {'x': 'hrmE'}, init_guess)
+
+def calc_lmfit(uid=-1, x="hrmE", channel=7):
+    # Calculates fitting parameters for Gaussian function for energy scan with UID and Lambda channel
+    hdr = db[uid]
+    table = hdr.table()
+    y = f'lambda_det_stats{channel}_total'
+    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.7, 'x0': table[x][table[y].argmax()+1]})
+    for name, doc in hdr.documents():
+        lf(name, doc)
+    gauss = gaussian(table[x], **lf.result.values)
+    plt.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
+    plt.plot(table[x], gauss.values, label=f"gaussian fit")
+    plt.legend()
+    return lf.result.values
+
+
+def DxtalTempCalc(uid=-1):
+    # Calculates temperature correction for the D crystals
+    E0 = 9131.7     # energy (eV)
+    TH = 88.5       # Dxtal asymmetry angle (deg)
+    C1 = 3.725e-6   # constant (1/K)
+    C2 = 5.88e-3    # constant (1/K)
+    C3 = 5.548e-10  # constant (1/K2)
+    T1 = 124.0      # temperature (K)
+    T0 = 300.15     # crystal average temperature (K)
+
+    Dtemp1 = EpicsSignal("XF:10ID-CT{FbPid:01}PID.VAL", name="Dtemp1")
+    Dtemp2 = EpicsSignal("XF:10ID-CT{FbPid:02}PID.VAL", name="Dtemp2")
+    Dtemp3 = EpicsSignal("XF:10ID-CT{FbPid:03}PID.VAL", name="Dtemp3")
+    Dtemp4 = EpicsSignal("XF:10ID-CT{FbPid:04}PID.VAL", name="Dtemp4")
+    Dtemp5 = EpicsSignal("XF:10ID-CT{FbPid:05}PID.VAL", name="Dtemp5")
+    Dtemp6 = EpicsSignal("XF:10ID-CT{FbPid:06}PID.VAL", name="Dtemp6")
+
+    bet = C1*(1 - np.exp(-C2*(T0-T1))) + C3*T0
+    dE = []
+    plt.clf()
+    for n in range(1,7):
+        fit_par = calc_lmfit(uid, channel=n)
+        if fit_par['A'] < 100:
+            print('**********************************')
+            print('         WARNING !')
+            print('      Fitting Error')
+            return
+        
+        dE.append(fit_par['x0'])
+
+    dE = [x-dE[0] for x in dE]
+    dTe = [1.e-3*x/E0/bet for x in dE]
+    dTh = [1.e3*x*np.tan(np.radians(TH))/E0 for x in dE]
+    
+    DTe = [Dtemp1.read()['Dtemp1']['value']+dTe[0], 
+           Dtemp2.read()['Dtemp2']['value']+dTe[1], 
+           Dtemp3.read()['Dtemp3']['value']+dTe[2], 
+           Dtemp4.read()['Dtemp4']['value']+dTe[3], 
+           Dtemp5.read()['Dtemp5']['value']+dTe[4], 
+           Dtemp6.read()['Dtemp6']['value']+dTe[5]]
+    Dheader = ['', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6']
+    d0 = dE.insert(0,'dEnrg')
+    d1 = dTe.insert(0,'dTemp')
+    d2 = dTh.insert(0,'dThe')
+    d3 = DTe.insert(0,'Dtemp')
+    Ddata = [d0, d1, d2, d3]
+    print(d0)
+    print(d1)
+    print(d2)
+    print(d3)
+ #   print(tabulate(Ddata, headers=Dheader))
+    return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
