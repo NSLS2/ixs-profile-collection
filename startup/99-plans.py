@@ -122,14 +122,12 @@ def GCarbon_Qscan():
     # Test plan for the energy resolution at Q=1.2 with the Glassy Carbon
     Qq = [1.2]
     yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+    yield from bps.mv(anapd, 25, whl, 0)
     plt.clf()
 
     for kk in range(1):
-        yield from bps.mv(anapd, 25)
         #yield from set_lambda_exposure(2)
      #   yield from check_zero(start=-10, stop=10, gaps=80,exp_time=2)
-        yield from bps.mv(whl, 0)
-
         for q in Qq:
             th = qq2th(q)
             yield from bps.mv(spec.tth, th)
@@ -153,7 +151,7 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
         lf(name, doc)
     gauss = gaussian(table[x], **lf.result.values)
     plt.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
-    plt.plot(table[x], gauss.values, label=f"gaussian fit")
+    plt.plot(table[x], gauss.values, label=f"gaussian fit {channel}")
     plt.legend()
     return lf.result.values
 
@@ -198,15 +196,27 @@ def DxtalTempCalc(uid=-1):
            Dtemp4.read()['Dtemp4']['value']+dTe[3], 
            Dtemp5.read()['Dtemp5']['value']+dTe[4], 
            Dtemp6.read()['Dtemp6']['value']+dTe[5]]
-    Dheader = ['', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6']
-    d0 = dE.insert(0,'dEnrg')
-    d1 = dTe.insert(0,'dTemp')
-    d2 = dTh.insert(0,'dThe')
-    d3 = DTe.insert(0,'Dtemp')
-    Ddata = [d0, d1, d2, d3]
-    print(d0)
-    print(d1)
-    print(d2)
-    print(d3)
- #   print(tabulate(Ddata, headers=Dheader))
+    Dheader = [' ', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6']
+    dE.insert(0,'dEnrg')
+    dTe.insert(0,'dTemp')
+    dTh.insert(0,'dThe')
+    DTe.insert(0,'Dtemp')
+    Ddata = [dE, dTh, dTe, DTe]
+    print('---------------------------------------------------------------------')
+    print(tabulate(Ddata, headers=Dheader, tablefmt='pipe', stralign='center', floatfmt='.4f'))
+    print('---------------------------------------------------------------------\n')
+    update_temp = input('Do you want to update the temperature (yes/no): ')
+    if update_temp == 'yes':
+#        d1 = Dtemp1.set(DTe[1])
+#        d2 = Dtemp2.set(DTe[2])
+#        d3 = Dtemp3.set(DTe[3])
+#        d4 = Dtemp4.set(DTe[4])
+#        d5 = Dtemp5.set(DTe[5])
+#        d6 = Dtemp6.set(DTe[6])
+#        wait(d1, d2, d3, d4, d5, d6)
+        print('\n')
+        print('The temperature is updated')
+    else:
+        print('\n')
+        print('Update is canceled')
     return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
