@@ -220,3 +220,41 @@ def DxtalTempCalc(uid=-1):
         print('\n')
         print('Update is canceled')
     return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
+
+def mcm_setup(s1=0, s2=0):
+# MCM mirror setup procedure
+# Usage:
+#       if s1 > 0, then execute mcmx alignment, else - skip it
+#       if s2 > 0, then execute mcmy alignment, else - skip it
+    MCM_XPOS = -0.941
+    if s1 == 0 and s2 == 0:
+        print('*************************************\n')
+        print('Usage: mcm_setup(s1,s2)')
+        print('if s1 > 0, then execute mcmx alignment, else - skip it')
+        print('if s2 > 0, then execute mcmy alignment, else - skip it')
+        return
+    hux = hrm2.read()['hrm2_ux']['value']
+    hdx = hrm2.read()['hrm2_ux']['value']
+    if hux > -5 or hdx > -5:
+        print('*************************************\n')
+        print('HRM is in the beam. Execution aborted')
+        return
+    airpad = EpicsSignal("XF:10IDD-CT{IOC-MC:12}AirOn-cmd", name="airpad")
+    det2range = EpicsSignal("XF10ID-BI:AH172:Range", name="det2range")
+    d1 = airpad.set(1)
+    d2 = det2range.set(0)
+    wait(d1, d2)
+    yield from bps.mv(spec.tth, 0)
+    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
+    yield from bps.mv(anc_xtal.y, 0.5, whl, 2, anpd, 0)
+    yield from bps.mv(analyzer_slits.top, 2, analyzer_slits.bottom, -2, analyzer_slits.outboard, 2, analyzer_slits.inboard, -2)
+    d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
+    if d21cnt < 1.0e5:
+        print('*************************************\n')
+        print('Low intensity on D21. Execution aborted')
+        yield from bps.mv(anc_xtal.y, acyy)
+        return
+    if not s1 == 0:
+        yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
+        
+       

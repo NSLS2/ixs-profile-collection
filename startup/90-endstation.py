@@ -69,4 +69,5 @@ sample_stage = SampleStage('XF:10IDD-OP', name='s')
 whl = EpicsMotor('XF:10IDD-OP{Abs:1-Ax:Wheel}Mtr', name='whl')
 
 anapd = EpicsMotor('XF:10IDD-ES{Ez4:8-Ax:3}Mtr', name='anapd')
+anpd = EpicsMotor('XF:10IDD-ES{Ez4:5-Ax:1}Mtr', name='anpd')
 # name_you_want = EpicsMotor(PVNAME_BASE, name='name_you_want')
