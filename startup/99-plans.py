@@ -256,5 +256,3 @@ def mcm_setup(s1=0, s2=0):
         return
     if not s1 == 0:
         yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
-        
-       
