@@ -258,7 +258,7 @@ def mcm_setup(s1=0, s2=0):
     if not s1 == 0:
         yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
 
-        
+
 def shift_x_axis(df, x, y, delta):
     """
     This method takes a table (DataFrame) and shift the sampled data over the x-axis
@@ -324,4 +324,3 @@ def shift_x_axis(df, x, y, delta):
     cp_df[x] += x_offset
     
     return cp_df
-
