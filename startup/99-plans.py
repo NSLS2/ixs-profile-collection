@@ -285,6 +285,12 @@ def shift_x_axis(df, x, y, delta):
 
     """
     
+    if x not in df:
+        raise KeyError(f"{x} is not a column in the table")
+        
+    if y not in df:
+        raise KeyError(f"{y} is not a column in the table")
+    
     cp_df = df.copy()
     
     max_id = cp_df[y].idxmax()
@@ -292,10 +298,14 @@ def shift_x_axis(df, x, y, delta):
     # low limit check
     if max_id >= delta:
         low_max_id = max_id - delta
+    else:
+        raise ValueError("Delta value is greater than the lower limit of the dataset")
     
     # high limit check
     if max_id < len(cp_df)-delta-1:
         high_max_id = max_id + delta + 1
+    else:
+        raise ValueError("Delta value is greater than the upper limit of the dataset")
     
     y_values = cp_df[y][low_max_id:high_max_id]
     x_values = cp_df[x][low_max_id:high_max_id]
