@@ -259,41 +259,49 @@ def mcm_setup(s1=0, s2=0):
         yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
 
 
-def shift_x_axis(df, x, y, delta):
+def calculate_max_value(uid=-1, x="hrmE", channel=7, delta=1, sampling=200):
     """
-    This method takes a table (DataFrame) and shift the sampled data over the x-axis
-    by using the maximum y value and applying a polynomial regression over the quadratic curve
-    at the max point. The shift value is calculated between the difference of the sampled max value
-    and the estimated max value
+    This method gets a table (DataFrame) by using its uid. it finds the maximum value of the curve 
+    under the sampled data by using the maximum y value and its neighboring data samples and then, 
+    applying a polynomial regression over this curve. The model is used as an interpolation approach
+    to generate more points between the original range and to return the x and y values of the
+    maximum point of this new model
 
     Parameters
     ----------
-    df : pandas.dataframe
-        Table with beamline data with x and y columns.
-    x : string
-        Name of the column in df representing the data over the x-axis.
-    y : string
-        Name of the column in df representing the data over the y-axis.
-    delta : int
-        number of samples taken from the maximum value to one side oif the curve.
-        The method uses 2*delta to analyze both sides of the quadratic curve.
+    uid : int, optional
+        id of the scan. The default is -1.
+    x : str, optional
+        label of the x values in the table. The default is "hrmE".
+    channel : str, optional
+        value of the channel with the y values. The default is 7.
+    delta : int, optional
+        total of points to be used on each side of the maximum value to generate the new model. The default is 1.
+    sampling : int, optional
+        total of sampling points to be used for interpolation. The default is 200.
+
+    Raises
+    ------
+    ValueError
+        The selected delta value is too big to be used based on the position of the maximum value in the table.
 
     Returns
     -------
-    cp_df : pandas.dataframe
-        A copy of the original table but the offset is applied over the data in the x-axis.
+    flaot
+        x value of the maximum value.
+    float
+        y value of the maximum value.
 
     """
     
-    if x not in df:
-        raise KeyError(f"{x} is not a column in the table")
-        
-    if y not in df:
-        raise KeyError(f"{y} is not a column in the table")
     
-    cp_df = df.copy()
+    hdr = db[uid]
+    table = hdr.table()
+    y = f'lambda_det_stats{channel}_total'
     
-    max_id = cp_df[y].idxmax()
+    #cp_df = df.copy()
+    
+    max_id = table[y].idxmax()
     
     # low limit check
     if max_id >= delta:
@@ -302,25 +310,21 @@ def shift_x_axis(df, x, y, delta):
         raise ValueError("Delta value is greater than the lower limit of the dataset")
     
     # high limit check
-    if max_id < len(cp_df)-delta-1:
+    if max_id < len(table[y])-delta-1:
         high_max_id = max_id + delta + 1
     else:
         raise ValueError("Delta value is greater than the upper limit of the dataset")
     
-    y_values = cp_df[y][low_max_id:high_max_id]
-    x_values = cp_df[x][low_max_id:high_max_id]
+    y_values = table[y][low_max_id:high_max_id]
+    x_values = table[x][low_max_id:high_max_id]
     
     model = np.poly1d(np.polyfit(x_values, y_values, 2))
     
-    resampled_x_values = np.linspace(x_values.iloc[0],x_values.iloc[-1],100)
+    resampled_x_values = np.linspace(x_values.iloc[0],x_values.iloc[-1],sampling)
     resampled_y_values = model(resampled_x_values)
     
     resample_df = pd.DataFrame({x:resampled_x_values, y:resampled_y_values})
     
     new_max_id = resample_df[y].idxmax()
     
-    x_offset = resample_df[x].iloc[new_max_id] - cp_df[x].iloc[max_id]
-    
-    cp_df[x] += x_offset
-    
-    return cp_df
+    return resample_df[x][new_max_id], resample_df[x][new_max_id]
