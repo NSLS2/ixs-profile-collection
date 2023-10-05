@@ -3,6 +3,7 @@ import bluesky.plan_stubs as bps
 import bluesky.preprocessors as bpp
 import bluesky.callbacks.fitting
 import numpy as np
+import pandas as pd
 import lmfit
 from bluesky.callbacks import LiveFit
 from bluesky.suspenders import SuspendFloor
@@ -257,3 +258,74 @@ def mcm_setup(s1=0, s2=0):
         return
     if not s1 == 0:
         yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
+
+
+def calculate_max_value(uid=-1, x="hrmE", channel=7, delta=1, sampling=200):
+    """
+    This method gets a table (DataFrame) by using its uid. it finds the maximum value of the curve 
+    under the sampled data by using the maximum y value and its neighboring data samples and then, 
+    applying a polynomial regression over this curve. The model is used as an interpolation approach
+    to generate more points between the original range and to return the x and y values of the
+    maximum point of this new model
+
+    Parameters
+    ----------
+    uid : int, optional
+        id of the scan. The default is -1.
+    x : str, optional
+        label of the x values in the table. The default is "hrmE".
+    channel : str, optional
+        value of the channel with the y values. The default is 7.
+    delta : int, optional
+        total of points to be used on each side of the maximum value to generate the new model. The default is 1.
+    sampling : int, optional
+        total of sampling points to be used for interpolation. The default is 200.
+
+    Raises
+    ------
+    ValueError
+        The selected delta value is too big to be used based on the position of the maximum value in the table.
+
+    Returns
+    -------
+    flaot
+        x value of the maximum value.
+    float
+        y value of the maximum value.
+
+    """
+    
+    
+    hdr = db[uid]
+    table = hdr.table()
+    y = f'lambda_det_stats{channel}_total'
+    
+    #cp_df = df.copy()
+    
+    max_id = table[y].idxmax()
+    
+    # low limit check
+    if max_id >= delta:
+        low_max_id = max_id - delta
+    else:
+        raise ValueError("Delta value is greater than the lower limit of the dataset")
+    
+    # high limit check
+    if max_id < len(table[y])-delta-1:
+        high_max_id = max_id + delta + 1
+    else:
+        raise ValueError("Delta value is greater than the upper limit of the dataset")
+    
+    y_values = table[y][low_max_id:high_max_id]
+    x_values = table[x][low_max_id:high_max_id]
+    
+    model = np.poly1d(np.polyfit(x_values, y_values, 2))
+    
+    resampled_x_values = np.linspace(x_values.iloc[0],x_values.iloc[-1],sampling)
+    resampled_y_values = model(resampled_x_values)
+    
+    resample_df = pd.DataFrame({x:resampled_x_values, y:resampled_y_values})
+    
+    new_max_id = resample_df[y].idxmax()
+    
+    return resample_df[x][new_max_id], resample_df[y][new_max_id]
