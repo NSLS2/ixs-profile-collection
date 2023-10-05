@@ -6,7 +6,7 @@ import nslsii
 
 nslsii.configure_base(
     get_ipython().user_ns,
-    'temp',
+    'ixs',
     publish_documents_with_kafka=False
 )
 

@@ -145,6 +145,7 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
     # Calculates fitting parameters for Gaussian function for energy scan with UID and Lambda channel
     hdr = db[uid]
     table = hdr.table()
+    model = lmfit.Model(gaussian)
     y = f'lambda_det_stats{channel}_total'
     lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.7, 'x0': table[x][table[y].argmax()+1]})
     for name, doc in hdr.documents():
@@ -207,13 +208,13 @@ def DxtalTempCalc(uid=-1):
     print('---------------------------------------------------------------------\n')
     update_temp = input('Do you want to update the temperature (yes/no): ')
     if update_temp == 'yes':
-#        d1 = Dtemp1.set(DTe[1])
-#        d2 = Dtemp2.set(DTe[2])
-#        d3 = Dtemp3.set(DTe[3])
-#        d4 = Dtemp4.set(DTe[4])
-#        d5 = Dtemp5.set(DTe[5])
-#        d6 = Dtemp6.set(DTe[6])
-#        wait(d1, d2, d3, d4, d5, d6)
+        d1 = Dtemp1.set(DTe[1])
+        d2 = Dtemp2.set(DTe[2])
+        d3 = Dtemp3.set(DTe[3])
+        d4 = Dtemp4.set(DTe[4])
+        d5 = Dtemp5.set(DTe[5])
+        d6 = Dtemp6.set(DTe[6])
+        wait(d1, d2, d3, d4, d5, d6)
         print('\n')
         print('The temperature is updated')
     else:
