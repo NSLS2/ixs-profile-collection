@@ -327,4 +327,4 @@ def calculate_max_value(uid=-1, x="hrmE", channel=7, delta=1, sampling=200):
     
     new_max_id = resample_df[y].idxmax()
     
-    return resample_df[x][new_max_id], resample_df[x][new_max_id]
+    return resample_df[x][new_max_id], resample_df[y][new_max_id]
