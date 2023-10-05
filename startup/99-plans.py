@@ -260,7 +260,7 @@ def mcm_setup(s1=0, s2=0):
         yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
 
 
-def calculate_max_value(uid=-1, x="hrmE", channel=7, delta=1, sampling=200):
+def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, sampling=200):
     """
     This method gets a table (DataFrame) by using its uid. it finds the maximum value of the curve 
     under the sampled data by using the maximum y value and its neighboring data samples and then, 
@@ -298,7 +298,7 @@ def calculate_max_value(uid=-1, x="hrmE", channel=7, delta=1, sampling=200):
     
     hdr = db[uid]
     table = hdr.table()
-    y = f'lambda_det_stats{channel}_total'
+    #y = f'lambda_det_stats{channel}_total'
     
     #cp_df = df.copy()
     
