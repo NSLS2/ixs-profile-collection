@@ -4,6 +4,8 @@ from ophyd.pseudopos import (pseudo_position_argument, real_position_argument)
 import numpy as np
 from scipy import interpolate
 
+# List of available EpicsMotor labels in this script
+# [blenergy, dcmenergy, hrmenergy, analyzercxtal]
 
 _ivu_gap = [6184.0, 6368.0, 6550.0, 6730.0, 6909.0, 7086.0, 7262.0,
             7438.0, 7613.0, 7788.0, 7962.0, 8138.0, 8311.0, 8486.0,
@@ -27,8 +29,8 @@ class BLEnergy(PseudoPositioner):
     # limits and constants from Spec file, "site.mac"
     energy = Cpt(PseudoSingle, limits=(7.835, 17.7))
 
-    theta = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:P}Mtr')
-    z2 = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:Z2}Mtr')
+    theta = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:P}Mtr', labels=('blenergy',))
+    z2 = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:Z2}Mtr', labels=('blenergy',))
     ugap = Cpt(Undulator, 'SR:C10-ID:G1{IVU22:1')
 
     def forward(self, pseudo_pos):
@@ -51,8 +53,8 @@ class DCMEnergy(PseudoPositioner):
     # limits and constants from Spec file, "site.mac"
     energy = Cpt(PseudoSingle, limits=(7.835, 17.7))
 
-    theta = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:P}Mtr')
-    z2 = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:Z2}Mtr')
+    theta = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:P}Mtr', labels=('dcmenergy',))
+    z2 = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:Z2}Mtr', labels=('dcmenergy',))
 
     def forward(self, pseudo_pos):
         _th = np.rad2deg(np.arcsin(_hc/(2.*_si_111*pseudo_pos)))
@@ -77,8 +79,8 @@ _EB = 9.1317
 class HRMEnergy(PseudoPositioner):
     energy = Cpt(PseudoSingle)
 
-    uof = Cpt(EpicsMotor, 'XF:10IDB-OP{Mono:HRM2-Ax:UTO}Mtr')
-    dof = Cpt(EpicsMotor, 'XF:10IDB-OP{Mono:HRM2-Ax:DTO}Mtr')
+    uof = Cpt(EpicsMotor, 'XF:10IDB-OP{Mono:HRM2-Ax:UTO}Mtr', labels=('hrmenergy',))
+    dof = Cpt(EpicsMotor, 'XF:10IDB-OP{Mono:HRM2-Ax:DTO}Mtr', labels=('hrmenergy',))
 
     def forward(self, pseudo_pos):
         _pos = -1.0*pseudo_pos.energy*np.tan(np.deg2rad(_TB))/_EB
@@ -121,8 +123,8 @@ class AnalyzerCXtal(PseudoPositioner):
     the = Cpt(PseudoSingle, egu='deg')
     y = Cpt(PseudoSingle, egu='mm')
 
-    uy = Cpt(EpicsMotor, 'XF:10IDD-OP{Analy:1-Ax:UY}Mtr')
-    dy = Cpt(EpicsMotor, 'XF:10IDD-OP{Analy:1-Ax:DY}Mtr')
+    uy = Cpt(EpicsMotor, 'XF:10IDD-OP{Analy:1-Ax:UY}Mtr', labels=('analyzercxtal',))
+    dy = Cpt(EpicsMotor, 'XF:10IDD-OP{Analy:1-Ax:DY}Mtr', labels=('analyzercxtal',))
 
     @pseudo_position_argument
     def forward(self, pseudopos):

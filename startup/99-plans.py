@@ -100,15 +100,15 @@ def Lipid_Qscan():
             yield from set_lambda_exposure(5)
             loc_peaks = yield from align_with_fit([lambda_det], sample_stage.sy, -0.1, 0.1, 40)
             max_pos = local_peaks[0].max
-            yield from bps.mvr(ample_stage.sy, -0.1)
-            yield from bps.mv(ample_stage.sy, max_pos)
+            yield from bps.mvr(sample_stage.sy, -0.1)
+            yield from bps.mv(sample_stage.sy, max_pos)
             loc_peaks = yield from align_with_fit([lambda_det], sample_stage.sz, -2, 2, 40)
             max_pos = local_peaks[0].max
             yield from bps.mv(sample_stage.sz, max_pos)
             loc_peaks = yield from align_with_fit([lambda_det], sample_stage.sy, -0.1, 0.1, 40)
             max_pos = local_peaks[0].max
-            yield from bps.mvr(ample_stage.sy, -0.1)
-            yield from bps.mv(ample_stage.sy, max_pos)
+            yield from bps.mvr(sample_stage.sy, -0.1)
+            yield from bps.mv(sample_stage.sy, max_pos)
 
         yield from bps.mv(anapd, 3, spec.tth, 1)
         yield from bps.mv(sclr.channels.chan22.preset_time, 5)
@@ -258,6 +258,24 @@ def mcm_setup(s1=0, s2=0):
         return
     if not s1 == 0:
         yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
+        x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
+        xmax = x_pos[0]
+        dxmax = MCM_XPOS - xmax
+        print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
+        kc = 1
+        while abs(dxmax) > 1.0e-3:
+            yield from bps.mvr(sample_stage.tx, dxmax)
+            yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
+            x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
+            xmax = x_pos[0]
+            dxmax = MCM_XPOS - xmax
+            print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
+            kc += 1
+            if kc > 5:
+                print("Could not set the MCM_X to maximum. Execution aborted")
+                break
+
+
 
 
 def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, sampling=200):
