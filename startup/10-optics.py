@@ -2,6 +2,10 @@ from ophyd import (Device, Component as Cpt, EpicsMotor, PVPositioner,
                    FormattedComponent as FCpt)
 
 
+# List of available EpicsMotor labels in this script
+# [dcm. hrm2, vfm, hfm, xymotor, ssa, table, pinhole, bpm1, bpm1_diag, bpm2, bpm2_diag]
+
+
 # defined here, also used in 10-optics.py
 # why do none of the 'slits' constructs feature gap, center motions?
 class Blades(Device):
@@ -12,75 +16,75 @@ class Blades(Device):
 
 
 class DCM(Device):
-    y =  Cpt(EpicsMotor, '-Ax:Y}Mtr')
-    th = Cpt(EpicsMotor, '-Ax:P}Mtr')
-    z2 = Cpt(EpicsMotor, '-Ax:Z2}Mtr')
-    p1 = Cpt(EpicsMotor, '-Ax:P1}Mtr')
-    r2 = Cpt(EpicsMotor, '-Ax:R2}Mtr')
-    pf = Cpt(EpicsMotor, '-Ax:PF}Mtr')
+    y =  Cpt(EpicsMotor, '-Ax:Y}Mtr', labels=('dcm',))
+    th = Cpt(EpicsMotor, '-Ax:P}Mtr', labels=('dcm',))
+    z2 = Cpt(EpicsMotor, '-Ax:Z2}Mtr', labels=('dcm',))
+    p1 = Cpt(EpicsMotor, '-Ax:P1}Mtr', labels=('dcm',))
+    r2 = Cpt(EpicsMotor, '-Ax:R2}Mtr', labels=('dcm',))
+    pf = Cpt(EpicsMotor, '-Ax:PF}Mtr', labels=('dcm',))
 
 
 class HRM2(Device):
-    ux =  Cpt(EpicsMotor, '-Ax:UX}Mtr')
-    uy =  Cpt(EpicsMotor, '-Ax:UY}Mtr')
-    uth = Cpt(EpicsMotor, '-Ax:UTc}Mtr')
-    uch = Cpt(EpicsMotor, '-Ax:UC}Mtr')
-    uif = Cpt(EpicsMotor, '-Ax:UTI}Mtr')
-    uof = Cpt(EpicsMotor, '-Ax:UTO}Mtr')
-    dx =  Cpt(EpicsMotor, '-Ax:DX}Mtr')
-    dy =  Cpt(EpicsMotor, '-Ax:DY}Mtr')
-    dth = Cpt(EpicsMotor, '-Ax:DTc}Mtr')
-    dch = Cpt(EpicsMotor, '-Ax:DC}Mtr')
-    dif = Cpt(EpicsMotor, '-Ax:DTI}Mtr')
-    dof = Cpt(EpicsMotor, '-Ax:DTO}Mtr')
-    d1 =  Cpt(EpicsMotor, '-Pico:m1}Mtr')
-    d2 =  Cpt(EpicsMotor, '-Pico:m2}Mtr')
-    d3 =  Cpt(EpicsMotor, '-Pico:m3}Mtr')
-    d4 =  Cpt(EpicsMotor, '-Pico:m4}Mtr')
-    d5 =  Cpt(EpicsMotor, '-Pico:m5}Mtr')
-    bs =  Cpt(EpicsMotor, '-Pico:m6}Mtr')
+    ux =  Cpt(EpicsMotor, '-Ax:UX}Mtr', labels=('hrm2',))
+    uy =  Cpt(EpicsMotor, '-Ax:UY}Mtr', labels=('hrm2',))
+    uth = Cpt(EpicsMotor, '-Ax:UTc}Mtr', labels=('hrm2',))
+    uch = Cpt(EpicsMotor, '-Ax:UC}Mtr', labels=('hrm2',))
+    uif = Cpt(EpicsMotor, '-Ax:UTI}Mtr', labels=('hrm2',))
+    uof = Cpt(EpicsMotor, '-Ax:UTO}Mtr', labels=('hrm2',))
+    dx =  Cpt(EpicsMotor, '-Ax:DX}Mtr', labels=('hrm2',))
+    dy =  Cpt(EpicsMotor, '-Ax:DY}Mtr', labels=('hrm2',))
+    dth = Cpt(EpicsMotor, '-Ax:DTc}Mtr', labels=('hrm2',))
+    dch = Cpt(EpicsMotor, '-Ax:DC}Mtr', labels=('hrm2',))
+    dif = Cpt(EpicsMotor, '-Ax:DTI}Mtr', labels=('hrm2',))
+    dof = Cpt(EpicsMotor, '-Ax:DTO}Mtr', labels=('hrm2',))
+    d1 =  Cpt(EpicsMotor, '-Pico:m1}Mtr', labels=('hrm2',))
+    d2 =  Cpt(EpicsMotor, '-Pico:m2}Mtr', labels=('hrm2',))
+    d3 =  Cpt(EpicsMotor, '-Pico:m3}Mtr', labels=('hrm2',))
+    d4 =  Cpt(EpicsMotor, '-Pico:m4}Mtr', labels=('hrm2',))
+    d5 =  Cpt(EpicsMotor, '-Pico:m5}Mtr', labels=('hrm2',))
+    bs =  Cpt(EpicsMotor, '-Pico:m6}Mtr', labels=('hrm2',))
 
 
 
 class VFM(Device):
-    ux = Cpt(EpicsMotor, '-Ax:UX}Mtr')
-    uy = Cpt(EpicsMotor, '-Ax:UY}Mtr')
-    dx = Cpt(EpicsMotor, '-Ax:DX}Mtr')
-    dy = Cpt(EpicsMotor, '-Ax:DY}Mtr')
-    ub = Cpt(EpicsMotor, '-Ax:UB}Mtr')
-    db = Cpt(EpicsMotor, '-Ax:DB}Mtr')
+    ux = Cpt(EpicsMotor, '-Ax:UX}Mtr', labels=('vfm',))
+    uy = Cpt(EpicsMotor, '-Ax:UY}Mtr', labels=('vfm',))
+    dx = Cpt(EpicsMotor, '-Ax:DX}Mtr', labels=('vfm',))
+    dy = Cpt(EpicsMotor, '-Ax:DY}Mtr', labels=('vfm',))
+    ub = Cpt(EpicsMotor, '-Ax:UB}Mtr', labels=('vfm',))
+    db = Cpt(EpicsMotor, '-Ax:DB}Mtr', labels=('vfm',))
 
 
 class HFM(Device):
-    ux = Cpt(EpicsMotor, '-Ax:UX}Mtr')
-    uy = Cpt(EpicsMotor, '-Ax:UY}Mtr')
-    dx = Cpt(EpicsMotor, '-Ax:DX}Mtr')
-    dy = Cpt(EpicsMotor, '-Ax:DY}Mtr')
-    ub = Cpt(EpicsMotor, '-Ax:UB}Mtr')
-    db = Cpt(EpicsMotor, '-Ax:DB}Mtr')
+    ux = Cpt(EpicsMotor, '-Ax:UX}Mtr', labels=('hfm',))
+    uy = Cpt(EpicsMotor, '-Ax:UY}Mtr', labels=('hfm',))
+    dx = Cpt(EpicsMotor, '-Ax:DX}Mtr', labels=('hfm',))
+    dy = Cpt(EpicsMotor, '-Ax:DY}Mtr', labels=('hfm',))
+    ub = Cpt(EpicsMotor, '-Ax:UB}Mtr', labels=('hfm',))
+    db = Cpt(EpicsMotor, '-Ax:DB}Mtr', labels=('hfm',))
 
 
 class XYMotor(Device):
-    x = Cpt(EpicsMotor, '-Ax:X}Mtr')
-    y = Cpt(EpicsMotor, '-Ax:Y}Mtr')
+    x = Cpt(EpicsMotor, '-Ax:X}Mtr', labels=('xymotor',))
+    y = Cpt(EpicsMotor, '-Ax:Y}Mtr', labels=('xymotor',))
 
 
 class SSA(Device):
-    top = Cpt(EpicsMotor, '-Ax:T}Mtr')
-    bottom = Cpt(EpicsMotor, '-Ax:B}Mtr')
+    top = Cpt(EpicsMotor, '-Ax:T}Mtr', labels=('ssa',))
+    bottom = Cpt(EpicsMotor, '-Ax:B}Mtr', labels=('ssa',))
 
 
 class Table(Device):
-    x = Cpt(EpicsMotor, '-Ax:X4}Mtr')
-    y = Cpt(EpicsMotor, '-Ax:Y4}Mtr')
-    th =Cpt(EpicsMotor, '-Ax:X4a1}Mtr')
+    x = Cpt(EpicsMotor, '-Ax:X4}Mtr', labels=('table',))
+    y = Cpt(EpicsMotor, '-Ax:Y4}Mtr', labels=('table',))
+    th =Cpt(EpicsMotor, '-Ax:X4a1}Mtr', labels=('table',))
 
 
 class Pinhole(Device):
-    ux = Cpt(EpicsMotor, '-Ax:UX}Mtr')
-    uy = Cpt(EpicsMotor, '-Ax:UY}Mtr')
-    dx = Cpt(EpicsMotor, '-Ax:DX}Mtr')
-    dy = Cpt(EpicsMotor, '-Ax:DY}Mtr')
+    ux = Cpt(EpicsMotor, '-Ax:UX}Mtr', labels=('pinhole',))
+    uy = Cpt(EpicsMotor, '-Ax:UY}Mtr', labels=('pinhole',))
+    dx = Cpt(EpicsMotor, '-Ax:DX}Mtr', labels=('pinhole',))
+    dy = Cpt(EpicsMotor, '-Ax:DY}Mtr', labels=('pinhole',))
 
 
 class MCMBase(PVPositioner):
@@ -121,10 +125,10 @@ s1 = Blades('XF:10IDA-OP{Slt:1', name='s1')
 s2 = Blades('XF:10IDC-OP{Slt:4', name='s2')
 s3 = Blades('XF:10IDD-OP{Slt:5', name='s3')
 
-bpm1 = XYMotor('XF:10IDA-OP{BPM:1', name='bpm1')
-bpm1_diag = EpicsMotor('XF:10IDA-BI{BPM:1-Ax:YFoil}Mtr', name='bpm1_diag')
-bpm2 = XYMotor('XF:10IDC-OP{BPM:2', name='bpm2')
-bpm2_diag = EpicsMotor('XF:10IDC-BI{BPM:2-Ax:Y}Mtr', name='bpm2_diag')
+bpm1 = XYMotor('XF:10IDA-OP{BPM:1', name='bpm1', labels=('bpm1',))
+bpm1_diag = EpicsMotor('XF:10IDA-BI{BPM:1-Ax:YFoil}Mtr', name='bpm1_diag', labels=('bpm1_diag',))
+bpm2 = XYMotor('XF:10IDC-OP{BPM:2', name='bpm2', labels=('bpm2',))
+bpm2_diag = EpicsMotor('XF:10IDC-BI{BPM:2-Ax:Y}Mtr', name='bpm2_diag', labels=('bpm2_diag',))
 
 ssa = SSA('XF:10IDB-OP{SSA:1', name='ssa')
 k3 = Table('XF:10IDC-OP{Tbl:1', name='k3')

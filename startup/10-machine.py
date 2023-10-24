@@ -3,14 +3,17 @@ from ophyd import (Device, EpicsSignal, EpicsSignalRO,
                    Component as Cpt)
 
 
+# List of available EpicsMotor labels in this script
+# [crl. fes]
+
 # SR current
 # CNT012 src  SRcur  SR:C03-BI{DCCT:1}I:Real-I
 sr_curr = EpicsSignalRO('SR:OPS-BI{DCCT:1}I:Real-I', name='sr_curr')
 
 class CRL(Device):
-    x = Cpt(EpicsMotor, '-Ax:X}Mtr')
-    y = Cpt(EpicsMotor, '-Ax:Y}Mtr')
-    th =Cpt(EpicsMotor, '-Ax:P}Mtr')
+    x = Cpt(EpicsMotor, '-Ax:X}Mtr', labels=('crl',))
+    y = Cpt(EpicsMotor, '-Ax:Y}Mtr', labels=('crl',))
+    th =Cpt(EpicsMotor, '-Ax:P}Mtr', labels=('crl',))
 
 
 class Slit2DGap(PVPositionerPC):
@@ -36,10 +39,10 @@ class Slit2D(Device):
 
 
 class Slit2DBlades(Device):
-    top = Cpt(EpicsMotor, '1-Ax:T}Mtr')
-    bottom = Cpt(EpicsMotor, '2-Ax:B}Mtr')
-    outboard = Cpt(EpicsMotor, '1-Ax:O}Mtr')
-    inboard = Cpt(EpicsMotor, '2-Ax:I}Mtr')
+    top = Cpt(EpicsMotor, '1-Ax:T}Mtr', labels=('fes',))
+    bottom = Cpt(EpicsMotor, '2-Ax:B}Mtr', labels=('fes',))
+    outboard = Cpt(EpicsMotor, '1-Ax:O}Mtr', labels=('fes',))
+    inboard = Cpt(EpicsMotor, '2-Ax:I}Mtr', labels=('fes',))
 
 
 class FESlits(Slit2DBlades, Slit2D):
