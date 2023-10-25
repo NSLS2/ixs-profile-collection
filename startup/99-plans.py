@@ -119,7 +119,7 @@ def Lipid_Qscan_wBC():
     yield from bpp.suspend_wrapper(Lipid_Qscan(), susp)
 
 
-def GCarbon_Qscan():
+def GCarbon_Qscan(exp_time=2):
     # Test plan for the energy resolution at Q=1.2 with the Glassy Carbon
     Qq = [1.2]
     yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
@@ -132,7 +132,7 @@ def GCarbon_Qscan():
         for q in Qq:
             th = qq2th(q)
             yield from bps.mv(spec.tth, th)
-            yield from hrmE_dscan(-10, 10, 100, 2)
+            yield from hrmE_dscan(-10, 10, 100, exp_time)
 
 
 def gaussian(x, A, sigma, x0):

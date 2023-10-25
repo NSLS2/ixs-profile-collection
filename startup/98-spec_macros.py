@@ -58,7 +58,7 @@ def th2qq(Th,En=9.1317):
 #    yield from bps.mv(lambda_det.cam.acquire_period, t*0.995)
 
 
-def hrmE_dscan(start, stop, steps, t):
+def hrmE_dscan(start, stop, steps, exp_time):
     """
     Run a relative (delta) hmre scan with lambda and scalar
 
@@ -73,13 +73,13 @@ def hrmE_dscan(start, stop, steps, t):
     t : float
         The exposure time in seconds
     """
-    yield from set_lambda_exposure(t)
+    yield from set_lambda_exposure(exp_time)
     return (
-        yield from bp.rel_scan([lambda_det], hrmE, start, stop, steps+1, md={'count_time': t})
+        yield from bp.rel_scan([lambda_det], hrmE, start, stop, steps+1, md={'count_time': exp_time})
     )
 
 
-def hrmE_ascan(start, stop, steps, t):
+def hrmE_ascan(start, stop, steps, exp_time):
     """
     Run a absolute hmre scan with lambda and scalar
 
@@ -94,7 +94,7 @@ def hrmE_ascan(start, stop, steps, t):
     t : float
         The exposure time in seconds
     """
-    yield from set_lambda_exposure(t)
+    yield from set_lambda_exposure(exp_time)
     return (
-        yield from bp.scan([lambda_det], hrmE, start, stop, steps+1, md={'count_time': t})
+        yield from bp.scan([lambda_det], hrmE, start, stop, steps+1, md={'count_time': exp_time})
     )
