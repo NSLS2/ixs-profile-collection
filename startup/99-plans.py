@@ -215,7 +215,7 @@ def DxtalTempCalc(uid=-1):
         d4 = Dtemp4.set(DTe[4])
         d5 = Dtemp5.set(DTe[5])
         d6 = Dtemp6.set(DTe[6])
-        wait(d1, d2, d3, d4, d5, d6)
+ #       wait(d1, d2, d3, d4, d5, d6)
         print('\n')
         print('The temperature is updated')
     else:
@@ -245,7 +245,7 @@ def mcm_setup(s1=0, s2=0):
     det2range = EpicsSignal("XF10ID-BI:AH172:Range", name="det2range")
     d1 = airpad.set(1)
     d2 = det2range.set(0)
-    wait(d1, d2)
+ #   wait(d1, d2)
     yield from bps.mv(spec.tth, 0)
     acyy = anc_xtal.y.read()['anc_xtal_y']['value']
     yield from bps.mv(anc_xtal.y, 0.5, whl, 2, anpd, 0)
