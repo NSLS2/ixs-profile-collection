@@ -215,7 +215,7 @@ def DxtalTempCalc(uid=-1):
         d4 = Dtemp4.set(DTe[4])
         d5 = Dtemp5.set(DTe[5])
         d6 = Dtemp6.set(DTe[6])
- #       wait(d1, d2, d3, d4, d5, d6)
+        # wait(d1, d2, d3, d4, d5, d6)
         print('\n')
         print('The temperature is updated')
     else:
