@@ -12,6 +12,10 @@ from tabulate import tabulate
 
 tm1sum = EpicsSignal('XF:10ID-BI:TM176:SumAll:MeanValue_RBV')
 susp = SuspendFloor(tm1sum, 1.e-5, resume_thresh = 1.e-5, sleep = 1*60)
+uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
+id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
+nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
+
 
 def align_with_fit(dets, mtr, start, stop, gaps, md=None):
     # Performs relative scan of motor and retuns data staistics
@@ -347,3 +351,28 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
     new_max_id = resample_df[y].idxmax()
     
     return resample_df[x][new_max_id], resample_df[y][new_max_id]
+
+
+def LocalBumpSetup():
+#   Adjusts the e-beam local bump
+#
+#    uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
+#    id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
+#    nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
+    cond1 = uofb_pv.read()['uofb_pv']['value']
+    cond2 = id_bump_pv.read()['id_bump_pv']['value']
+    cond3 = nudge_pv.read()['nudge_pv']['value']
+    if cond1 != 2:
+        print("****************** WARNING ******************")
+        print("The UOFB is disabled. Operation is terminated")
+        return
+    if cond2 != 1:
+        print("****************** WARNING ******************")
+        print("The ID Bump is disabled. Operation is terminated")
+        return
+    if cond3 != 1:
+        print("****************** WARNING ******************")
+        print("The Nudge is disabled. Operation is terminated")
+        return
+
+       
