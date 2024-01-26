@@ -46,8 +46,8 @@ class AnalyzerSlits(Device):
 
 
 class MCMSlits(Device):
-    top = Cpt(EpicsMotor, '6-Ax:3}Mtr', labels=('mcmslits',))
-    bottom = Cpt(EpicsMotor, '6-Ax:4}Mtr', labels=('mcmslits',))
+ #   top = Cpt(EpicsMotor, '6-Ax:3}Mtr', labels=('mcmslits',))
+ #   bottom = Cpt(EpicsMotor, '6-Ax:4}Mtr', labels=('mcmslits',))
     inboard = Cpt(EpicsMotor,  '7-Ax:1}Mtr', labels=('mcmslits',))
     outboard = Cpt(EpicsMotor,  '7-Ax:2}Mtr', labels=('mcmslits',))
 
