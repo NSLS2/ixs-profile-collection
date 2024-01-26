@@ -128,7 +128,7 @@ s3 = Blades('XF:10IDD-OP{Slt:5', name='s3')
 bpm1 = XYMotor('XF:10IDA-OP{BPM:1', name='bpm1', labels=('bpm1',))
 bpm1_diag = EpicsMotor('XF:10IDA-BI{BPM:1-Ax:YFoil}Mtr', name='bpm1_diag', labels=('bpm1_diag',))
 bpm2 = XYMotor('XF:10IDC-OP{BPM:2', name='bpm2', labels=('bpm2',))
-bpm2_diag = EpicsMotor('XF:10IDC-BI{BPM:2-Ax:Y}Mtr', name='bpm2_diag', labels=('bpm2_diag',))
+bpm2_diag = EpicsMotor('XF:10IDC-BI{BPM:2-Ax:YFoil}Mtr', name='bpm2_diag', labels=('bpm2_diag',))
 
 ssa = SSA('XF:10IDB-OP{SSA:1', name='ssa')
 k3 = Table('XF:10IDC-OP{Tbl:1', name='k3')
