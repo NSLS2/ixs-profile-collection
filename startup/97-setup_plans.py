@@ -52,6 +52,39 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
     plt.legend()
     return lf.result.values
 
+def calc_stepup_fit(x):
+    # Calculates fitting parameters for step up function for MCM slits scan
+    hdr = db[-1]
+    table = hdr.table()
+    model = lmfit.Model(stepup)
+    y = 'det2_current1_mean_value'
+    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0})
+    for name, doc in hdr.documents():
+        lf(name, doc)
+    print(lf.result.values)
+    stup = stepup(table[x], **lf.result.values)
+    plt.clf()
+    plt.plot(table[x], table[y], label=f"raw data", marker = 'o', linestyle = 'none')
+    plt.plot(table[x], stup.values, label=f"data fit")
+    plt.legend()
+    return lf.result.values['x0']
+
+def calc_stepdwn_fit(x):
+    # Calculates fitting parameters for step down function for MCM slits scan
+    hdr = db[-1]
+    table = hdr.table()
+    model = lmfit.Model(stepdown)
+    y = 'det2_current1_mean_value'
+    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0})
+    for name, doc in hdr.documents():
+        lf(name, doc)
+    print(lf.result.values)
+    stdw = stepdown(table[x], **lf.result.values)
+    plt.clf()
+    plt.plot(table[x], table[y], label=f"raw data", marker = 'o', linestyle = 'none')
+    plt.plot(table[x], stdw.values, label=f"data fit")
+    plt.legend()
+    return lf.result.values['x0']
 
 def GCarbon_Qscan(exp_time=2):
     # Test plan for the energy resolution at Q=1.2 with the Glassy Carbon
@@ -125,6 +158,37 @@ def DxtalTempCalc(uid=-1):
         print('Update is canceled')
     return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
 
+def ura_setup_prep():
+# Prepares the URA for the MCM and Analyzer Slits setup, namely opens the Slits and lowers the analyzer
+    hux = hrm2.read()['hrm2_ux']['value']
+    hdx = hrm2.read()['hrm2_ux']['value']
+    if hux > -5 or hdx > -5:
+        print('*************************************\n')
+        print('HRM is in the beam. Execution aborted')
+        return
+    d1 = airpad.set(1)
+    d2 = det2range.set(0)
+ 
+    yield from bps.mv(spec.tth, 0)
+    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
+
+    yield from bps.mv(anc_xtal.y, 0.5, whl, 2, anpd, 0)
+    yield from bps.mv(analyzer_slits.top, 2, analyzer_slits.bottom, -2, analyzer_slits.outboard, 2, analyzer_slits.inboard, -2)
+    d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
+    if d21cnt < 1.0e5:
+        print('*************************************\n')
+        print('Low intensity on D21. Execution aborted')
+        yield from bps.mv(anc_xtal.y, acyy, anpd, -90)
+        return
+    return acyy
+
+def ura_setup_post(y0):
+# Returns the motors to thier previous positions after the MCM and Analyzer Slits setup
+    yield from bps.mv(anc_xtal.y, y0, whl, 0, anpd, -90)
+    yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+    return
+
+
 def mcm_setup(s1=0, s2=0):
 # MCM mirror setup procedure
 # Usage:
@@ -137,25 +201,7 @@ def mcm_setup(s1=0, s2=0):
         print('if s1 > 0, then execute mcmx alignment, else - skip it')
         print('if s2 > 0, then execute mcmy alignment, else - skip it')
         return
-    hux = hrm2.read()['hrm2_ux']['value']
-    hdx = hrm2.read()['hrm2_ux']['value']
-    if hux > -5 or hdx > -5:
-        print('*************************************\n')
-        print('HRM is in the beam. Execution aborted')
-        return
-    d1 = airpad.set(1)
-    d2 = det2range.set(0)
- #   wait(d1, d2)
-    yield from bps.mv(spec.tth, 0)
-    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
-    yield from bps.mv(anc_xtal.y, 0.5, whl, 2, anpd, 0)
-    yield from bps.mv(analyzer_slits.top, 2, analyzer_slits.bottom, -2, analyzer_slits.outboard, 2, analyzer_slits.inboard, -2)
-    d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
-    if d21cnt < 1.0e5:
-        print('*************************************\n')
-        print('Low intensity on D21. Execution aborted')
-        yield from bps.mv(anc_xtal.y, acyy)
-        return
+    acyy = ura_setup_prep()
     if not s1 == 0:
         yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
         x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
@@ -173,11 +219,42 @@ def mcm_setup(s1=0, s2=0):
             kc += 1
             if kc > 5:
                 print("Could not set the MCM_X to maximum. Execution aborted")
+                ura_setup_post(acyy)
                 break
 
 def san_setup():
-    print()
-
+    acyy = ura_setup_prep()
+    yield from bps.mv(analyzer_slits.outboard, 0)
+    yield from bp.rel_scan([det2], analyzer_slits.outboard, -1.2, 1.2, 41)
+    x0 = calc_stepup_fit('analyzer_slits_outboard')
+    if x0 > 1 or x0 < -1:
+        print('*********************************************************\n')
+        print('Verify the analyzer slits outboard data. Execution aborted!')
+    
+    yield from bps.mv(analyzer_slits.outboard, 2, analyzer_slits.inboard, 0)
+    yield from bp.rel_scan([det2], analyzer_slits.inboard, -1.2, 1.2, 41)
+    x0 = calc_stepdwn_fit('analyzer_slits_inboard')
+    if x0 > 1 or x0 < -1:
+        print('********************************************************\n')
+        print('Verify the analyzer slits inboard data. Execution aborted!')
+    
+    yield from bps.mv(analyzer_slits.inboard, -2, analyzer_slits.top, 0)
+    yield from bp.rel_scan([det2], analyzer_slits.top, -1., 1., 41)
+    x0 = calc_stepup_fit('analyzer_slits_top')
+    if x0 > 1 or x0 < -1:
+        print('********************************************************\n')
+        print('Verify the analyzer slits top data. Execution aborted!')
+    
+    yield from bps.mv(analyzer_slits.top, 2, analyzer_slits.bottom, 0)
+    yield from bp.rel_scan([det2], analyzer_slits.bottom, -1., 1., 41)
+    x0 = calc_stepdwn_fit('analyzer_slits_bottom')
+    if x0 > 1 or x0 < -1:
+        print('********************************************************\n')
+        print('Verify the analyzer slits bottom data. Execution aborted!')
+    
+    ura_setup_post(acyy)
+    print('*****************************************\n')
+    print("Analyzer slits setup finished successfully")
 
 def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, sampling=200):
     """
