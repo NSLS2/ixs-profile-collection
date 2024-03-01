@@ -135,7 +135,7 @@ def DxtalTempCalc(uid=-1):
 
     dE = [x-dE[0] for x in dE]
     dTe = [1.e-3*x/E0/bet for x in dE]
-    dTh = [1.e3*x*np.tan(np.radians(TH))/E0 for x in dE]
+    dTh = [-1.e3*x*np.tan(np.radians(TH))/E0 for x in dE]
     
     DTe = [Dtemp1.read()['Dtemp1']['value']+dTe[0], 
            Dtemp2.read()['Dtemp2']['value']+dTe[1], 
@@ -152,8 +152,12 @@ def DxtalTempCalc(uid=-1):
     print('---------------------------------------------------------------------')
     print(tabulate(Ddata, headers=Dheader, tablefmt='pipe', stralign='center', floatfmt='.4f'))
     print('---------------------------------------------------------------------\n')
-    update_temp = input('Do you want to update the temperature (yes/no): ')
-    if update_temp == 'yes':
+    print('Select from the following options:')
+    print('1. Update temperatures')
+    print('2. Update Dxtals angles')
+    print('3. Exit without updates')
+    update_opts = input('Your choice: ')
+    if update_opts == '1':
         d1 = Dtemp1.set(DTe[1])
         d2 = Dtemp2.set(DTe[2])
         d3 = Dtemp3.set(DTe[3])
@@ -162,7 +166,11 @@ def DxtalTempCalc(uid=-1):
         d6 = Dtemp6.set(DTe[6])
         # wait(d1, d2, d3, d4, d5, d6)
         print('\n')
-        print('The temperature is updated')
+        print('The temperatures are updated')
+    elif update_opts == '2':
+        yield from bps.mvr(analyzer_xtals.d2the, dTh[1], analyzer_xtals.d3the, dTh[2], analyzer_xtals.d4the, dTh[3], analyzer_xtals.d5the, dTh[4], analyzer_xtals.d6the, dTh[5],)
+        print('\n')
+        print('The Dxtals angles are updated')
     else:
         print('\n')
         print('Update is canceled')
