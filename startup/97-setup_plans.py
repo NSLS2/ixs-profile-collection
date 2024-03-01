@@ -98,6 +98,16 @@ def GCarbon_Qscan(exp_time=2):
             th = qq2th(q)
             yield from bps.mv(spec.tth, th)
             yield from hrmE_dscan(-10, 10, 100, exp_time)
+            peak_stats = bec.peaks
+            headers = ["com","cen","max","min","fwhm"]
+            data = []
+            for p in range(5):
+                data.append(peak_stats[headers[p]]['lambda_det_stats7_total'])
+
+            data[2] = peak_stats[headers[2]]['lambda_det_stats7_total'][1]
+            data[3] = peak_stats[headers[3]]['lambda_det_stats7_total'][1]
+
+            print(tabulate([data], headers))
 
 
 def DxtalTempCalc(uid=-1):
