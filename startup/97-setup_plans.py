@@ -354,6 +354,10 @@ def LocalBumpSetup():
     cond1 = uofb_pv.read()['uofb_pv']['value']
     cond2 = id_bump_pv.read()['id_bump_pv']['value']
     cond3 = nudge_pv.read()['nudge_pv']['value']
+    pos3 = 0
+    pos5 = 49
+    cenY_target = 395
+
     if cond1 != 2:
         print("****************** WARNING ******************")
         print("The UOFB is disabled. Operation is terminated")
@@ -367,3 +371,25 @@ def LocalBumpSetup():
         print("The Nudge is disabled. Operation is terminated")
         return
 
+    yield from bps.mv(bpm1_diag, pos5)
+    cam1.cam.acquire_time.set(0.0002)
+    cam1.cam.acquire_period.set(0.5)
+    cam1.cam.num_images.set(1)
+    cam1.cam.image_mode.set(2)
+    cam1.cam.acquire.set(1)
+    cam1.stats1.enable.set(1)
+    cam1.stats1.compute_statistics.set(1)
+    cam1.stats1.compute_centroid.set(1)
+    Imax = cam1.stats1.max_value.get()
+    if Imax < 2000:
+        print('********************************')
+        print('Low image intensity')
+        print('Execution is terminated')
+        return
+    
+    cam1.stats1.centroid_threshold.set(1000)
+    centr = cam1.stats1.centroid.get()
+    cenY = centr[1]
+    dXc = round(cenY - cenY_target)
+    dThe = 1.e-3*dXc/6.0
+    
