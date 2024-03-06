@@ -400,8 +400,8 @@ def LocalBumpSetup():
         print(f"Calculated horizontal e-beam shift {dThe} mrad")
         input_opts = input('Do you want to put it in (yes/no): ')
         if input_opts == 'yes':
-            vert_plane_nudge.set(1)
             nudge_increment.set(dThe)
+            vert_plane_nudge.set(1)
             print('*****************************************\n')
             print('Horizontal angle correction was applied')
             print(nudge_status.alarm_status)
