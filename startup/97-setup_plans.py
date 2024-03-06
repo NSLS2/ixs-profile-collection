@@ -16,6 +16,10 @@ susp = SuspendFloor(tm1sum, 1.e-5, resume_thresh = 1.e-5, sleep = 1*60)
 uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
 id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
 nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
+nudge_increment = EpicsSignal("SR:UOFB{C10-ID}angle-increment-SP", name="nudge_increment")
+horz_plane_nudge = EpicsSignal("SR:UOFB{C10-ID}Nudge:X", name="hor_plane_nudge")
+vert_plane_nudge = EpicsSignal("SR:UOFB{C10-ID}Nudge:Y", name="ver_plane_nudge")
+nudge_status = EpicsSignal("SR:UOFB{C10-ID}Nudge-StatusMsg", name="nudge_st")
 
 Dtemp1 = EpicsSignal("XF:10ID-CT{FbPid:01}PID.VAL", name="Dtemp1")
 Dtemp2 = EpicsSignal("XF:10ID-CT{FbPid:02}PID.VAL", name="Dtemp2")
@@ -392,4 +396,16 @@ def LocalBumpSetup():
     cenY = centr[1]
     dXc = round(cenY - cenY_target)
     dThe = 1.e-3*dXc/6.0
-    
+    if abs(dThe) < 0.01:
+        print(f"Calculated horizontal e-beam shift {dThe} mrad")
+        input_opts = input('Do you want to put it in (yes/no): ')
+        if input_opts == 'yes':
+            vert_plane_nudge.set(1)
+            nudge_increment.set(dThe)
+            print('*****************************************\n')
+            print('Horizontal angle correction was applied')
+            print(nudge_status.alarm_status)
+        else:
+            print('*****************************************\n')
+            print('Correction was canceled')
+
