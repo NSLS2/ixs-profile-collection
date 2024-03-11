@@ -108,12 +108,12 @@ class MCMBase(PVPositioner):
 
 
 class MCM(Device):
-    x = Cpt(MCMBase, '', ch_name='-Ax:X}Mtr')
-    y = Cpt(MCMBase, '', ch_name='-Ax:Y}Mtr')
-    z = Cpt(MCMBase, '', ch_name='-Ax:Z}Mtr')
-    theta = Cpt(MCMBase, '', ch_name='-Ax:Rx}Mtr')
-    phi = Cpt(MCMBase, '', ch_name='-Ax:Ry}Mtr')
-    chi = Cpt(MCMBase, '', ch_name='-Ax:Rz}Mtr')
+    x = Cpt(MCMBase, '', ch_name='-Ax:X}Mtr', labels=('mcm',))
+    y = Cpt(MCMBase, '', ch_name='-Ax:Y}Mtr', labels=('mcm',))
+    z = Cpt(MCMBase, '', ch_name='-Ax:Z}Mtr', labels=('mcm',))
+    theta = Cpt(MCMBase, '', ch_name='-Ax:Rx}Mtr', labels=('mcm',))
+    phi = Cpt(MCMBase, '', ch_name='-Ax:Ry}Mtr', labels=('mcm',))
+    chi = Cpt(MCMBase, '', ch_name='-Ax:Rz}Mtr', labels=('mcm',))
 
 
 dcm = DCM('XF:10IDA-OP{Mono:DCM', name='dcm')
@@ -134,4 +134,4 @@ ssa = SSA('XF:10IDB-OP{SSA:1', name='ssa')
 k3 = Table('XF:10IDC-OP{Tbl:1', name='k3')
 ph = Pinhole('XF:10IDD-OP{Pinh:1', name='ph')
 
-mcm = MCM('XF:10IDD-OP{MCM:1', name='mcm')
+mcm = MCM('XF:10IDD-OP{MCM:1', name='mcm', labels=('mcm',))

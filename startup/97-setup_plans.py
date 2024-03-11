@@ -35,11 +35,11 @@ det2range = EpicsSignal("XF10ID-BI:AH172:Range", name="det2range")
 def gaussian(x, A, sigma, x0):
     return A*np.exp(-(x - x0)**2/(2 * sigma**2))
 
-def stepup(x, A, sigma, x0):
-    return A*(1-1/(1+np.exp((x-x0)/sigma)))
+def stepup(x, A, sigma, x0, b):
+    return A*(1-1/(1+np.exp((x-x0)/sigma)))+b
 
-def stepdown(x, A, sigma, x0):
-    return A*(1-1/(1+np.exp(-(x-x0)/sigma)))
+def stepdown(x, A, sigma, x0, b):
+    return A*(1-1/(1+np.exp(-(x-x0)/sigma)))+b
 
 def calc_lmfit(uid=-1, x="hrmE", channel=7):
     # Calculates fitting parameters for Gaussian function for energy scan with UID and Lambda channel
@@ -62,7 +62,7 @@ def calc_stepup_fit(x):
     table = hdr.table()
     model = lmfit.Model(stepup)
     y = 'det2_current1_mean_value'
-    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0})
+    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
     for name, doc in hdr.documents():
         lf(name, doc)
     print(lf.result.values)
@@ -79,7 +79,7 @@ def calc_stepdwn_fit(x):
     table = hdr.table()
     model = lmfit.Model(stepdown)
     y = 'det2_current1_mean_value'
-    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0})
+    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
     for name, doc in hdr.documents():
         lf(name, doc)
     print(lf.result.values)
@@ -231,52 +231,51 @@ def mcm_setup(s1=0, s2=0):
         dxmax = MCM_XPOS - xmax
         print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
         kc = 1
-        while abs(dxmax) > 1.0e-3:
-            yield from bps.mvr(sample_stage.tx, dxmax)
-            yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
-            x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
-            xmax = x_pos[0]
-            dxmax = MCM_XPOS - xmax
-            print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
-            kc += 1
-            if kc > 5:
-                print("Could not set the MCM_X to maximum. Execution aborted")
-                ura_setup_post(acyy)
-                break
+#        while abs(dxmax) > 1.0e-3:
+#        yield from bps.mvr(sample_stage.tx, dxmax)
+#        yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
+#        x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
+#        xmax = x_pos[0]
+#        dxmax = MCM_XPOS - xmax
+#        print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
+#        kc += 1
+#        if kc > 5:
+#            print("Could not set the MCM_X to maximum. Execution aborted")
+#            ura_setup_post(acyy)
+#            break
 
-def san_setup():
-    acyy = ura_setup_prep()
-    yield from bps.mv(analyzer_slits.outboard, 0)
-    yield from bp.rel_scan([det2], analyzer_slits.outboard, -1.2, 1.2, 41)
-    x0 = calc_stepup_fit('analyzer_slits_outboard')
+def analyzer_slit_scan(mtr, start, stop, gaps):
+    plt.clf()
+    yield from bps.mv(mtr, 0)
+    yield from bp.rel_scan([det2], mtr, start, stop, gaps)
+    peak_stats = bec.peaks
+    x0 = peak_stats['cen']['det2_current1_mean_value']
+    print('*********************\n')
+    print(f'{mtr.name} position center {x0}\n')
     if x0 > 1 or x0 < -1:
         print('*********************************************************\n')
-        print('Verify the analyzer slits outboard data. Execution aborted!')
+        print(f'Verify the {mtr.name} data. Execution aborted!')
+    else:
+        yield from bps.mv(mtr, x0)
+        mtr.set_current_position(0)
+
+def san_setup():
+#    acyy = ura_setup_prep()
+    yield from analyzer_slit_scan(analyzer_slits.outboard, -1.2, 1.2, 41)
+    yield from bps.mv(analyzer_slits.outboard, 2)
+
+    yield from analyzer_slit_scan(analyzer_slits.inboard, -1.2, 1.2, 41)
+    yield from bps.mv(analyzer_slits.inboard, -2)
+
+    yield from analyzer_slit_scan(analyzer_slits.top, -1., 1., 41)
+    yield from bps.mv(analyzer_slits.top, 2)
     
-    yield from bps.mv(analyzer_slits.outboard, 2, analyzer_slits.inboard, 0)
-    yield from bp.rel_scan([det2], analyzer_slits.inboard, -1.2, 1.2, 41)
-    x0 = calc_stepdwn_fit('analyzer_slits_inboard')
-    if x0 > 1 or x0 < -1:
-        print('********************************************************\n')
-        print('Verify the analyzer slits inboard data. Execution aborted!')
+    yield from analyzer_slit_scan(analyzer_slits.bottom, -1., 1., 41)
+    yield from bps.mv(analyzer_slits.bottom, -2)
     
-    yield from bps.mv(analyzer_slits.inboard, -2, analyzer_slits.top, 0)
-    yield from bp.rel_scan([det2], analyzer_slits.top, -1., 1., 41)
-    x0 = calc_stepup_fit('analyzer_slits_top')
-    if x0 > 1 or x0 < -1:
-        print('********************************************************\n')
-        print('Verify the analyzer slits top data. Execution aborted!')
-    
-    yield from bps.mv(analyzer_slits.top, 2, analyzer_slits.bottom, 0)
-    yield from bp.rel_scan([det2], analyzer_slits.bottom, -1., 1., 41)
-    x0 = calc_stepdwn_fit('analyzer_slits_bottom')
-    if x0 > 1 or x0 < -1:
-        print('********************************************************\n')
-        print('Verify the analyzer slits bottom data. Execution aborted!')
-    
-    ura_setup_post(acyy)
+#    ura_setup_post(acyy)
     print('*****************************************\n')
-    print("Analyzer slits setup finished successfully")
+    print("Analyzer slits setup finished successfully\n")
 
 def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, sampling=200):
     """
@@ -360,7 +359,7 @@ def LocalBumpSetup():
     cond3 = nudge_pv.read()['nudge_pv']['value']
     pos3 = 0
     pos5 = 49
-    cenY_target = 395
+    cenX_target = 395
 
     if cond1 != 2:
         print("****************** WARNING ******************")
@@ -393,19 +392,20 @@ def LocalBumpSetup():
     
     cam1.stats1.centroid_threshold.set(1000)
     centr = cam1.stats1.centroid.get()
-    cenY = centr[1]
-    dXc = round(cenY - cenY_target)
+    print(f'centroid X = {centr[1]:.2f}, target X = {cenX_target}\n')
+    cenX = centr[1]
+    dXc = cenX - cenX_target
     dThe = 1.e-3*dXc/6.0
     if abs(dThe) < 0.01:
         print(f"Calculated horizontal e-beam shift {dThe} mrad")
         input_opts = input('Do you want to put it in (yes/no): ')
         if input_opts == 'yes':
             nudge_increment.set(dThe)
-            vert_plane_nudge.set(1)
-            print('*****************************************\n')
-            print('Horizontal angle correction was applied')
+            horz_plane_nudge.set(1)
+            print('*****************************************')
+            print('Horizontal angle correction was applied\n')
             print(nudge_status.alarm_status)
         else:
-            print('*****************************************\n')
-            print('Correction was canceled')
+            print('*****************************************')
+            print('Correction was canceled\n')
 
