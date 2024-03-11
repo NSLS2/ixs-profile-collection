@@ -417,7 +417,7 @@ def ccr_setup_prep():
     hdx = hrm2.read()['hrm2_ux']['value']
     if hux > -5 or hdx > -5:
         print('*************************************')
-        print('HRM is in the beam. Execution aborted\n')
+        print('Error: HRM is in the beam. Execution aborted\n')
         return
     
     d1 = airpad.set(1)
@@ -426,16 +426,31 @@ def ccr_setup_prep():
     acyy = anc_xtal.y.read()['anc_xtal_y']['value']
     if acyy < 5:
         print('*************************************')
-        print('URA Y-position (acyy) is too low. Execution aborted\n')
+        print('Error: URA Y-position (acyy) is too low. Execution aborted\n')
         return
 
     yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
     d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
     if d21cnt < 1.0e5:
         print('****************************************')
-        print('Low intensity on D21. Execution aborted\n')
+        print('Error: low intensity on D21. Execution aborted\n')
         yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
         return
+
+
+def ccr_the_setup():
+#   Performs C crystal theta alignment
+    x0 = 10
+    kxmov = 0
+    while abs(x0) > 5 and kxmov < 5:
+        yield from bp.rel_scan([det2], analyzer.cfth, -150, 150, 31)
+        peak_stats = bec.peaks
+        x0 = peak_stats['cen']['det2_current1_mean_value']
+        x_deg = -np.rad2deg(1.e-6*x0)
+        yield from bps.mvr(anc_xtal.the, x_deg)
+        kxmov += 1
+
+    return kxmov
 
 
 def ccr_setup(s1=0, s2=0, s3=0):
@@ -452,29 +467,62 @@ def ccr_setup(s1=0, s2=0, s3=0):
     yield from ccr_setup_prep()
     if not s1 == 0:
         print('\n')
-        print('Setting up the C crystal angle position\n')
+        print('Setting up the C crystal The-position\n')
         det2.em_range.set(0)
         sleep(1)
         yield from bps.mv(whl, 0, anpd, 40)
-        x0 = 10
-        kxmov = 0
-        while abs(x0) > 5 and kxmov < 5:
-            yield from bp.rel_scan([det2], analyzer.cfth, -150, 150, 31)
-            peak_stats = bec.peaks
-            x0 = peak_stats['cen']['det2_current1_mean_value']
-            x_deg = -np.rad2deg(1.e-6*x0)
-            yield from bps.mvr(anc_xtal.the, x_deg)
-            kxmov += 1
-
+        kxmov = ccr_the_setup()
         if kxmov > 5:
             print('\n')
             print('************************************')
-            print('Error in C crystal angle positioning. Execution aborted\n')
+            print('Error: C crystal The-positioning. Execution aborted\n')
             return
         
     if not s2 == 0:
         print('\n')
-        print('Setting up the C crystal vertical position\n')
+        print('Setting up the C crystal Y-position\n')
         det2.em_range.set(1)
         sleep(1)
         yield from bps.mv(whl, 2, anpd, -145)
+        yield from bps.mv(analyzer_slits.top, 0.04, analyzer_slits.bottom, -0.04)
+        yield from bp.rel_scan([det2], anc_xtal.y, -0.3, 0.3, 61)
+        peak_stats = bec.peaks
+        p_max = peak_stats['max']['det2_current1_mean_value'][1]
+        p_min = peak_stats['min']['det2_current1_mean_value'][1]
+        dp = p_max - p_min
+        if dp < 1.e3:
+            print('\n')
+            print('Error: acyy position maximum not found. Execution aborted\n')
+            yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1)
+            return
+        
+        p_com = peak_stats['com']['det2_current1_mean_value']
+        yield from bps.mv(anc_xtal.y, p_com)
+        yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1)
+
+    if not s3 == 0:
+        print('\n')
+        print('Setting up the C crystal Chi-position\n')
+        yield from bps.mv(whl, 0, anpd, -145)
+        det2.em_range.set(0)
+        sleep(1)
+        yield from bps.mvr(anc_xtal.y, 0.6)
+        yield from bps.mv(analyzer_slits.outboard, 0.5, analyzer_slits.inboard, -0.5)
+        d22cnt = det2.current2.mean_value.read()['det2_current2_mean_value']['value']
+        if d22cnt < 1.e5:
+            print('\n')
+            print('Error: low intensity on d22. Verify acchi manually. Execution aborted\n')
+            return
+        
+        yield from bp.rel_scan([det2], analyzer.cchi, -0.15, 0.15, 31)
+        yield from bps.mvr(analyzer.cchi, -0.15)
+        peak_stats = bec.peaks
+        x0 = peak_stats['cen']['det2_current2_mean_value']
+        yield from bps.mv(analyzer.cchi, x0)
+        yield from bps.mv(analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
+
+        # Re-checking C crystal The-position
+
+        yield from bps.mv(anpd, 40)
+        yield from bp.rel_scan([det2], analyzer.cfth, -150, 150, 31)
+
