@@ -180,7 +180,7 @@ def DxtalTempCalc(uid=-1):
         print('Update is canceled')
     return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
 
-def ura_setup_prep():
+def mcm_setup_prep():
 # Prepares the URA for the MCM and Analyzer Slits setup, namely opens the Slits and lowers the analyzer
     hux = hrm2.read()['hrm2_ux']['value']
     hdx = hrm2.read()['hrm2_ux']['value']
@@ -204,12 +204,11 @@ def ura_setup_prep():
         return
     return acyy
 
-def ura_setup_post(y0):
+def mcm_setup_post(y0):
 # Returns the motors to thier previous positions after the MCM and Analyzer Slits setup
     yield from bps.mv(anc_xtal.y, y0, whl, 0, anpd, -90)
     yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
     return
-
 
 def mcm_setup(s1=0, s2=0):
 # MCM mirror setup procedure
@@ -223,7 +222,7 @@ def mcm_setup(s1=0, s2=0):
         print('if s1 > 0, then execute mcmx alignment, else - skip it')
         print('if s2 > 0, then execute mcmy alignment, else - skip it')
         return
-    acyy = ura_setup_prep()
+    acyy = mcm_setup_prep()
     if not s1 == 0:
         yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
         x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
@@ -241,11 +240,12 @@ def mcm_setup(s1=0, s2=0):
 #        kc += 1
 #        if kc > 5:
 #            print("Could not set the MCM_X to maximum. Execution aborted")
-#            ura_setup_post(acyy)
+#            mcm_setup_post(acyy)
 #            break
 
+
 def analyzer_slit_scan(mtr, start, stop, gaps):
-    plt.clf()
+#    plt.clf()
     yield from bps.mv(mtr, 0)
     yield from bp.rel_scan([det2], mtr, start, stop, gaps)
     peak_stats = bec.peaks
@@ -258,6 +258,7 @@ def analyzer_slit_scan(mtr, start, stop, gaps):
     else:
         yield from bps.mv(mtr, x0)
         mtr.set_current_position(0)
+
 
 def san_setup():
 #    acyy = ura_setup_prep()
@@ -276,6 +277,7 @@ def san_setup():
 #    ura_setup_post(acyy)
     print('*****************************************\n')
     print("Analyzer slits setup finished successfully\n")
+
 
 def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, sampling=200):
     """
@@ -311,7 +313,6 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
         y value of the maximum value.
 
     """
-    
     
     hdr = db[uid]
     table = hdr.table()
@@ -349,7 +350,7 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 
 
 def LocalBumpSetup():
-#   Adjusts the e-beam local bump
+#   Adjusts the e-beam local bump, i.e. horizontal position of the x-ray beam on the XBPM1 screen
 #
 #    uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
 #    id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
@@ -409,3 +410,71 @@ def LocalBumpSetup():
             print('*****************************************')
             print('Correction was canceled\n')
 
+
+def ccr_setup_prep():
+# Prepares the URA for the C crystal setup
+    hux = hrm2.read()['hrm2_ux']['value']
+    hdx = hrm2.read()['hrm2_ux']['value']
+    if hux > -5 or hdx > -5:
+        print('*************************************')
+        print('HRM is in the beam. Execution aborted\n')
+        return
+    
+    d1 = airpad.set(1)
+    d2 = det2range.set(0)
+    yield from bps.mv(spec.tth, 0)
+    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
+    if acyy < 5:
+        print('*************************************')
+        print('URA Y-position (acyy) is too low. Execution aborted\n')
+        return
+
+    yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
+    d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
+    if d21cnt < 1.0e5:
+        print('****************************************')
+        print('Low intensity on D21. Execution aborted\n')
+        yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+        return
+
+
+def ccr_setup(s1=0, s2=0, s3=0):
+#   C crystal alignment, namely the-position, analyzer vertical position and chi-position
+    
+    if s1 == 0 and s2 == 0 and s3 == 0:
+        print("\n")
+        print("Usage: ccr_setup(s1, s2, s3)")
+        print("if s1 > 0, then execute acthe alignment, else - skip")
+        print("if s2 > 0, then execute acyy alignment, else - skip")
+        print("if s3 > 0, then execute cchi alignment, else - skip")
+        return
+    
+    yield from ccr_setup_prep()
+    if not s1 == 0:
+        print('\n')
+        print('Setting up the C crystal angle position\n')
+        det2.em_range.set(0)
+        sleep(1)
+        yield from bps.mv(whl, 0, anpd, 40)
+        x0 = 10
+        kxmov = 0
+        while abs(x0) > 5 and kxmov < 5:
+            yield from bp.rel_scan([det2], analyzer.cfth, -150, 150, 31)
+            peak_stats = bec.peaks
+            x0 = peak_stats['cen']['det2_current1_mean_value']
+            x_deg = -np.rad2deg(1.e-6*x0)
+            yield from bps.mvr(anc_xtal.the, x_deg)
+            kxmov += 1
+
+        if kxmov > 5:
+            print('\n')
+            print('************************************')
+            print('Error in C crystal angle positioning. Execution aborted\n')
+            return
+        
+    if not s2 == 0:
+        print('\n')
+        print('Setting up the C crystal vertical position\n')
+        det2.em_range.set(1)
+        sleep(1)
+        yield from bps.mv(whl, 2, anpd, -145)
