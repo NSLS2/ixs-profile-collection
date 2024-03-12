@@ -199,7 +199,7 @@ def DxtalTempCalc(uid=-1):
 def mcm_setup_prep():
 # Prepares the URA for the MCM and Analyzer Slits setup, namely opens the Slits and lowers the analyzer
     hux = hrm2.read()['hrm2_ux']['value']
-    hdx = hrm2.read()['hrm2_ux']['value']
+    hdx = hrm2.read()['hrm2_dx']['value']
     if hux > -5 or hdx > -5:
         print('*************************************\n')
         print('HRM is in the beam. Execution aborted')
@@ -384,6 +384,7 @@ def LocalBumpSetup():
     pos3 = 0
     pos5 = 49
     cenX_target = 395
+    cenY_target = 900
 
     if cond1 != 2:
         print("****************** WARNING ******************")
@@ -433,12 +434,35 @@ def LocalBumpSetup():
             print('*****************************************')
             print('Correction was canceled\n')
 
+    crl_y_pos = crl.read()['crl_y']['value']
+    if crl_y_pos > 1:
+        print('\n')
+        print('Error: CRL is in the x-ray beam. Vertical beam correction is canceled.\n')
+        return
+
+    print(f'centroid Y = {centr[0]:.2f}, target Y = {cenY_target}\n')
+    cenY = centr[0]
+    dYc = cenY - cenY_target
+    dThe = 1.e-3*dYc/5.0
+    if abs(dThe) < 0.01:
+        print(f"Calculated vertical e-beam shift {dThe} mrad")
+        input_opts = input('Do you want to put it in (yes/no): ')
+        if input_opts == 'yes':
+            nudge_increment.set(dThe)
+            vert_plane_nudge.set(1)
+            print('*****************************************')
+            print('Vertical angle correction was applied\n')
+            print(nudge_status.alarm_status)
+        else:
+            print('*****************************************')
+            print('Correction was canceled\n')
+
 
 #*******************************************************************************************************
 def ccr_setup_prep():
 # Prepares the URA for the C crystal setup
     hux = hrm2.read()['hrm2_ux']['value']
-    hdx = hrm2.read()['hrm2_ux']['value']
+    hdx = hrm2.read()['hrm2_dx']['value']
     if hux > -5 or hdx > -5:
         print('*************************************')
         print('Error: HRM is in the beam. Execution aborted\n')
@@ -447,7 +471,7 @@ def ccr_setup_prep():
     d1 = airpad.set(1)
     d2 = det2range.set(0)
     yield from bps.mv(spec.tth, 0)
-    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
+    acyy = anc_xtal.read()['anc_xtal_y']['value']
     if acyy < 5:
         print('*************************************')
         print('Error: URA Y-position (acyy) is too low. Execution aborted\n')
@@ -499,7 +523,7 @@ def ccr_setup(s1=0, s2=0, s3=0):
     yield from ccr_setup_prep()
 
     # C crystal Theta alignment
-    if not s1 == 0:
+    if s1 != 0:
         print('\n')
         print('Setting up the C crystal The-position\n')
         det2.em_range.set(0)
@@ -513,7 +537,7 @@ def ccr_setup(s1=0, s2=0, s3=0):
             return
         
     # C crystal Y alignment
-    if not s2 == 0:
+    if s2 != 0:
         print('\n')
         print('Setting up the C crystal Y-position\n')
         det2.em_range.set(1)
@@ -536,7 +560,7 @@ def ccr_setup(s1=0, s2=0, s3=0):
         yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1)
 
     # C crystal Chi alignment
-    if not s3 == 0:
+    if s3 != 0:
         print('\n')
         print('Setting up the C crystal Chi-position\n')
         yield from bps.mv(whl, 0, anpd, -145)
@@ -583,3 +607,89 @@ def wcr_setup():
     yield from bps.mv(analyzer.wfth, x_pos)
     print('\n')
     print('W crystal alignment finished\n')
+
+
+#*******************************************************************************************************
+def hrm_in():
+#   Moves HRM into the x-ray beam
+    yield from bps.mv(hrm2.ux, 0, hrm2.dx, 0, hrm2.bs, 3)
+
+
+#*******************************************************************************************************
+def hrm_out():
+#   Moves HRM out of the x-ray beam
+    yield from bps.mv(hrm2.ux, -20, hrm2.dx, -20, hrm2.bs, 0)
+
+
+#*******************************************************************************************************
+def hrm_setup():
+#   Performs HRM crystals alignment
+    det4.em_range.set(0)
+    det4.acquire_mode.set(0)
+    det4.averaging_time.set(0.5)
+    det5.em_range.set(0)
+    det5.acquire_mode.set(0)
+    det5.averaging_time.set(0.5)
+    sleep(1)
+
+    yield from hrm_in()
+    yield from bps.mv(hrmE, 0, hrm2.d1, 0)
+    yield from bps.mv(s1.top, 0.5, s1.bottom, -0.5, s1.outboard, 1, s1.inboard, -1)
+    yield from bps.mv(hrm2.d2, 1, hrm2.d4, 0.7)
+    yield from bps.mv(hrm2.d3, 2, hrm2.d5, 2)
+    
+    # 1st crystal alignment
+    yield from bp.rel_scan([det4], hrm2.uth, -0.05, 0.05, 51)
+    peak_stats = bec.peaks
+    x_com = peak_stats['com']['det4_current2_mean_value']
+    x_cen = peak_stats['cen']['det4_current2_mean_value']
+    x_fwhm = peak_stats['fwhm']['det4_current2_mean_value']
+    if abs(x_com-x_cen)/x_fwhm > 0.3:
+        print('\n')
+        print('Error: 1st crystal peak not found. Execution terminated.\n')
+        return
+    yield from bps.mv(hrm2.uth, x_cen, hrm2.d2, 0)
+
+    # 2nd crystal alignment
+    yield from bp.rel_scan([det4], hrm2.uif, -70, 70, 51)
+    peak_stats = bec.peaks
+    x_com = peak_stats['com']['det4_current3_mean_value']
+    x_cen = peak_stats['cen']['det4_current3_mean_value']
+    x_fwhm = peak_stats['fwhm']['det4_current3_mean_value']
+    if abs(x_com-x_cen)/x_fwhm > 0.3:
+        print('\n')
+        print('Error: 2nd crystal peak not found. Execution terminated.\n')
+        return
+    yield from bps.mv(hrm2.uif, x_cen, hrm2.d3, 0)
+
+    # 3rd crystal alignment
+    yield from bp.rel_scan([det4], hrm2.dth, -0.01, 0.01, 51)
+    peak_stats = bec.peaks
+    x_com = peak_stats['com']['det4_current4_mean_value']
+    x_cen = peak_stats['cen']['det4_current4_mean_value']
+    x_fwhm = peak_stats['fwhm']['det4_current4_mean_value']
+    if abs(x_com-x_cen)/x_fwhm > 0.3:
+        print('\n')
+        print('Error: 3rd crystal peak not found. Execution terminated.\n')
+        return
+    yield from bps.mv(hrm2.dth, x_cen, hrm2.d4, 0)
+
+    # 4th crystal alignment
+    yield from bp.rel_scan([det4], hrm2.dif, -70, 70, 51)
+    peak_stats = bec.peaks
+    x_com = peak_stats['com']['det5_current1_mean_value']
+    x_cen = peak_stats['cen']['det5_current1_mean_value']
+    x_fwhm = peak_stats['fwhm']['det5_current1_mean_value']
+    if abs(x_com-x_cen)/x_fwhm > 0.3:
+        print('\n')
+        print('Error: 4th crystal peak not found. Execution terminated.\n')
+        return
+    yield from bps.mv(hrm2.dif, x_cen, hrm2.d5, 0)
+
+    
+
+
+
+
+
+
