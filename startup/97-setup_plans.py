@@ -32,15 +32,22 @@ airpad = EpicsSignal("XF:10IDD-CT{IOC-MC:12}AirOn-cmd", name="airpad")
 det2range = EpicsSignal("XF10ID-BI:AH172:Range", name="det2range")
 
 
+#*******************************************************************************************************
 def gaussian(x, A, sigma, x0):
     return A*np.exp(-(x - x0)**2/(2 * sigma**2))
 
+
+#*******************************************************************************************************
 def stepup(x, A, sigma, x0, b):
     return A*(1-1/(1+np.exp((x-x0)/sigma)))+b
 
+
+#*******************************************************************************************************
 def stepdown(x, A, sigma, x0, b):
     return A*(1-1/(1+np.exp(-(x-x0)/sigma)))+b
 
+
+#*******************************************************************************************************
 def calc_lmfit(uid=-1, x="hrmE", channel=7):
     # Calculates fitting parameters for Gaussian function for energy scan with UID and Lambda channel
     hdr = db[uid]
@@ -56,6 +63,8 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
     plt.legend()
     return lf.result.values
 
+
+#*******************************************************************************************************
 def calc_stepup_fit(x):
     # Calculates fitting parameters for step up function for MCM slits scan
     hdr = db[-1]
@@ -73,6 +82,8 @@ def calc_stepup_fit(x):
     plt.legend()
     return lf.result.values['x0']
 
+
+#*******************************************************************************************************
 def calc_stepdwn_fit(x):
     # Calculates fitting parameters for step down function for MCM slits scan
     hdr = db[-1]
@@ -90,6 +101,8 @@ def calc_stepdwn_fit(x):
     plt.legend()
     return lf.result.values['x0']
 
+
+#*******************************************************************************************************
 def GCarbon_Qscan(exp_time=2):
     # Test plan for the energy resolution at Q=1.2 with the Glassy Carbon
     Qq = [1.2]
@@ -114,6 +127,7 @@ def GCarbon_Qscan(exp_time=2):
             print(tabulate([data], headers))
 
 
+#*******************************************************************************************************
 def DxtalTempCalc(uid=-1):
     # Calculates temperature correction for the D crystals
     E0 = 9131.7     # energy (eV)
@@ -178,8 +192,10 @@ def DxtalTempCalc(uid=-1):
     else:
         print('\n')
         print('Update is canceled')
-    return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
+#    return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
 
+
+#*******************************************************************************************************
 def mcm_setup_prep():
 # Prepares the URA for the MCM and Analyzer Slits setup, namely opens the Slits and lowers the analyzer
     hux = hrm2.read()['hrm2_ux']['value']
@@ -204,12 +220,15 @@ def mcm_setup_prep():
         return
     return acyy
 
+
+#*******************************************************************************************************
 def mcm_setup_post(y0):
 # Returns the motors to thier previous positions after the MCM and Analyzer Slits setup
     yield from bps.mv(anc_xtal.y, y0, whl, 0, anpd, -90)
     yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
-    return
 
+
+#*******************************************************************************************************
 def mcm_setup(s1=0, s2=0):
 # MCM mirror setup procedure
 # Usage:
@@ -222,7 +241,7 @@ def mcm_setup(s1=0, s2=0):
         print('if s1 > 0, then execute mcmx alignment, else - skip it')
         print('if s2 > 0, then execute mcmy alignment, else - skip it')
         return
-    acyy = mcm_setup_prep()
+    acyy = yield from mcm_setup_prep()
     if not s1 == 0:
         yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
         x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
@@ -240,10 +259,11 @@ def mcm_setup(s1=0, s2=0):
 #        kc += 1
 #        if kc > 5:
 #            print("Could not set the MCM_X to maximum. Execution aborted")
-#            mcm_setup_post(acyy)
+#            yield from mcm_setup_post(acyy)
 #            break
 
 
+#*******************************************************************************************************
 def analyzer_slit_scan(mtr, start, stop, gaps):
 #    plt.clf()
     yield from bps.mv(mtr, 0)
@@ -260,6 +280,7 @@ def analyzer_slit_scan(mtr, start, stop, gaps):
         mtr.set_current_position(0)
 
 
+#*******************************************************************************************************
 def san_setup():
 #    acyy = ura_setup_prep()
     yield from analyzer_slit_scan(analyzer_slits.outboard, -1.2, 1.2, 41)
@@ -279,6 +300,7 @@ def san_setup():
     print("Analyzer slits setup finished successfully\n")
 
 
+#*******************************************************************************************************
 def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, sampling=200):
     """
     This method gets a table (DataFrame) by using its uid. it finds the maximum value of the curve 
@@ -313,7 +335,7 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
         y value of the maximum value.
 
     """
-    
+
     hdr = db[uid]
     table = hdr.table()
     #y = f'lambda_det_stats{channel}_total'
@@ -349,6 +371,7 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
     return resample_df[x][new_max_id], resample_df[y][new_max_id]
 
 
+#*******************************************************************************************************
 def LocalBumpSetup():
 #   Adjusts the e-beam local bump, i.e. horizontal position of the x-ray beam on the XBPM1 screen
 #
@@ -411,6 +434,7 @@ def LocalBumpSetup():
             print('Correction was canceled\n')
 
 
+#*******************************************************************************************************
 def ccr_setup_prep():
 # Prepares the URA for the C crystal setup
     hux = hrm2.read()['hrm2_ux']['value']
@@ -438,6 +462,13 @@ def ccr_setup_prep():
         return
 
 
+#*******************************************************************************************************
+def ccr_setup_post():
+#   Recover positions after the C crystal alignment is finished
+    yield from bps.mv(anpd, -90, analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+    
+
+#*******************************************************************************************************
 def ccr_the_setup():
 #   Performs C crystal theta alignment
     x0 = 10
@@ -453,6 +484,7 @@ def ccr_the_setup():
     return kxmov
 
 
+#*******************************************************************************************************
 def ccr_setup(s1=0, s2=0, s3=0):
 #   C crystal alignment, namely the-position, analyzer vertical position and chi-position
     
@@ -465,19 +497,22 @@ def ccr_setup(s1=0, s2=0, s3=0):
         return
     
     yield from ccr_setup_prep()
+
+    # C crystal Theta alignment
     if not s1 == 0:
         print('\n')
         print('Setting up the C crystal The-position\n')
         det2.em_range.set(0)
         sleep(1)
         yield from bps.mv(whl, 0, anpd, 40)
-        kxmov = ccr_the_setup()
+        kxmov = yield from ccr_the_setup()
         if kxmov > 5:
             print('\n')
             print('************************************')
             print('Error: C crystal The-positioning. Execution aborted\n')
             return
         
+    # C crystal Y alignment
     if not s2 == 0:
         print('\n')
         print('Setting up the C crystal Y-position\n')
@@ -500,6 +535,7 @@ def ccr_setup(s1=0, s2=0, s3=0):
         yield from bps.mv(anc_xtal.y, p_com)
         yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1)
 
+    # C crystal Chi alignment
     if not s3 == 0:
         print('\n')
         print('Setting up the C crystal Chi-position\n')
@@ -524,5 +560,26 @@ def ccr_setup(s1=0, s2=0, s3=0):
         # Re-checking C crystal The-position
 
         yield from bps.mv(anpd, 40)
-        yield from bp.rel_scan([det2], analyzer.cfth, -150, 150, 31)
+        kxmov = yield from ccr_the_setup()
+        if kxmov > 5:
+            print('\n')
+            print('************************************')
+            print('Error: C crystal The-positioning. Execution aborted\n')
+            return
+        
+    yield from ccr_setup_post
+    print('\n')
+    print('C crystal alignment finished\n')
 
+
+#*******************************************************************************************************
+def wcr_setup():
+#   Performs W crystal alignment
+    yield from bps.mv(anpd, -90, whl, 7, analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
+    yield from set_lambda_exposure(1)
+    yield from bp.rel_scan([det2], analyzer.wfth, -20, 20, 41)
+    x_pos = calculate_max_value(x="analyzer.wfth", sampling=100)
+    yield from bps.mvr(analyzer.wfth, -20)
+    yield from bps.mv(analyzer.wfth, x_pos)
+    print('\n')
+    print('W crystal alignment finished\n')
