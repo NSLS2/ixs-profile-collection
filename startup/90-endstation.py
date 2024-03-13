@@ -65,7 +65,7 @@ analyzer = Analyzer('XF:10IDD', name='analyzer')
 spec = Spectrometer('XF:10IDD', name='spec')
 analyzer_xtals = AnalyzerDXtals('XF:10IDD-ES{Ez4:', name='analyzer_xtals')
 analyzer_slits = AnalyzerSlits('XF:10IDD-ES{Ez4:', name='analyzer_slits')
-mcm_slits = MCMSlits('XF:10IDD-OP{MCMSlt1', name='mcm_slits')
+mcm_slits = MCMSlits('XF:10IDD-OP{MCMSlt1', name='mcmslits')
 sample_stage = SampleStage('XF:10IDD-OP', name='s')
 
 whl = EpicsMotor('XF:10IDD-OP{Abs:1-Ax:Wheel}Mtr', name='whl', labels=('whl',))
