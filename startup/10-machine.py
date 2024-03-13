@@ -68,3 +68,11 @@ class Undulator(PVPositioner):
 ivu22 = Undulator('SR:C10-ID:G1{IVU22:1', name='ivu22')
 fes = FESlits('FE:C10A-OP{Slt:', name='fes')
 crl = CRL('FE:C10A-OP{CRL:1', name='crl')
+
+uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
+id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
+nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
+nudge_increment = EpicsSignal("SR:UOFB{C10-ID}angle-increment-SP", name="nudge_increment")
+horz_plane_nudge = EpicsSignal("SR:UOFB{C10-ID}Nudge:X", name="hor_plane_nudge")
+vert_plane_nudge = EpicsSignal("SR:UOFB{C10-ID}Nudge:Y", name="ver_plane_nudge")
+nudge_status = EpicsSignal("SR:UOFB{C10-ID}Nudge-StatusMsg", name="nudge_st")

@@ -13,24 +13,6 @@ from tabulate import tabulate
 tm1sum = EpicsSignal('XF:10ID-BI:TM176:SumAll:MeanValue_RBV')
 susp = SuspendFloor(tm1sum, 1.e-5, resume_thresh = 1.e-5, sleep = 1*60)
 
-uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
-id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
-nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
-nudge_increment = EpicsSignal("SR:UOFB{C10-ID}angle-increment-SP", name="nudge_increment")
-horz_plane_nudge = EpicsSignal("SR:UOFB{C10-ID}Nudge:X", name="hor_plane_nudge")
-vert_plane_nudge = EpicsSignal("SR:UOFB{C10-ID}Nudge:Y", name="ver_plane_nudge")
-nudge_status = EpicsSignal("SR:UOFB{C10-ID}Nudge-StatusMsg", name="nudge_st")
-
-#Dtemp1 = EpicsSignal("XF:10ID-CT{FbPid:01}PID.VAL", name="Dtemp1")
-#Dtemp2 = EpicsSignal("XF:10ID-CT{FbPid:02}PID.VAL", name="Dtemp2")
-#Dtemp3 = EpicsSignal("XF:10ID-CT{FbPid:03}PID.VAL", name="Dtemp3")
-#Dtemp4 = EpicsSignal("XF:10ID-CT{FbPid:04}PID.VAL", name="Dtemp4")
-#Dtemp5 = EpicsSignal("XF:10ID-CT{FbPid:05}PID.VAL", name="Dtemp5")
-#Dtemp6 = EpicsSignal("XF:10ID-CT{FbPid:06}PID.VAL", name="Dtemp6")
-
-airpad = EpicsSignal("XF:10IDD-CT{IOC-MC:12}AirOn-cmd", name="airpad")
-det2range = EpicsSignal("XF10ID-BI:AH172:Range", name="det2range")
-
 
 #*******************************************************************************************************
 def gaussian(x, A, sigma, x0):
@@ -204,8 +186,8 @@ def mcm_setup_prep():
         print('*************************************\n')
         print('HRM is in the beam. Execution aborted')
         return
-    d1 = airpad.set(1)
-    d2 = det2range.set(0)
+    airpad.set(1)
+    det2.em_range.set(0)
  
     yield from bps.mv(spec.tth, 0)
     acyy = anc_xtal.y.read()['anc_xtal_y']['value']
@@ -468,8 +450,8 @@ def ccr_setup_prep():
         print('Error: HRM is in the beam. Execution aborted\n')
         return
     
-    d1 = airpad.set(1)
-    d2 = det2range.set(0)
+    airpad.set(1)
+    det2.em_range.set(0)
     yield from bps.mv(spec.tth, 0)
     acyy = anc_xtal.read()['anc_xtal_y']['value']
     if acyy < 5:

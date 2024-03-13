@@ -1,4 +1,4 @@
-from ophyd import (Component as Cpt, Device, EpicsMotor)
+from ophyd import (Component as Cpt, Device, EpicsMotor, EpicsSignal)
 
 # List of available EpicsMotor labels in this script
 # [analyzer, spectrometer, analyzerdxtals, analyzerslits, mcmslits, samplestage, whl, anapd, anpd]
@@ -72,4 +72,6 @@ whl = EpicsMotor('XF:10IDD-OP{Abs:1-Ax:Wheel}Mtr', name='whl', labels=('whl',))
 
 anapd = EpicsMotor('XF:10IDD-ES{Ez4:8-Ax:3}Mtr', name='anapd', labels=('anapd',))
 anpd = EpicsMotor('XF:10IDD-ES{Ez4:5-Ax:1}Mtr', name='anpd', labels=('anpd',))
+airpad = EpicsSignal("XF:10IDD-CT{IOC-MC:12}AirOn-cmd", name="airpad")
+
 # name_you_want = EpicsMotor(PVNAME_BASE, name='name_you_want')
