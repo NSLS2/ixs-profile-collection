@@ -21,12 +21,12 @@ horz_plane_nudge = EpicsSignal("SR:UOFB{C10-ID}Nudge:X", name="hor_plane_nudge")
 vert_plane_nudge = EpicsSignal("SR:UOFB{C10-ID}Nudge:Y", name="ver_plane_nudge")
 nudge_status = EpicsSignal("SR:UOFB{C10-ID}Nudge-StatusMsg", name="nudge_st")
 
-Dtemp1 = EpicsSignal("XF:10ID-CT{FbPid:01}PID.VAL", name="Dtemp1")
-Dtemp2 = EpicsSignal("XF:10ID-CT{FbPid:02}PID.VAL", name="Dtemp2")
-Dtemp3 = EpicsSignal("XF:10ID-CT{FbPid:03}PID.VAL", name="Dtemp3")
-Dtemp4 = EpicsSignal("XF:10ID-CT{FbPid:04}PID.VAL", name="Dtemp4")
-Dtemp5 = EpicsSignal("XF:10ID-CT{FbPid:05}PID.VAL", name="Dtemp5")
-Dtemp6 = EpicsSignal("XF:10ID-CT{FbPid:06}PID.VAL", name="Dtemp6")
+#Dtemp1 = EpicsSignal("XF:10ID-CT{FbPid:01}PID.VAL", name="Dtemp1")
+#Dtemp2 = EpicsSignal("XF:10ID-CT{FbPid:02}PID.VAL", name="Dtemp2")
+#Dtemp3 = EpicsSignal("XF:10ID-CT{FbPid:03}PID.VAL", name="Dtemp3")
+#Dtemp4 = EpicsSignal("XF:10ID-CT{FbPid:04}PID.VAL", name="Dtemp4")
+#Dtemp5 = EpicsSignal("XF:10ID-CT{FbPid:05}PID.VAL", name="Dtemp5")
+#Dtemp6 = EpicsSignal("XF:10ID-CT{FbPid:06}PID.VAL", name="Dtemp6")
 
 airpad = EpicsSignal("XF:10IDD-CT{IOC-MC:12}AirOn-cmd", name="airpad")
 det2range = EpicsSignal("XF10ID-BI:AH172:Range", name="det2range")
@@ -155,12 +155,12 @@ def DxtalTempCalc(uid=-1):
     dTe = [1.e-3*x/E0/bet for x in dE]
     dTh = [-1.e3*x*np.tan(np.radians(TH))/E0 for x in dE]
     
-    DTe = [Dtemp1.read()['Dtemp1']['value']+dTe[0], 
-           Dtemp2.read()['Dtemp2']['value']+dTe[1], 
-           Dtemp3.read()['Dtemp3']['value']+dTe[2], 
-           Dtemp4.read()['Dtemp4']['value']+dTe[3], 
-           Dtemp5.read()['Dtemp5']['value']+dTe[4], 
-           Dtemp6.read()['Dtemp6']['value']+dTe[5]]
+    DTe = [d1temp.read()['d1temp']['value']+dTe[0], 
+           d2temp.read()['d2temp']['value']+dTe[1], 
+           d3temp.read()['d3temp']['value']+dTe[2], 
+           d4temp.read()['d4temp']['value']+dTe[3], 
+           d5temp.read()['d5temp']['value']+dTe[4], 
+           d6temp.read()['d6temp']['value']+dTe[5]]
     Dheader = [' ', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6']
     dE.insert(0,'dEnrg')
     dTe.insert(0,'dTemp')
@@ -176,12 +176,12 @@ def DxtalTempCalc(uid=-1):
     print('3. Exit without updates')
     update_opts = input('Your choice: ')
     if update_opts == '1':
-        d1 = Dtemp1.set(DTe[1])
-        d2 = Dtemp2.set(DTe[2])
-        d3 = Dtemp3.set(DTe[3])
-        d4 = Dtemp4.set(DTe[4])
-        d5 = Dtemp5.set(DTe[5])
-        d6 = Dtemp6.set(DTe[6])
+        d1 = d1temp.set(DTe[1])
+        d2 = d2temp.set(DTe[2])
+        d3 = d3temp.set(DTe[3])
+        d4 = d4temp.set(DTe[4])
+        d5 = d5temp.set(DTe[5])
+        d6 = d6temp.set(DTe[6])
         # wait(d1, d2, d3, d4, d5, d6)
         print('\n')
         print('The temperatures are updated')
@@ -686,7 +686,7 @@ def hrm_setup():
         return
     yield from bps.mv(hrm2.dif, x_cen, hrm2.d5, 0)
 
-    
+
 
 
 
