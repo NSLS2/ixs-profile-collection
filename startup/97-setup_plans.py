@@ -10,9 +10,6 @@ from bluesky.suspenders import SuspendFloor
 from ophyd import EpicsSignal
 from tabulate import tabulate
 
-tm1sum = EpicsSignal('XF:10ID-BI:TM176:SumAll:MeanValue_RBV')
-susp = SuspendFloor(tm1sum, 1.e-5, resume_thresh = 1.e-5, sleep = 1*60)
-
 
 #*******************************************************************************************************
 def gaussian(x, A, sigma, x0):
@@ -158,13 +155,12 @@ def DxtalTempCalc(uid=-1):
     print('3. Exit without updates')
     update_opts = input('Your choice: ')
     if update_opts == '1':
-        d1 = d1temp.set(DTe[1])
-        d2 = d2temp.set(DTe[2])
-        d3 = d3temp.set(DTe[3])
-        d4 = d4temp.set(DTe[4])
-        d5 = d5temp.set(DTe[5])
-        d6 = d6temp.set(DTe[6])
-        # wait(d1, d2, d3, d4, d5, d6)
+        d1temp.set(DTe[1])
+        d2temp.set(DTe[2])
+        d3temp.set(DTe[3])
+        d4temp.set(DTe[4])
+        d5temp.set(DTe[5])
+        d6temp.set(DTe[6])
         print('\n')
         print('The temperatures are updated')
     elif update_opts == '2':
@@ -438,6 +434,10 @@ def LocalBumpSetup():
         else:
             print('*****************************************')
             print('Correction was canceled\n')
+    
+    update_opts = input('Do you want to move the XBPM1 back (yes/no): ')
+    if update_opts == 'yes':
+        yield from bps.mv(bpm1_diag, pos3)
 
 
 #*******************************************************************************************************
