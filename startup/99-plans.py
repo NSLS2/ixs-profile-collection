@@ -10,13 +10,6 @@ from bluesky.suspenders import SuspendFloor
 from ophyd import EpicsSignal
 from tabulate import tabulate
 
-# tm1sum = EpicsSignal('XF:10ID-BI:TM176:SumAll:MeanValue_RBV')
-# susp = SuspendFloor(tm1sum, 1.e-5, resume_thresh = 1.e-5, sleep = 1*60)
-
-# uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
-# id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
-# nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
-
 
 def align_with_fit(dets, mtr, start, stop, gaps, md=None):
     # Performs relative scan of motor and retuns data staistics
