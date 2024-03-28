@@ -669,9 +669,3 @@ def hrm_setup():
     yield from bps.mv(hrm2.dif, x_cen, hrm2.d5, 0)
 
 
-
-
-
-
-
-
