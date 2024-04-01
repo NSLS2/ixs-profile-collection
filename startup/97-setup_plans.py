@@ -134,12 +134,12 @@ def DxtalTempCalc(uid=-1):
     dTe = [1.e-3*x/E0/bet for x in dE]
     dTh = [-1.e3*x*np.tan(np.radians(TH))/E0 for x in dE]
     
-    DTe = [d1temp.read()['d1temp']['value']+dTe[0], 
-           d2temp.read()['d2temp']['value']+dTe[1], 
-           d3temp.read()['d3temp']['value']+dTe[2], 
-           d4temp.read()['d4temp']['value']+dTe[3], 
-           d5temp.read()['d5temp']['value']+dTe[4], 
-           d6temp.read()['d6temp']['value']+dTe[5]]
+    DTe = [ura_temp.d1temp.read()['uratemperature_d1temp']['value']+dTe[0], 
+           ura_temp.d2temp.read()['uratemperature_d2temp']['value']+dTe[1], 
+           ura_temp.d3temp.read()['uratemperature_d3temp']['value']+dTe[2], 
+           ura_temp.d4temp.read()['uratemperature_d4temp']['value']+dTe[3], 
+           ura_temp.d5temp.read()['uratemperature_d5temp']['value']+dTe[4], 
+           ura_temp.d6temp.read()['uratemperature_d6temp']['value']+dTe[5]]
     Dheader = [' ', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6']
     dE.insert(0,'dEnrg')
     dTe.insert(0,'dTemp')
@@ -155,21 +155,21 @@ def DxtalTempCalc(uid=-1):
     print('3. Exit without updates')
     update_opts = input('Your choice: ')
     if update_opts == '1':
-        d1temp.set(DTe[1])
-        d2temp.set(DTe[2])
-        d3temp.set(DTe[3])
-        d4temp.set(DTe[4])
-        d5temp.set(DTe[5])
-        d6temp.set(DTe[6])
+        ura_temp.d1temp.set(DTe[1])
+        ura_temp.d2temp.set(DTe[2])
+        ura_temp.d3temp.set(DTe[3])
+        ura_temp.d4temp.set(DTe[4])
+        ura_temp.d5temp.set(DTe[5])
+        ura_temp.d6temp.set(DTe[6])
         print('\n')
-        print('The temperatures are updated')
+        print('The temperatures are updated\n')
     elif update_opts == '2':
         yield from bps.mvr(analyzer_xtals.d2the, dTh[1], analyzer_xtals.d3the, dTh[2], analyzer_xtals.d4the, dTh[3], analyzer_xtals.d5the, dTh[4], analyzer_xtals.d6the, dTh[5],)
         print('\n')
-        print('The Dxtals angles are updated')
+        print('The Dxtals angles are updated\n')
     else:
         print('\n')
-        print('Update is canceled')
+        print('Update is canceled\n')
 #    return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
 
 
