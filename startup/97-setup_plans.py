@@ -356,9 +356,9 @@ def LocalBumpSetup():
 #    uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
 #    id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
 #    nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
-    cond1 = uofb_pv.read()['uofb_pv']['value']
-    cond2 = id_bump_pv.read()['id_bump_pv']['value']
-    cond3 = nudge_pv.read()['nudge_pv']['value']
+    cond1 = strg_ring_orb_fb.uofb_pv.read()['srofb_uofb_pv']['value']
+    cond2 = strg_ring_orb_fb.id_bump_pv.read()['srofb_id_bump_pv']['value']
+    cond3 = strg_ring_orb_fb.nudge_pv.read()['srofb_nudge_pv']['value']
     pos3 = 0
     pos5 = 49
     cenX_target = 395
@@ -403,11 +403,11 @@ def LocalBumpSetup():
         print(f"Calculated horizontal e-beam shift {dThe} mrad")
         input_opts = input('Do you want to put it in (yes/no): ')
         if input_opts == 'yes':
-            nudge_increment.set(dThe)
-            horz_plane_nudge.set(1)
+            strg_ring_orb_fb.nudge_increment.set(dThe)
+            strg_ring_orb_fb.horz_plane_nudge.set(1)
             print('*****************************************')
             print('Horizontal angle correction was applied\n')
-            print(nudge_status.alarm_status)
+            print(strg_ring_orb_fb.nudge_status.alarm_status)
         else:
             print('*****************************************')
             print('Correction was canceled\n')
@@ -426,11 +426,11 @@ def LocalBumpSetup():
         print(f"Calculated vertical e-beam shift {dThe} mrad")
         input_opts = input('Do you want to put it in (yes/no): ')
         if input_opts == 'yes':
-            nudge_increment.set(dThe)
-            vert_plane_nudge.set(1)
+            strg_ring_orb_fb.nudge_increment.set(dThe)
+            strg_ring_orb_fb.vert_plane_nudge.set(1)
             print('*****************************************')
             print('Vertical angle correction was applied\n')
-            print(nudge_status.alarm_status)
+            print(strg_ring_orb_fb.nudge_status.alarm_status)
         else:
             print('*****************************************')
             print('Correction was canceled\n')
