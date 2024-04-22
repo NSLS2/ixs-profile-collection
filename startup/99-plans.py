@@ -25,8 +25,10 @@ def peaks_stats_print(dets_name, peak_stats):
 
     data[2] = peak_stats[headers[2]][dets_name][1]
     data[3] = peak_stats[headers[3]][dets_name][1]
-
+    print('\n')
+    print('*******************************************************')
     print(tabulate([data], headers))
+    print('*******************************************************\n')
 
 
 def align_with_fit(dets, mtr, start, stop, gaps, mode='rel', md=None):
@@ -54,7 +56,6 @@ def align_with_fit(dets, mtr, start, stop, gaps, mode='rel', md=None):
             local_peaks
             )
     yield from plan
-    print(local_peaks)
     return local_peaks
 
 #def set_lambda_exposure(exposure):
@@ -142,32 +143,32 @@ def Lipid_Qscan(Qq=None, Ncycles=1, md=None):
                 yield from set_lambda_exposure(5)
 
                 print("Scanning the sample SSY\n")
-                yield from bp.rel_scan([lambda_det], sample_stage.sy, -0.1, 0.1, 41, md=md)
-#                max_pos = local_peaks[0].max
-                peak_stats = bec.peaks
-                peaks_stats_print('lambda_det_stats7_total', peak_stats)
-                max_pos = peak_stats['max']['lambda_det_stats7_total'][0]
+                yield from bp.rel_scan([lambda_det], sample_stage.sy, -0.1, 0.1, 40, md=md)
+                max_pos = peaks['max'][lambda_det_stats7_total][0]
+                peaks_stats_print('lambda_det_stats7_total', peaks)
+#                peak_stats = bec.peaks
+#                max_pos = peak_stats['max']['lambda_det_stats7_total'][0]
 
                 yield from bps.mvr(sample_stage.sy, -0.1)
                 yield from bps.mv(sample_stage.sy, max_pos)
                 print(f"Sample stage SY is set to {sample_stage.sy.read()['s_sy']['value']}\n")
 
                 print("Scanning the sample SSZ\n")
-                yield from bp.scan([lambda_det], sample_stage.sz, -2, 2, 41, md=md)
-#                max_pos = local_peaks[0].max
-                peak_stats = bec.peaks
-                peaks_stats_print('lambda_det_stats7_total', peak_stats)
-                max_pos = peak_stats['max']['lambda_det_stats7_total'][0]
+                yield from bp.scan([lambda_det], sample_stage.sz, -2, 2, 40, md=md)
+                max_pos = peaks['max'][lambda_det_stats7_total][0]
+                peaks_stats_print('lambda_det_stats7_total', peaks)
+#                peak_stats = bec.peaks
+#                max_pos = peak_stats['max']['lambda_det_stats7_total'][0]
 
                 yield from bps.mv(sample_stage.sz, max_pos)
                 print(f"Sample stage SZ is set to {sample_stage.sz.read()['s_sz']['value']}\n")
 
                 print("Scanning the sample SSY\n")
-                yield from bp.rel_scan([lambda_det], sample_stage.sy, -0.1, 0.1, 41, md=md)
-#                max_pos = local_peaks[0].max
-                peak_stats = bec.peaks
-                peaks_stats_print('lambda_det_stats7_total', peak_stats)
-                max_pos = peak_stats['max']['lambda_det_stats7_total'][0]
+                yield from bp.rel_scan([lambda_det], sample_stage.sy, -0.1, 0.1, 40, md=md)
+                max_pos = peaks['max'][lambda_det_stats7_total][0]
+                peaks_stats_print('lambda_det_stats7_total', peaks)
+#                peak_stats = bec.peaks
+#                max_pos = peak_stats['max']['lambda_det_stats7_total'][0]
 
                 yield from bps.mvr(sample_stage.sy, -0.1)
                 yield from bps.mv(sample_stage.sy, max_pos)
@@ -182,4 +183,12 @@ def Lipid_Qscan_wBC():
     yield from bpp.suspend_wrapper(Lipid_Qscan(), susp)
 
 
-
+def Peak_Test():
+    # yield from bp.rel_scan([det1], ixs4c.omega, -5, 5, 5)
+    plan = bpp.subs_wrapper(
+         bp.rel_scan([det1], ixs4c.omega, -5, 5, 5), 
+         LivePlot(det1.hints['fields'][0], ixs4c.omega.name)
+            )
+    yield from plan
+#     local_peaks = yield from align_with_fit([det1], ixs4c.omega, -5, 5, 5, LivePlot())
+#    return local_peaks

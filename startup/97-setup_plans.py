@@ -12,6 +12,22 @@ from tabulate import tabulate
 
 
 #*******************************************************************************************************
+def myplot():
+# opens a Matplotlib figure with axes
+    global myfig, myaxs
+    fig, ax = plt.subplots(figsize=(8,6))
+    myfig = fig
+    myaxs = ax
+
+
+#*******************************************************************************************************
+def plotselect(det_name, mot_name):
+# creates a LivePlot object with given paramaters
+    myplt = LivePlot(det_name, x=mot_name, marker='*', markersize=10, ax=myaxs)
+    return myplt
+
+
+#*******************************************************************************************************
 def gaussian(x, A, sigma, x0):
     return A*np.exp(-(x - x0)**2/(2 * sigma**2))
 
@@ -87,6 +103,7 @@ def GCarbon_Qscan(exp_time=2):
     Qq = [1.2]
     yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
     yield from bps.mv(anapd, 25, whl, 0)
+    myplt = plotselect('lambda_det_stats7_total', hrmE.name)
     plt.clf()
 
     for kk in range(1):
