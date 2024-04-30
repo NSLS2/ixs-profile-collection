@@ -183,12 +183,18 @@ def Lipid_Qscan_wBC():
     yield from bpp.suspend_wrapper(Lipid_Qscan(), susp)
 
 
-def Peak_Test():
+def Peak_Test(det, mot, det_channel_picks=[]):
     # yield from bp.rel_scan([det1], ixs4c.omega, -5, 5, 5)
-    plan = bpp.subs_wrapper(
-         bp.rel_scan([det1], ixs4c.omega, -5, 5, 5), 
-         LivePlot(det1.hints['fields'][0], ixs4c.omega.name)
-            )
+    # plan = bpp.subs_wrapper(
+    #      bp.rel_scan([det1], ixs4c.omega, -5, 5, 5), 
+    #      LivePlot(det1.hints['fields'][0], ixs4c.omega.name)
+    #         )
+    if len(det_channel_picks) == 0:
+        plan = bp.rel_scan([det], ixs4c.omega, -5, 5, 5)
+    else:
+        plot_list = [LivePlot(det_channel, mot.name) for det_channel in det.hints['fields']]
+        plan = bpp.subs_wrapper(
+             bp.rel_scan([det], ixs4c.omega, -5, 5, 5), plot_list)
     yield from plan
 #     local_peaks = yield from align_with_fit([det1], ixs4c.omega, -5, 5, 5, LivePlot())
 #    return local_peaks
