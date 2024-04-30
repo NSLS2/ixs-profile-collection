@@ -192,7 +192,7 @@ def Peak_Test(det, mot, det_channel_picks=[]):
     if len(det_channel_picks) == 0:
         plan = bp.rel_scan([det], ixs4c.omega, -5, 5, 5)
     else:
-        plot_list = [LivePlot(det_channel, mot.name) for det_channel in det.hints['fields']]
+        plot_list = [LivePlot(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
         plan = bpp.subs_wrapper(
              bp.rel_scan([det], ixs4c.omega, -5, 5, 5), plot_list)
     yield from plan
