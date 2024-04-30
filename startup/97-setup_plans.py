@@ -1,0 +1,688 @@
+import bluesky.plans as bp
+import bluesky.plan_stubs as bps
+import bluesky.preprocessors as bpp
+import bluesky.callbacks.fitting
+import numpy as np
+import pandas as pd
+import lmfit
+from bluesky.callbacks import LiveFit
+from bluesky.suspenders import SuspendFloor
+from ophyd import EpicsSignal
+from tabulate import tabulate
+
+
+#*******************************************************************************************************
+def myplot():
+# opens a Matplotlib figure with axes
+    global myfig, myaxs
+    fig, ax = plt.subplots(figsize=(8,6))
+    myfig = fig
+    myaxs = ax
+
+
+#*******************************************************************************************************
+def plotselect(det_name, mot_name):
+# creates a LivePlot object with given paramaters
+    myplt = LivePlot(det_name, x=mot_name, marker='*', markersize=10, ax=myaxs)
+    return myplt
+
+
+#*******************************************************************************************************
+def gaussian(x, A, sigma, x0):
+    return A*np.exp(-(x - x0)**2/(2 * sigma**2))
+
+
+#*******************************************************************************************************
+def stepup(x, A, sigma, x0, b):
+    return A*(1-1/(1+np.exp((x-x0)/sigma)))+b
+
+
+#*******************************************************************************************************
+def stepdown(x, A, sigma, x0, b):
+    return A*(1-1/(1+np.exp(-(x-x0)/sigma)))+b
+
+
+#*******************************************************************************************************
+def calc_lmfit(uid=-1, x="hrmE", channel=7):
+    # Calculates fitting parameters for Gaussian function for energy scan with UID and Lambda channel
+    hdr = db[uid]
+    table = hdr.table()
+    model = lmfit.Model(gaussian)
+    y = f'lambda_det_stats{channel}_total'
+    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.7, 'x0': table[x][table[y].argmax()+1]})
+    for name, doc in hdr.documents():
+        lf(name, doc)
+    gauss = gaussian(table[x], **lf.result.values)
+    plt.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
+    plt.plot(table[x], gauss.values, label=f"gaussian fit {channel}")
+    plt.legend()
+    return lf.result.values
+
+
+#*******************************************************************************************************
+def calc_stepup_fit(x):
+    # Calculates fitting parameters for step up function for MCM slits scan
+    hdr = db[-1]
+    table = hdr.table()
+    model = lmfit.Model(stepup)
+    y = 'det2_current1_mean_value'
+    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
+    for name, doc in hdr.documents():
+        lf(name, doc)
+    print(lf.result.values)
+    stup = stepup(table[x], **lf.result.values)
+    plt.clf()
+    plt.plot(table[x], table[y], label=f"raw data", marker = 'o', linestyle = 'none')
+    plt.plot(table[x], stup.values, label=f"data fit")
+    plt.legend()
+    return lf.result.values['x0']
+
+
+#*******************************************************************************************************
+def calc_stepdwn_fit(x):
+    # Calculates fitting parameters for step down function for MCM slits scan
+    hdr = db[-1]
+    table = hdr.table()
+    model = lmfit.Model(stepdown)
+    y = 'det2_current1_mean_value'
+    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
+    for name, doc in hdr.documents():
+        lf(name, doc)
+    print(lf.result.values)
+    stdw = stepdown(table[x], **lf.result.values)
+    plt.clf()
+    plt.plot(table[x], table[y], label=f"raw data", marker = 'o', linestyle = 'none')
+    plt.plot(table[x], stdw.values, label=f"data fit")
+    plt.legend()
+    return lf.result.values['x0']
+
+
+#*******************************************************************************************************
+def GCarbon_Qscan(exp_time=2):
+    # Test plan for the energy resolution at Q=1.2 with the Glassy Carbon
+    Qq = [1.2]
+    yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+    yield from bps.mv(anapd, 25, whl, 0)
+    myplt = plotselect('lambda_det_stats7_total', hrmE.name)
+    plt.clf()
+
+    for kk in range(1):
+        for q in Qq:
+            th = qq2th(q)
+            yield from bps.mv(spec.tth, th)
+            yield from hrmE_dscan(-10, 10, 100, exp_time)
+            peak_stats = bec.peaks
+            headers = ["com","cen","max","min","fwhm"]
+            data = []
+            for p in range(5):
+                data.append(peak_stats[headers[p]]['lambda_det_stats7_total'])
+
+            data[2] = peak_stats[headers[2]]['lambda_det_stats7_total'][1]
+            data[3] = peak_stats[headers[3]]['lambda_det_stats7_total'][1]
+
+            print(tabulate([data], headers))
+
+
+#*******************************************************************************************************
+def DxtalTempCalc(uid=-1):
+    # Calculates temperature correction for the D crystals
+    E0 = 9131.7     # energy (eV)
+    TH = 88.5       # Dxtal asymmetry angle (deg)
+    C1 = 3.725e-6   # constant (1/K)
+    C2 = 5.88e-3    # constant (1/K)
+    C3 = 5.548e-10  # constant (1/K2)
+    T1 = 124.0      # temperature (K)
+    T0 = 300.15     # crystal average temperature (K)
+
+    bet = C1*(1 - np.exp(-C2*(T0-T1))) + C3*T0
+    dE = []
+    plt.clf()
+    for n in range(1,7):
+        fit_par = calc_lmfit(uid, channel=n)
+        if fit_par['A'] < 100:
+            print('**********************************')
+            print('         WARNING !')
+            print('      Fitting Error')
+            return
+        
+        dE.append(fit_par['x0'])
+
+    dE = [x-dE[0] for x in dE]
+    dTe = [1.e-3*x/E0/bet for x in dE]
+    dTh = [-1.e3*x*np.tan(np.radians(TH))/E0 for x in dE]
+    
+    DTe = [ura_temp.d1temp.read()['uratemperature_d1temp']['value']+dTe[0], 
+           ura_temp.d2temp.read()['uratemperature_d2temp']['value']+dTe[1], 
+           ura_temp.d3temp.read()['uratemperature_d3temp']['value']+dTe[2], 
+           ura_temp.d4temp.read()['uratemperature_d4temp']['value']+dTe[3], 
+           ura_temp.d5temp.read()['uratemperature_d5temp']['value']+dTe[4], 
+           ura_temp.d6temp.read()['uratemperature_d6temp']['value']+dTe[5]]
+    Dheader = [' ', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6']
+    dE.insert(0,'dEnrg')
+    dTe.insert(0,'dTemp')
+    dTh.insert(0,'dThe')
+    DTe.insert(0,'Dtemp')
+    Ddata = [dE, dTh, dTe, DTe]
+    print('---------------------------------------------------------------------')
+    print(tabulate(Ddata, headers=Dheader, tablefmt='pipe', stralign='center', floatfmt='.4f'))
+    print('---------------------------------------------------------------------\n')
+    print('Select from the following options:')
+    print('1. Update temperatures')
+    print('2. Update Dxtals angles')
+    print('3. Exit without updates')
+    update_opts = input('Your choice: ')
+    if update_opts == '1':
+        ura_temp.d1temp.set(DTe[1])
+        ura_temp.d2temp.set(DTe[2])
+        ura_temp.d3temp.set(DTe[3])
+        ura_temp.d4temp.set(DTe[4])
+        ura_temp.d5temp.set(DTe[5])
+        ura_temp.d6temp.set(DTe[6])
+        print('\n')
+        print('The temperatures are updated\n')
+    elif update_opts == '2':
+        yield from bps.mvr(analyzer_xtals.d2the, dTh[1], analyzer_xtals.d3the, dTh[2], analyzer_xtals.d4the, dTh[3], analyzer_xtals.d5the, dTh[4], analyzer_xtals.d6the, dTh[5],)
+        print('\n')
+        print('The Dxtals angles are updated\n')
+    else:
+        print('\n')
+        print('Update is canceled\n')
+#    return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
+
+
+#*******************************************************************************************************
+def mcm_setup_prep():
+# Prepares the URA for the MCM and Analyzer Slits setup, namely opens the Slits and lowers the analyzer
+    hux = hrm2.read()['hrm2_ux']['value']
+    hdx = hrm2.read()['hrm2_dx']['value']
+    if hux > -5 or hdx > -5:
+        print('*************************************\n')
+        print('HRM is in the beam. Execution aborted')
+        return
+    airpad.set(1)
+    det2.em_range.set(0)
+ 
+    yield from bps.mv(spec.tth, 0)
+    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
+
+    yield from bps.mv(anc_xtal.y, 0.5, whl, 2, anpd, 0)
+    yield from bps.mv(analyzer_slits.top, 2, analyzer_slits.bottom, -2, analyzer_slits.outboard, 2, analyzer_slits.inboard, -2)
+    d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
+    if d21cnt < 1.0e5:
+        print('*************************************\n')
+        print('Low intensity on D21. Execution aborted')
+        yield from bps.mv(anc_xtal.y, acyy, anpd, -90)
+        return
+    return acyy
+
+
+#*******************************************************************************************************
+def mcm_setup_post(y0):
+# Returns the motors to thier previous positions after the MCM and Analyzer Slits setup
+    yield from bps.mv(anc_xtal.y, y0, whl, 0, anpd, -90)
+    yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+
+
+#*******************************************************************************************************
+def mcm_setup(s1=0, s2=0):
+# MCM mirror setup procedure
+# Usage:
+#       if s1 > 0, then execute mcmx alignment, else - skip it
+#       if s2 > 0, then execute mcmy alignment, else - skip it
+    MCM_XPOS = -0.941
+    if s1 == 0 and s2 == 0:
+        print('*************************************\n')
+        print('Usage: mcm_setup(s1,s2)')
+        print('if s1 > 0, then execute mcmx alignment, else - skip it')
+        print('if s2 > 0, then execute mcmy alignment, else - skip it')
+        return
+    acyy = yield from mcm_setup_prep()
+    if not s1 == 0:
+        yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
+        x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
+        xmax = x_pos[0]
+        dxmax = MCM_XPOS - xmax
+        print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
+        kc = 1
+#        while abs(dxmax) > 1.0e-3:
+#        yield from bps.mvr(sample_stage.tx, dxmax)
+#        yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
+#        x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
+#        xmax = x_pos[0]
+#        dxmax = MCM_XPOS - xmax
+#        print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
+#        kc += 1
+#        if kc > 5:
+#            print("Could not set the MCM_X to maximum. Execution aborted")
+#            yield from mcm_setup_post(acyy)
+#            break
+
+
+#*******************************************************************************************************
+def analyzer_slit_scan(mtr, start, stop, gaps):
+#    plt.clf()
+    yield from bps.mv(mtr, 0)
+    yield from bp.rel_scan([det2], mtr, start, stop, gaps)
+    peak_stats = bec.peaks
+    x0 = peak_stats['cen']['det2_current1_mean_value']
+    print('*********************\n')
+    print(f'{mtr.name} position center {x0}\n')
+    if x0 > 1 or x0 < -1:
+        print('*********************************************************\n')
+        print(f'Verify the {mtr.name} data. Execution aborted!')
+    else:
+        yield from bps.mv(mtr, x0)
+        mtr.set_current_position(0)
+
+
+#*******************************************************************************************************
+def san_setup():
+#    acyy = ura_setup_prep()
+    yield from analyzer_slit_scan(analyzer_slits.outboard, -1.2, 1.2, 41)
+    yield from bps.mv(analyzer_slits.outboard, 2)
+
+    yield from analyzer_slit_scan(analyzer_slits.inboard, -1.2, 1.2, 41)
+    yield from bps.mv(analyzer_slits.inboard, -2)
+
+    yield from analyzer_slit_scan(analyzer_slits.top, -1., 1., 41)
+    yield from bps.mv(analyzer_slits.top, 2)
+    
+    yield from analyzer_slit_scan(analyzer_slits.bottom, -1., 1., 41)
+    yield from bps.mv(analyzer_slits.bottom, -2)
+    
+#    ura_setup_post(acyy)
+    print('*****************************************\n')
+    print("Analyzer slits setup finished successfully\n")
+
+
+#*******************************************************************************************************
+def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, sampling=200):
+    """
+    This method gets a table (DataFrame) by using its uid. it finds the maximum value of the curve 
+    under the sampled data by using the maximum y value and its neighboring data samples and then, 
+    applying a polynomial regression over this curve. The model is used as an interpolation approach
+    to generate more points between the original range and to return the x and y values of the
+    maximum point of this new model
+
+    Parameters
+    ----------
+    uid : int, optional
+        id of the scan. The default is -1.
+    x : str, optional
+        label of the x values in the table. The default is "hrmE".
+    channel : str, optional
+        value of the channel with the y values. The default is 7.
+    delta : int, optional
+        total of points to be used on each side of the maximum value to generate the new model. The default is 1.
+    sampling : int, optional
+        total of sampling points to be used for interpolation. The default is 200.
+
+    Raises
+    ------
+    ValueError
+        The selected delta value is too big to be used based on the position of the maximum value in the table.
+
+    Returns
+    -------
+    flaot
+        x value of the maximum value.
+    float
+        y value of the maximum value.
+
+    """
+
+    hdr = db[uid]
+    table = hdr.table()
+    #y = f'lambda_det_stats{channel}_total'
+    
+    #cp_df = df.copy()
+    
+    max_id = table[y].idxmax()
+    
+    # low limit check
+    if max_id >= delta:
+        low_max_id = max_id - delta
+    else:
+        raise ValueError("Delta value is greater than the lower limit of the dataset")
+    
+    # high limit check
+    if max_id < len(table[y])-delta-1:
+        high_max_id = max_id + delta + 1
+    else:
+        raise ValueError("Delta value is greater than the upper limit of the dataset")
+    
+    y_values = table[y][low_max_id:high_max_id]
+    x_values = table[x][low_max_id:high_max_id]
+    
+    model = np.poly1d(np.polyfit(x_values, y_values, 2))
+    
+    resampled_x_values = np.linspace(x_values.iloc[0],x_values.iloc[-1],sampling)
+    resampled_y_values = model(resampled_x_values)
+    
+    resample_df = pd.DataFrame({x:resampled_x_values, y:resampled_y_values})
+    
+    new_max_id = resample_df[y].idxmax()
+    
+    return resample_df[x][new_max_id], resample_df[y][new_max_id]
+
+
+#*******************************************************************************************************
+def LocalBumpSetup():
+#   Adjusts the e-beam local bump, i.e. horizontal position of the x-ray beam on the XBPM1 screen
+#
+#    uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
+#    id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
+#    nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
+    cond1 = strg_ring_orb_fb.uofb_pv.read()['srofb_uofb_pv']['value']
+    cond2 = strg_ring_orb_fb.id_bump_pv.read()['srofb_id_bump_pv']['value']
+    cond3 = strg_ring_orb_fb.nudge_pv.read()['srofb_nudge_pv']['value']
+    pos3 = 0
+    pos5 = 49
+    cenX_target = 395
+    cenY_target = 900
+
+    if cond1 != 2:
+        print("****************** WARNING ******************")
+        print("The UOFB is disabled. Operation is terminated")
+        return
+    if cond2 != 1:
+        print("****************** WARNING ******************")
+        print("The ID Bump is disabled. Operation is terminated")
+        return
+    if cond3 != 1:
+        print("****************** WARNING ******************")
+        print("The Nudge is disabled. Operation is terminated")
+        return
+
+    yield from bps.mv(bpm1_diag, pos5)
+    cam1.cam.acquire_time.set(0.0002)
+    cam1.cam.acquire_period.set(0.5)
+    cam1.cam.num_images.set(1)
+    cam1.cam.image_mode.set(2)
+    cam1.cam.acquire.set(1)
+    cam1.stats1.enable.set(1)
+    cam1.stats1.compute_statistics.set(1)
+    cam1.stats1.compute_centroid.set(1)
+    Imax = cam1.stats1.max_value.get()
+    if Imax < 2000:
+        print('********************************')
+        print('Low image intensity')
+        print('Execution is terminated')
+        return
+    
+    cam1.stats1.centroid_threshold.set(1000)
+    centr = cam1.stats1.centroid.get()
+    print(f'centroid X = {centr[1]:.2f}, target X = {cenX_target}\n')
+    cenX = centr[1]
+    dXc = cenX - cenX_target
+    dThe = 1.e-3*dXc/6.0
+    if abs(dThe) < 0.01:
+        print(f"Calculated horizontal e-beam shift {dThe} mrad")
+        input_opts = input('Do you want to put it in (yes/no): ')
+        if input_opts == 'yes':
+            strg_ring_orb_fb.nudge_increment.set(dThe)
+            strg_ring_orb_fb.horz_plane_nudge.set(1)
+            print('*****************************************')
+            print('Horizontal angle correction was applied\n')
+            print(strg_ring_orb_fb.nudge_status.alarm_status)
+        else:
+            print('*****************************************')
+            print('Correction was canceled\n')
+
+    crl_y_pos = crl.read()['crl_y']['value']
+    if crl_y_pos > 1:
+        print('\n')
+        print('Error: CRL is in the x-ray beam. Vertical beam correction is canceled.\n')
+        return
+
+    print(f'centroid Y = {centr[0]:.2f}, target Y = {cenY_target}\n')
+    cenY = centr[0]
+    dYc = cenY - cenY_target
+    dThe = 1.e-3*dYc/5.0
+    if abs(dThe) < 0.01:
+        print(f"Calculated vertical e-beam shift {dThe} mrad")
+        input_opts = input('Do you want to put it in (yes/no): ')
+        if input_opts == 'yes':
+            strg_ring_orb_fb.nudge_increment.set(dThe)
+            strg_ring_orb_fb.vert_plane_nudge.set(1)
+            print('*****************************************')
+            print('Vertical angle correction was applied\n')
+            print(strg_ring_orb_fb.nudge_status.alarm_status)
+        else:
+            print('*****************************************')
+            print('Correction was canceled\n')
+    
+    update_opts = input('Do you want to move the XBPM1 back (yes/no): ')
+    if update_opts == 'yes':
+        yield from bps.mv(bpm1_diag, pos3)
+
+
+#*******************************************************************************************************
+def ccr_setup_prep():
+# Prepares the URA for the C crystal setup
+    hux = hrm2.read()['hrm2_ux']['value']
+    hdx = hrm2.read()['hrm2_dx']['value']
+    if hux > -5 or hdx > -5:
+        print('*************************************')
+        print('Error: HRM is in the beam. Execution aborted\n')
+        return
+    
+    airpad.set(1)
+    det2.em_range.set(0)
+    yield from bps.mv(spec.tth, 0)
+    acyy = anc_xtal.read()['anc_xtal_y']['value']
+    if acyy < 5:
+        print('*************************************')
+        print('Error: URA Y-position (acyy) is too low. Execution aborted\n')
+        return
+
+    yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
+    d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
+    if d21cnt < 1.0e5:
+        print('****************************************')
+        print('Error: low intensity on D21. Execution aborted\n')
+        yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+        return
+
+
+#*******************************************************************************************************
+def ccr_setup_post():
+#   Recover positions after the C crystal alignment is finished
+    yield from bps.mv(anpd, -90, analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+    
+
+#*******************************************************************************************************
+def ccr_the_setup():
+#   Performs C crystal theta alignment
+    x0 = 10
+    kxmov = 0
+    while abs(x0) > 5 and kxmov < 5:
+        yield from bp.rel_scan([det2], analyzer.cfth, -150, 150, 31)
+        peak_stats = bec.peaks
+        x0 = peak_stats['cen']['det2_current1_mean_value']
+        x_deg = -np.rad2deg(1.e-6*x0)
+        yield from bps.mvr(anc_xtal.the, x_deg)
+        kxmov += 1
+
+    return kxmov
+
+
+#*******************************************************************************************************
+def ccr_setup(s1=0, s2=0, s3=0):
+#   C crystal alignment, namely the-position, analyzer vertical position and chi-position
+    
+    if s1 == 0 and s2 == 0 and s3 == 0:
+        print("\n")
+        print("Usage: ccr_setup(s1, s2, s3)")
+        print("if s1 > 0, then execute acthe alignment, else - skip")
+        print("if s2 > 0, then execute acyy alignment, else - skip")
+        print("if s3 > 0, then execute cchi alignment, else - skip")
+        return
+    
+    yield from ccr_setup_prep()
+
+    # C crystal Theta alignment
+    if s1 != 0:
+        print('\n')
+        print('Setting up the C crystal The-position\n')
+        det2.em_range.set(0)
+        sleep(1)
+        yield from bps.mv(whl, 0, anpd, 40)
+        kxmov = yield from ccr_the_setup()
+        if kxmov > 5:
+            print('\n')
+            print('************************************')
+            print('Error: C crystal The-positioning. Execution aborted\n')
+            return
+        
+    # C crystal Y alignment
+    if s2 != 0:
+        print('\n')
+        print('Setting up the C crystal Y-position\n')
+        det2.em_range.set(1)
+        sleep(1)
+        yield from bps.mv(whl, 2, anpd, -145)
+        yield from bps.mv(analyzer_slits.top, 0.04, analyzer_slits.bottom, -0.04)
+        yield from bp.rel_scan([det2], anc_xtal.y, -0.3, 0.3, 61)
+        peak_stats = bec.peaks
+        p_max = peak_stats['max']['det2_current1_mean_value'][1]
+        p_min = peak_stats['min']['det2_current1_mean_value'][1]
+        dp = p_max - p_min
+        if dp < 1.e3:
+            print('\n')
+            print('Error: acyy position maximum not found. Execution aborted\n')
+            yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1)
+            return
+        
+        p_com = peak_stats['com']['det2_current1_mean_value']
+        yield from bps.mv(anc_xtal.y, p_com)
+        yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1)
+
+    # C crystal Chi alignment
+    if s3 != 0:
+        print('\n')
+        print('Setting up the C crystal Chi-position\n')
+        yield from bps.mv(whl, 0, anpd, -145)
+        det2.em_range.set(0)
+        sleep(1)
+        yield from bps.mvr(anc_xtal.y, 0.6)
+        yield from bps.mv(analyzer_slits.outboard, 0.5, analyzer_slits.inboard, -0.5)
+        d22cnt = det2.current2.mean_value.read()['det2_current2_mean_value']['value']
+        if d22cnt < 1.e5:
+            print('\n')
+            print('Error: low intensity on d22. Verify acchi manually. Execution aborted\n')
+            return
+        
+        yield from bp.rel_scan([det2], analyzer.cchi, -0.15, 0.15, 31)
+        yield from bps.mvr(analyzer.cchi, -0.15)
+        peak_stats = bec.peaks
+        x0 = peak_stats['cen']['det2_current2_mean_value']
+        yield from bps.mv(analyzer.cchi, x0)
+        yield from bps.mv(analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
+
+        # Re-checking C crystal The-position
+
+        yield from bps.mv(anpd, 40)
+        kxmov = yield from ccr_the_setup()
+        if kxmov > 5:
+            print('\n')
+            print('************************************')
+            print('Error: C crystal The-positioning. Execution aborted\n')
+            return
+        
+    yield from ccr_setup_post
+    print('\n')
+    print('C crystal alignment finished\n')
+
+
+#*******************************************************************************************************
+def wcr_setup():
+#   Performs W crystal alignment
+    yield from bps.mv(anpd, -90, whl, 7, analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
+    yield from set_lambda_exposure(1)
+    yield from bp.rel_scan([det2], analyzer.wfth, -20, 20, 41)
+    x_pos = calculate_max_value(x="analyzer.wfth", sampling=100)
+    yield from bps.mvr(analyzer.wfth, -20)
+    yield from bps.mv(analyzer.wfth, x_pos)
+    print('\n')
+    print('W crystal alignment finished\n')
+
+
+#*******************************************************************************************************
+def hrm_in():
+#   Moves HRM into the x-ray beam
+    yield from bps.mv(hrm2.ux, 0, hrm2.dx, 0, hrm2.bs, 3)
+
+
+#*******************************************************************************************************
+def hrm_out():
+#   Moves HRM out of the x-ray beam
+    yield from bps.mv(hrm2.ux, -20, hrm2.dx, -20, hrm2.bs, 0)
+
+
+#*******************************************************************************************************
+def hrm_setup():
+#   Performs HRM crystals alignment
+    det4.em_range.set(0)
+    det4.acquire_mode.set(0)
+    det4.averaging_time.set(0.5)
+    det5.em_range.set(0)
+    det5.acquire_mode.set(0)
+    det5.averaging_time.set(0.5)
+    sleep(1)
+
+    yield from hrm_in()
+    yield from bps.mv(hrmE, 0, hrm2.d1, 0)
+    yield from bps.mv(s1.top, 0.5, s1.bottom, -0.5, s1.outboard, 1, s1.inboard, -1)
+    yield from bps.mv(hrm2.d2, 1, hrm2.d4, 0.7)
+    yield from bps.mv(hrm2.d3, 2, hrm2.d5, 2)
+    
+    # 1st crystal alignment
+    yield from bp.rel_scan([det4], hrm2.uth, -0.05, 0.05, 51)
+    peak_stats = bec.peaks
+    x_com = peak_stats['com']['det4_current2_mean_value']
+    x_cen = peak_stats['cen']['det4_current2_mean_value']
+    x_fwhm = peak_stats['fwhm']['det4_current2_mean_value']
+    if abs(x_com-x_cen)/x_fwhm > 0.3:
+        print('\n')
+        print('Error: 1st crystal peak not found. Execution terminated.\n')
+        return
+    yield from bps.mv(hrm2.uth, x_cen, hrm2.d2, 0)
+
+    # 2nd crystal alignment
+    yield from bp.rel_scan([det4], hrm2.uif, -70, 70, 51)
+    peak_stats = bec.peaks
+    x_com = peak_stats['com']['det4_current3_mean_value']
+    x_cen = peak_stats['cen']['det4_current3_mean_value']
+    x_fwhm = peak_stats['fwhm']['det4_current3_mean_value']
+    if abs(x_com-x_cen)/x_fwhm > 0.3:
+        print('\n')
+        print('Error: 2nd crystal peak not found. Execution terminated.\n')
+        return
+    yield from bps.mv(hrm2.uif, x_cen, hrm2.d3, 0)
+
+    # 3rd crystal alignment
+    yield from bp.rel_scan([det4], hrm2.dth, -0.01, 0.01, 51)
+    peak_stats = bec.peaks
+    x_com = peak_stats['com']['det4_current4_mean_value']
+    x_cen = peak_stats['cen']['det4_current4_mean_value']
+    x_fwhm = peak_stats['fwhm']['det4_current4_mean_value']
+    if abs(x_com-x_cen)/x_fwhm > 0.3:
+        print('\n')
+        print('Error: 3rd crystal peak not found. Execution terminated.\n')
+        return
+    yield from bps.mv(hrm2.dth, x_cen, hrm2.d4, 0)
+
+    # 4th crystal alignment
+    yield from bp.rel_scan([det4], hrm2.dif, -70, 70, 51)
+    peak_stats = bec.peaks
+    x_com = peak_stats['com']['det5_current1_mean_value']
+    x_cen = peak_stats['cen']['det5_current1_mean_value']
+    x_fwhm = peak_stats['fwhm']['det5_current1_mean_value']
+    if abs(x_com-x_cen)/x_fwhm > 0.3:
+        print('\n')
+        print('Error: 4th crystal peak not found. Execution terminated.\n')
+        return
+    yield from bps.mv(hrm2.dif, x_cen, hrm2.d5, 0)
+
+

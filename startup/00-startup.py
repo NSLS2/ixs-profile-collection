@@ -7,7 +7,8 @@ import nslsii
 nslsii.configure_base(
     get_ipython().user_ns,
     'ixs',
-    publish_documents_with_kafka=False
+    publish_documents_with_kafka=False,
+    call_returns_result=True
 )
 
 # After the above call, you will now have the following in your namespace:
@@ -45,6 +46,8 @@ from bluesky.callbacks.broker import verify_files_saved
 # import logging
 # ophyd.logger.setLevel(logging.DEBUG)
 # logging.basicConfig(level=logging.DEBUG)
+
+bec.disable_plots()
 
 # New figure title so no overplot.
 def relabel_fig(fig, new_label):

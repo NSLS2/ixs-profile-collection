@@ -1,4 +1,4 @@
-from ophyd import (Component as Cpt, Device, EpicsMotor)
+from ophyd import (Component as Cpt, Device, EpicsMotor, EpicsSignal)
 
 # List of available EpicsMotor labels in this script
 # [analyzer, spectrometer, analyzerdxtals, analyzerslits, mcmslits, samplestage, whl, anapd, anpd]
@@ -46,10 +46,10 @@ class AnalyzerSlits(Device):
 
 
 class MCMSlits(Device):
-    top = Cpt(EpicsMotor, '6-Ax:3}Mtr', labels=('mcmslits',))
-    bottom = Cpt(EpicsMotor, '6-Ax:4}Mtr', labels=('mcmslits',))
-    inboard = Cpt(EpicsMotor,  '7-Ax:1}Mtr', labels=('mcmslits',))
-    outboard = Cpt(EpicsMotor,  '7-Ax:2}Mtr', labels=('mcmslits',))
+ #   top = Cpt(EpicsMotor, '6-Ax:3}Mtr', labels=('mcmslits',))
+ #   bottom = Cpt(EpicsMotor, '6-Ax:4}Mtr', labels=('mcmslits',))
+    inboard = Cpt(EpicsMotor,  '-Ax:Xi}Mtr', labels=('mcmslits',))
+    outboard = Cpt(EpicsMotor,  '-Ax:Xo}Mtr', labels=('mcmslits',))
 
 
 class SampleStage(Device):
@@ -65,11 +65,13 @@ analyzer = Analyzer('XF:10IDD', name='analyzer')
 spec = Spectrometer('XF:10IDD', name='spec')
 analyzer_xtals = AnalyzerDXtals('XF:10IDD-ES{Ez4:', name='analyzer_xtals')
 analyzer_slits = AnalyzerSlits('XF:10IDD-ES{Ez4:', name='analyzer_slits')
-mcm_slits = MCMSlits('XF:10IDD-OP{Ez4:', name='mcm_slits')
+mcm_slits = MCMSlits('XF:10IDD-OP{MCMSlt1', name='mcmslits')
 sample_stage = SampleStage('XF:10IDD-OP', name='s')
 
 whl = EpicsMotor('XF:10IDD-OP{Abs:1-Ax:Wheel}Mtr', name='whl', labels=('whl',))
 
 anapd = EpicsMotor('XF:10IDD-ES{Ez4:8-Ax:3}Mtr', name='anapd', labels=('anapd',))
 anpd = EpicsMotor('XF:10IDD-ES{Ez4:5-Ax:1}Mtr', name='anpd', labels=('anpd',))
+airpad = EpicsSignal("XF:10IDD-CT{IOC-MC:12}AirOn-cmd", name="airpad")
+
 # name_you_want = EpicsMotor(PVNAME_BASE, name='name_you_want')
