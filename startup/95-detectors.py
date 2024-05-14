@@ -36,5 +36,3 @@ for j in range(1, 33):
 sclr.channels.chan21.name = 'I0'
 sclr.channels.chan21.kind = 'hinted'
 
-
-    

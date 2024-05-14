@@ -12,12 +12,8 @@ from tabulate import tabulate
 
 
 #*******************************************************************************************************
-def myplot():
 # opens a Matplotlib figure with axes
-    global myfig, myaxs
-    fig, ax = plt.subplots(figsize=(8,6))
-    myfig = fig
-    myaxs = ax
+myfig, myaxs = plt.subplots(figsize=(8,5), num=1)
 
 
 #*******************************************************************************************************

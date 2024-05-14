@@ -4,6 +4,20 @@ import bluesky.plan_stubs as bps
 from bluesky.callbacks.fitting import PeakStats
 
 
+#*******************************************************************************************************
+def dscan(det, mot, start, stop, steps):
+#   performs DSCAN of a notor MOT and plots output of detector DET
+    
+    if len(det_channel_picks) == 0:
+        plan = bp.rel_scan([det], ixs4c.omega, start, stop, steps)
+    else:
+        plt.cla()
+        plot_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
+        plan = bpp.subs_wrapper(
+             bp.rel_scan([det], ixs4c.omega, start, stop, steps), plot_list)
+    yield from plan
+
+#*******************************************************************************************************
 def dcm_setup():
     det = tm1
     yname = tm1.sum_all.mean_value.name
@@ -22,14 +36,17 @@ def dcm_setup():
         print("Do not think we found a peak. Motor not moved!")
 
 
+#*******************************************************************************************************
 def hrm_in():
     yield from bps.mv(hrm2.ux, 0, hrm2.dx, 0, hrm2.bs, 3)
 
 
+#*******************************************************************************************************
 def hrm_out():
     yield from bps.mv(hrm2.ux, -20, hrm2.dx, -20, hrm2.bs, 0)
 
 
+#*******************************************************************************************************
 def qq2th(Qq,En=9.1317):
     # Calculates scattering TH-angle from the Q-value. Energy En is set in keV.
     if En > 15.0:
@@ -41,6 +58,7 @@ def qq2th(Qq,En=9.1317):
     return Th
 
 
+#*******************************************************************************************************
 def th2qq(Th,En=9.1317):
     # Calculates the Q-value from the scattering TH-angle. Energy En is set in keV.
     if En > 15.0:
@@ -58,6 +76,7 @@ def th2qq(Th,En=9.1317):
 #    yield from bps.mv(lambda_det.cam.acquire_period, t*0.995)
 
 
+#*******************************************************************************************************
 def hrmE_dscan(start, stop, steps, exp_time, md=None):
     """
     Run a relative (delta) hmre scan with lambda and scalar
@@ -83,6 +102,7 @@ def hrmE_dscan(start, stop, steps, exp_time, md=None):
     )
 
 
+#*******************************************************************************************************
 def hrmE_ascan(start, stop, steps, exp_time, md=None):
     """
     Run a absolute hmre scan with lambda and scalar
@@ -106,3 +126,4 @@ def hrmE_ascan(start, stop, steps, exp_time, md=None):
     return (
         yield from bp.scan([lambda_det], hrmE, start, stop, steps, md=md)
     )
+

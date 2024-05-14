@@ -18,17 +18,23 @@ from tabulate import tabulate
 # nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
 
 def peaks_stats_print(dets_name, peak_stats):
-    headers = ["com","cen","max","min","fwhm"]
-    data = []
-    for p in range(5):
-        data.append(peak_stats[headers[p]][dets_name])
 
-    data[2] = peak_stats[headers[2]][dets_name][1]
-    data[3] = peak_stats[headers[3]][dets_name][1]
-    print('\n')
-    print('*******************************************************')
-    print(tabulate([data], headers))
-    print('*******************************************************\n')
+#    headers = ["com","cen","fwhm","max","min"]
+    print(dets_name)
+#    print(peak_stats)
+
+    print(f"COM: {peak_stats['stats'].com:.3f}")
+    print(f"CEN: {peak_stats['stats'].cen:.3f}")
+    print(f"FWHM: {peak_stats['stats'].fwhm:.3f}")
+    print(f"MAX: {peak_stats['stats'].max[1]:.1f} at {peak_stats['stats'].max[0]:.3f}")
+    print(f"MIN: {peak_stats['stats'].min[1]:.1f} at {peak_stats['stats'].min[0]:.3f}")
+
+#    data[2] = peak_stats[headers[2]][dets_name][1]
+#    data[3] = peak_stats[headers[3]][dets_name][1]
+#    print('\n')
+#    print('*******************************************************')
+#    print(tabulate([data], headers))
+#    print('*******************************************************\n')
 
 
 def align_with_fit(dets, mtr, start, stop, gaps, mode='rel', md=None):
@@ -189,12 +195,33 @@ def Peak_Test(det, mot, det_channel_picks=[]):
     #      bp.rel_scan([det1], ixs4c.omega, -5, 5, 5), 
     #      LivePlot(det1.hints['fields'][0], ixs4c.omega.name)
     #         )
+#    if not plt.fignum_exists(1):
+#        plt.subplots(figsize=(8,5), num=1)
+#    else:
+    plt.cla()
+    
     if len(det_channel_picks) == 0:
         plan = bp.rel_scan([det], ixs4c.omega, -5, 5, 5)
     else:
-        plot_list = [LivePlot(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
+#        local_peaks = []
+#        for det in dets:
+#        subs_list = [LivePlot(det.hints['fields'][det_channel], mot.name, ax=plt.gca()) for det_channel in  det_channel_picks]
+        subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
+        stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
+        subs_list.extend(stats_list)
+
+#        plot_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
+#        pstats = PeakStats(mot.name, det.hints['fields'][det_channel_picks])
+        
         plan = bpp.subs_wrapper(
-             bp.rel_scan([det], ixs4c.omega, -5, 5, 5), plot_list)
+             bp.rel_scan([det], ixs4c.omega, -5, 5, 5), subs_list)
+        
     yield from plan
+
+    for n in range(len(det_channel_picks)):
+        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
+        print("\n")
+
+#    print(stats_list)
 #     local_peaks = yield from align_with_fit([det1], ixs4c.omega, -5, 5, 5, LivePlot())
-#    return local_peaks
+#    return stats_list
