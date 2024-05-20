@@ -24,6 +24,51 @@ def plotselect(det_name, mot_name):
 
 
 #*******************************************************************************************************
+def dscan(mot, start, stop, steps, det, det_channel=[]):
+# performs relative scan of a detector DET channel 
+    plt.cla()
+    
+    if len(det_channel) == 0:
+        subs_list = PeakStats(mot.name, det.hints['fields'])
+    else:
+        subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel]
+        stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel]
+        subs_list.extend(stats_list)
+    
+    plan = bpp.subs_wrapper(bp.rel_scan([det], mot, start, stop, steps), subs_list)
+        
+    yield from plan
+
+    for n in range(len(det_channel)):
+        peaks_stats_print(det.hints['fields'][det_channel[n]], stats_list[n])
+        print("\n")
+
+#    print(stats_list)
+#     local_peaks = yield from align_with_fit([det1], ixs4c.omega, -5, 5, 5, LivePlot())
+#    return stats_list
+
+
+#*******************************************************************************************************
+def ascan(mot, start, stop, steps, det, det_channel=[]):
+# performs relative scan of a detector DET channel 
+    plt.cla()
+    
+    if len(det_channel) == 0:
+        subs_list = PeakStats(mot.name, det.hints['fields'])
+    else:
+        subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel]
+        stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel]
+        subs_list.extend(stats_list)
+    
+    plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps), subs_list)
+        
+    yield from plan
+
+    for n in range(len(det_channel)):
+        peaks_stats_print(det.hints['fields'][det_channel[n]], stats_list[n])
+        print("\n")
+
+#*******************************************************************************************************
 def gaussian(x, A, sigma, x0):
     return A*np.exp(-(x - x0)**2/(2 * sigma**2))
 
@@ -426,11 +471,11 @@ def LocalBumpSetup():
             print('Correction was canceled\n')
 
     crl_y_pos = crl.read()['crl_y']['value']
-    if crl_y_pos > 1:
+    if crl_y_pos < 1:
         print('\n')
         print('Error: CRL is in the x-ray beam. Vertical beam correction is canceled.\n')
         return
-
+    
     print(f'centroid Y = {centr[0]:.2f}, target Y = {cenY_target}\n')
     cenY = centr[0]
     dYc = cenY - cenY_target
