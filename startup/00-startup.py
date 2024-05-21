@@ -48,6 +48,7 @@ from bluesky.callbacks.broker import verify_files_saved
 # logging.basicConfig(level=logging.DEBUG)
 
 bec.disable_plots()
+#bec.enable_plots()
 
 # New figure title so no overplot.
 def relabel_fig(fig, new_label):

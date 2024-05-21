@@ -5,19 +5,6 @@ from bluesky.callbacks.fitting import PeakStats
 
 
 #*******************************************************************************************************
-def dscan(det, mot, start, stop, steps):
-#   performs DSCAN of a notor MOT and plots output of detector DET
-    
-    if len(det_channel_picks) == 0:
-        plan = bp.rel_scan([det], ixs4c.omega, start, stop, steps)
-    else:
-        plt.cla()
-        plot_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-        plan = bpp.subs_wrapper(
-             bp.rel_scan([det], ixs4c.omega, start, stop, steps), plot_list)
-    yield from plan
-
-#*******************************************************************************************************
 def dcm_setup():
     det = tm1
     yname = tm1.sum_all.mean_value.name
@@ -98,6 +85,7 @@ def hrmE_dscan(start, stop, steps, exp_time, md=None):
 
     yield from set_lambda_exposure(exp_time)
     return (
+#        yield from dscan(hrmE, start, stop, steps, [lambda_det], det_channel=[6])
         yield from bp.rel_scan([lambda_det], hrmE, start, stop, steps, md=md)
     )
 

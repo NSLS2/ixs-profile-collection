@@ -9,4 +9,4 @@ class URATemperature(Device):
     d5temp = Cpt(EpicsSignal, '05}PID.VAL', labels=("DxtalTemp", ))
     d6temp = Cpt(EpicsSignal, '06}PID.VAL', labels=("DxtalTemp", ))
 
-ura_temp = URATemperature("XF:10ID-CT{FbPid:", name="uratemperature")
+ura_temp = URATemperature("XF:10IDD-CT{EPid:", name="uratemperature")

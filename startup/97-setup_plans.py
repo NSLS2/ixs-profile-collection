@@ -19,28 +19,34 @@ myfig, myaxs = plt.subplots(figsize=(8,5), num=1)
 #*******************************************************************************************************
 def plotselect(det_name, mot_name):
 # creates a LivePlot object with given paramaters
-    myplt = LivePlot(det_name, x=mot_name, marker='*', markersize=10, ax=myaxs)
+    myplt = LivePlot(det_name, x=mot_name, marker='o', markersize=6, ax=myaxs)
     return myplt
 
 
 #*******************************************************************************************************
-def dscan(mot, start, stop, steps, det, det_channel=[]):
+def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
 # performs relative scan of a detector DET channel 
     plt.cla()
     
-    if len(det_channel) == 0:
-        subs_list = PeakStats(mot.name, det.hints['fields'])
-    else:
-        subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel]
-        stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel]
-        subs_list.extend(stats_list)
-    
+#    if len(det_channel_picks) == 0:
+#        subs_list = PeakStats(mot.name, det.hints['fields'])
+#        subs_list = [plotselect(det.hints['fields'][0], mot.name)]
+#        stats_list = [PeakStats(mot.name, det.hints['fields'][0])]
+#    else:
+    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
+    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
+
+    subs_list.extend(stats_list)
     plan = bpp.subs_wrapper(bp.rel_scan([det], mot, start, stop, steps), subs_list)
         
     yield from plan
 
-    for n in range(len(det_channel)):
-        peaks_stats_print(det.hints['fields'][det_channel[n]], stats_list[n])
+#    if len(det_channel_picks) == 0:
+#        peaks_stats_print(det.hints['fields'], stats_list)
+#        print("\n")
+#    else:
+    for n in range(len(det_channel_picks)):
+        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
         print("\n")
 
 #    print(stats_list)
@@ -49,23 +55,23 @@ def dscan(mot, start, stop, steps, det, det_channel=[]):
 
 
 #*******************************************************************************************************
-def ascan(mot, start, stop, steps, det, det_channel=[]):
+def ascan(mot, start, stop, steps, det, det_channel_picks=[]):
 # performs relative scan of a detector DET channel 
     plt.cla()
     
-    if len(det_channel) == 0:
+    if len(det_channel_picks) == 0:
         subs_list = PeakStats(mot.name, det.hints['fields'])
     else:
-        subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel]
-        stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel]
+        subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
+        stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
         subs_list.extend(stats_list)
     
     plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps), subs_list)
         
     yield from plan
 
-    for n in range(len(det_channel)):
-        peaks_stats_print(det.hints['fields'][det_channel[n]], stats_list[n])
+    for n in range(len(det_channel_picks)):
+        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
         print("\n")
 
 #*******************************************************************************************************
@@ -144,24 +150,27 @@ def GCarbon_Qscan(exp_time=2):
     Qq = [1.2]
     yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
     yield from bps.mv(anapd, 25, whl, 0)
-    myplt = plotselect('lambda_det_stats7_total', hrmE.name)
-    plt.clf()
+#    myplt = plotselect('lambda_det_stats7_total', hrmE.name)
+    plt.cla()
 
     for kk in range(1):
         for q in Qq:
             th = qq2th(q)
             yield from bps.mv(spec.tth, th)
-            yield from hrmE_dscan(-10, 10, 100, exp_time)
-            peak_stats = bec.peaks
-            headers = ["com","cen","max","min","fwhm"]
-            data = []
-            for p in range(5):
-                data.append(peak_stats[headers[p]]['lambda_det_stats7_total'])
+            yield from set_lambda_exposure(exp_time)
+            yield from dscan(hrmE, -10, 10, 100, lambda_det)
 
-            data[2] = peak_stats[headers[2]]['lambda_det_stats7_total'][1]
-            data[3] = peak_stats[headers[3]]['lambda_det_stats7_total'][1]
+#            yield from hrmE_dscan(-10, 10, 100, exp_time)
+#            peak_stats = bec.peaks
+#            headers = ["com","cen","max","min","fwhm"]
+#            data = []
+#            for p in range(5):
+#                data.append(peak_stats[headers[p]]['lambda_det_stats7_total'])#
 
-            print(tabulate([data], headers))
+#            data[2] = peak_stats[headers[2]]['lambda_det_stats7_total'][1]
+#            data[3] = peak_stats[headers[3]]['lambda_det_stats7_total'][1]
+
+#            print(tabulate([data], headers))
 
 
 #*******************************************************************************************************
@@ -187,7 +196,7 @@ def DxtalTempCalc(uid=-1):
             return
         
         dE.append(fit_par['x0'])
-
+    
     dE = [x-dE[0] for x in dE]
     dTe = [1.e-3*x/E0/bet for x in dE]
     dTh = [-1.e3*x*np.tan(np.radians(TH))/E0 for x in dE]

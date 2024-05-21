@@ -201,26 +201,27 @@ def Peak_Test(det, mot, det_channel_picks=[]):
     plt.cla()
     
     if len(det_channel_picks) == 0:
-        plan = bp.rel_scan([det], ixs4c.omega, -5, 5, 5)
+#        plan = bp.rel_scan([det], ixs4c.omega, -5, 5, 5)
+#        subs_list = [plotselect(det.hints['fields'], mot.name)]
+#        stats_list = [PeakStats(mot.name, det.hints['fields'])]
+        subs_list = [LivePlot(det.hints['fields'][0], x=mot.name, marker='*', markersize=10, ax=myaxs)]
+        stats_list = [PeakStats(mot.name, det.hints['fields'][0])]
     else:
 #        local_peaks = []
 #        for det in dets:
 #        subs_list = [LivePlot(det.hints['fields'][det_channel], mot.name, ax=plt.gca()) for det_channel in  det_channel_picks]
         subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
         stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
-        subs_list.extend(stats_list)
 
-#        plot_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-#        pstats = PeakStats(mot.name, det.hints['fields'][det_channel_picks])
-        
-        plan = bpp.subs_wrapper(
+    subs_list.extend(stats_list)
+    plan = bpp.subs_wrapper(
              bp.rel_scan([det], ixs4c.omega, -5, 5, 5), subs_list)
         
     yield from plan
-
-    for n in range(len(det_channel_picks)):
-        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
-        print("\n")
+    if len(det_channel_picks) > 0:
+        for n in range(len(det_channel_picks)):
+            peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
+            print("\n")
 
 #    print(stats_list)
 #     local_peaks = yield from align_with_fit([det1], ixs4c.omega, -5, 5, 5, LivePlot())
