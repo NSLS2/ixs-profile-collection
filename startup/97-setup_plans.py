@@ -28,11 +28,6 @@ def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
 # performs relative scan of a detector DET channel 
     plt.cla()
     
-#    if len(det_channel_picks) == 0:
-#        subs_list = PeakStats(mot.name, det.hints['fields'])
-#        subs_list = [plotselect(det.hints['fields'][0], mot.name)]
-#        stats_list = [PeakStats(mot.name, det.hints['fields'][0])]
-#    else:
     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
 
@@ -41,10 +36,6 @@ def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
         
     yield from plan
 
-#    if len(det_channel_picks) == 0:
-#        peaks_stats_print(det.hints['fields'], stats_list)
-#        print("\n")
-#    else:
     for n in range(len(det_channel_picks)):
         peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
         print("\n")
@@ -55,17 +46,14 @@ def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
 
 
 #*******************************************************************************************************
-def ascan(mot, start, stop, steps, det, det_channel_picks=[]):
+def ascan(mot, start, stop, steps, det, det_channel_picks=[0]):
 # performs relative scan of a detector DET channel 
     plt.cla()
     
-    if len(det_channel_picks) == 0:
-        subs_list = PeakStats(mot.name, det.hints['fields'])
-    else:
-        subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-        stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
-        subs_list.extend(stats_list)
-    
+    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
+    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
+
+    subs_list.extend(stats_list)
     plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps), subs_list)
         
     yield from plan
