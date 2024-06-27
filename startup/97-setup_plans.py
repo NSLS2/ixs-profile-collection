@@ -17,6 +17,41 @@ myfig, myaxs = plt.subplots(figsize=(8,5), num=1)
 
 
 #*******************************************************************************************************
+def peaks_stats_print(dets_name, peak_stats):
+
+#    headers = ["com","cen","fwhm","max","min"]
+    print(dets_name)
+#    print(peak_stats)
+    COM = peak_stats['stats'].com
+    if COM == None:
+        print(f"COM: None")
+    else:
+        print(f"COM: {COM:.3f}")
+
+    CEN = peak_stats['stats'].cen
+    if CEN == None:
+        print(f"CEN: None")
+    else:
+        print(f"CEN: {CEN:.3f}")
+
+    FWHM = peak_stats['stats'].fwhm
+    if FWHM == None:
+        print(f"FWHM: None")
+    else:
+        print(f"FWHM: {FWHM:.3f}")
+
+    print(f"MAX: {peak_stats['stats'].max[1]:.1f} at {peak_stats['stats'].max[0]:.3f}")
+    print(f"MIN: {peak_stats['stats'].min[1]:.1f} at {peak_stats['stats'].min[0]:.3f}")
+
+#    data[2] = peak_stats[headers[2]][dets_name][1]
+#    data[3] = peak_stats[headers[3]][dets_name][1]
+#    print('\n')
+#    print('*******************************************************')
+#    print(tabulate([data], headers))
+#    print('*******************************************************\n')
+
+
+#*******************************************************************************************************
 def plotselect(det_name, mot_name):
 # creates a LivePlot object with given paramaters
     myplt = LivePlot(det_name, x=mot_name, marker='o', markersize=6, ax=myaxs)
@@ -26,7 +61,7 @@ def plotselect(det_name, mot_name):
 #*******************************************************************************************************
 def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
 # performs relative scan of a detector DET channel 
-    plt.cla()
+    myaxs.clear()
     
     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
@@ -36,19 +71,18 @@ def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
         
     yield from plan
 
+    print('\n')
     for n in range(len(det_channel_picks)):
         peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
         print("\n")
 
-#    print(stats_list)
-#     local_peaks = yield from align_with_fit([det1], ixs4c.omega, -5, 5, 5, LivePlot())
-#    return stats_list
+    return stats_list
 
 
 #*******************************************************************************************************
 def ascan(mot, start, stop, steps, det, det_channel_picks=[0]):
 # performs relative scan of a detector DET channel 
-    plt.cla()
+    myaxs.clear()
     
     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
@@ -61,6 +95,9 @@ def ascan(mot, start, stop, steps, det, det_channel_picks=[0]):
     for n in range(len(det_channel_picks)):
         peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
         print("\n")
+    
+    return stats_list
+
 
 #*******************************************************************************************************
 def gaussian(x, A, sigma, x0):
@@ -88,9 +125,9 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
     for name, doc in hdr.documents():
         lf(name, doc)
     gauss = gaussian(table[x], **lf.result.values)
-    plt.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
-    plt.plot(table[x], gauss.values, label=f"gaussian fit {channel}")
-    plt.legend()
+    myaxs.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
+    myaxs.plot(table[x], gauss.values, label=f"gaussian fit {channel}")
+    myaxs.legend()
     return lf.result.values
 
 
@@ -139,7 +176,7 @@ def GCarbon_Qscan(exp_time=2):
     yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
     yield from bps.mv(anapd, 25, whl, 0)
 #    myplt = plotselect('lambda_det_stats7_total', hrmE.name)
-    plt.cla()
+    myaxs.cla()
 
     for kk in range(1):
         for q in Qq:
@@ -174,7 +211,7 @@ def DxtalTempCalc(uid=-1):
 
     bet = C1*(1 - np.exp(-C2*(T0-T1))) + C3*T0
     dE = []
-    plt.clf()
+    myaxs.cla()
     for n in range(1,7):
         fit_par = calc_lmfit(uid, channel=n)
         if fit_par['A'] < 100:
@@ -405,6 +442,18 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 
 
 #*******************************************************************************************************
+def ugap_setup():
+#   Scans the ID gap and sets it to max
+    det = tm1
+    yname = tm1.sum_all.mean_value.name
+    yield from bp.rel_scan([det], ivu22, -20, 20, 20)
+    x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
+    yield from bps.mv(ivu22, x_pos)
+    print('\n')
+    print('ID gap alignment finished\n')
+
+
+#*******************************************************************************************************
 def LocalBumpSetup():
 #   Adjusts the e-beam local bump, i.e. horizontal position of the x-ray beam on the XBPM1 screen
 #
@@ -416,8 +465,8 @@ def LocalBumpSetup():
     cond3 = strg_ring_orb_fb.nudge_pv.read()['srofb_nudge_pv']['value']
     pos3 = 0
     pos5 = 49
-    cenX_target = 395
-    cenY_target = 900
+    cenX_target = 387
+    cenY_target = 904
 
     if cond1 != 2:
         print("****************** WARNING ******************")
@@ -461,7 +510,9 @@ def LocalBumpSetup():
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.horz_plane_nudge.set(1)
             print('*****************************************')
-            print('Horizontal angle correction was applied\n')
+            xtarget = strg_ring_orb_fb.xa_rbv.read()
+            val = 1.e3*xtarget['srofb_xa_rbv']['value']
+            print(f'Horizontal angle correction was applied. New value {val:0.1f} urad\n')
             print(strg_ring_orb_fb.nudge_status.alarm_status)
         else:
             print('*****************************************')
@@ -476,7 +527,7 @@ def LocalBumpSetup():
     print(f'centroid Y = {centr[0]:.2f}, target Y = {cenY_target}\n')
     cenY = centr[0]
     dYc = cenY - cenY_target
-    dThe = 1.e-3*dYc/5.0
+    dThe = -1.e-3*dYc/5.0
     if abs(dThe) < 0.01:
         print(f"Calculated vertical e-beam shift {dThe} mrad")
         input_opts = input('Do you want to put it in (yes/no): ')
@@ -484,7 +535,9 @@ def LocalBumpSetup():
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.vert_plane_nudge.set(1)
             print('*****************************************')
-            print('Vertical angle correction was applied\n')
+            ytarget = strg_ring_orb_fb.xy_rbv.read()
+            val = 1.e3*ytarget['srofb_xy_rbv']['value']
+            print('Vertical angle correction was applied. New value {val:0.1f} urad\n')
             print(strg_ring_orb_fb.nudge_status.alarm_status)
         else:
             print('*****************************************')
@@ -724,3 +777,7 @@ def hrm_setup():
     yield from bps.mv(hrm2.dif, x_cen, hrm2.d5, 0)
 
 
+#*******************************************************************************************************
+def gap_scan():
+# scans the ID gap
+    yield from dscan(ivu22, -10, 10, 10, tm1)

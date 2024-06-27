@@ -52,13 +52,18 @@ class FESlits(Slit2DBlades, Slit2D):
 
 # TODO: revisit the IVU as a PseudoPositioner
 class Undulator(PVPositioner):
-    setpoint = Cpt(EpicsSignal, '}Man:SP:Gap')
+    # setpoint = Cpt(EpicsSignal, '}Man:SP:Gap')
+    setpoint = Cpt(EpicsSignal, '-Ax:Gap}-Mtr-SP')
     # Note: there are actually 2 readbacks for gap position, Y1 & Y2.
     # This should be fixed at the EPICS level to provide an avg gap
-    readback = Cpt(EpicsSignalRO, '}Y1:Rbv')
-    actuate = Cpt(EpicsSignal, '}ManG:Go_.PROC')
-    done = Cpt(EpicsSignalRO, '-Mtr:Gap}.DMOV')
-    stop_signal = Cpt(EpicsSignal, '}Man:Stop_.PROC')
+    # readback = Cpt(EpicsSignalRO, '}Y1:Rbv')
+    readback = Cpt(EpicsSignalRO, '-Ax:Gap}-Mtr.RBV')
+    # actuate = Cpt(EpicsSignal, '}ManG:Go_.PROC')
+    actuate = Cpt(EpicsSignal, '-Ax:Gap}-Mtr-Go')
+    # done = Cpt(EpicsSignalRO, '-Mtr:Gap}.DMOV')
+    done = Cpt(EpicsSignalRO, '-Ax:Gap}-Mtr.DMOV')
+    # stop_signal = Cpt(EpicsSignal, '}Man:Stop_.PROC')
+    stop_signal = Cpt(EpicsSignal, '-Ax:Gap}-Mtr.STOP')
 
     actuate_value = 1
     done_value = 1
@@ -73,9 +78,12 @@ class SROFB(Device):
     horz_plane_nudge = Cpt(EpicsSignal, 'C10-ID}Nudge:X')
     vert_plane_nudge = Cpt(EpicsSignal, 'C10-ID}Nudge:Y')
     nudge_status = Cpt(EpicsSignal, 'C10-ID}Nudge-StatusMsg')
+    xa_rbv = Cpt(EpicsSignal, 'BUMP:C10-IXS}angle:X-SP')
+    xy_rbv = Cpt(EpicsSignal, 'BUMP:C10-IXS}angle:Y-SP')
     
 
 ivu22 = Undulator('SR:C10-ID:G1{IVU22:1', name='ivu22')
+ivu22.readback.name = 'ivu22'
 fes = FESlits('FE:C10A-OP{Slt:', name='fes')
 crl = CRL('FE:C10A-OP{CRL:1', name='crl')
 

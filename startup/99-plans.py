@@ -17,26 +17,6 @@ from tabulate import tabulate
 # id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
 # nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
 
-def peaks_stats_print(dets_name, peak_stats):
-
-#    headers = ["com","cen","fwhm","max","min"]
-    print(dets_name)
-#    print(peak_stats)
-
-    print(f"COM: {peak_stats['stats'].com:.3f}")
-    print(f"CEN: {peak_stats['stats'].cen:.3f}")
-    print(f"FWHM: {peak_stats['stats'].fwhm:.3f}")
-    print(f"MAX: {peak_stats['stats'].max[1]:.1f} at {peak_stats['stats'].max[0]:.3f}")
-    print(f"MIN: {peak_stats['stats'].min[1]:.1f} at {peak_stats['stats'].min[0]:.3f}")
-
-#    data[2] = peak_stats[headers[2]][dets_name][1]
-#    data[3] = peak_stats[headers[3]][dets_name][1]
-#    print('\n')
-#    print('*******************************************************')
-#    print(tabulate([data], headers))
-#    print('*******************************************************\n')
-
-
 def align_with_fit(dets, mtr, start, stop, gaps, mode='rel', md=None):
     # Performs relative scan of motor and retuns data staistics
 
