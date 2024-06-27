@@ -39,9 +39,16 @@ def peaks_stats_print(dets_name, peak_stats):
         print(f"FWHM: None")
     else:
         print(f"FWHM: {FWHM:.3f}")
-
-    print(f"MAX: {peak_stats['stats'].max[1]:.1f} at {peak_stats['stats'].max[0]:.3f}")
-    print(f"MIN: {peak_stats['stats'].min[1]:.1f} at {peak_stats['stats'].min[0]:.3f}")
+    pmax = peak_stats['stats'].max[1]
+    if pmax < 1 or pmax > 1.e4:
+        print(f"MAX: {pmax:.1e} at {peak_stats['stats'].max[0]:.3f}")
+    else:
+        print(f"MAX: {pmax:.1f} at {peak_stats['stats'].max[0]:.3f}")
+    pmin = peak_stats['stats'].min[1]
+    if pmin < 1 or pmin > 1.e4:
+        print(f"MIN: {pmin:.1e} at {peak_stats['stats'].min[0]:.3f}")
+    else:
+        print(f"MIN: {pmin:.1f} at {peak_stats['stats'].min[0]:.3f}")
 
 #    data[2] = peak_stats[headers[2]][dets_name][1]
 #    data[3] = peak_stats[headers[3]][dets_name][1]
