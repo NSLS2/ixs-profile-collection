@@ -277,15 +277,17 @@ def mcm_setup_prep():
 # Prepares the URA for the MCM and Analyzer Slits setup, namely opens the Slits and lowers the analyzer
     hux = hrm2.read()['hrm2_ux']['value']
     hdx = hrm2.read()['hrm2_dx']['value']
+    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
+    err = 0
     if hux > -5 or hdx > -5:
         print('*************************************\n')
         print('HRM is in the beam. Execution aborted')
-        return
+        err = 1
+        return acyy, err
     airpad.set(1)
     det2.em_range.set(0)
  
     yield from bps.mv(spec.tth, 0)
-    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
 
     yield from bps.mv(anc_xtal.y, 0.5, whl, 2, anpd, 0)
     yield from bps.mv(analyzer_slits.top, 2, analyzer_slits.bottom, -2, analyzer_slits.outboard, 2, analyzer_slits.inboard, -2)
@@ -295,7 +297,7 @@ def mcm_setup_prep():
         print('Low intensity on D21. Execution aborted')
         yield from bps.mv(anc_xtal.y, acyy, anpd, -90)
         return
-    return acyy
+    return acyy, err
 
 
 #*******************************************************************************************************
@@ -318,9 +320,12 @@ def mcm_setup(s1=0, s2=0):
         print('if s1 > 0, then execute mcmx alignment, else - skip it')
         print('if s2 > 0, then execute mcmy alignment, else - skip it')
         return
-    acyy = yield from mcm_setup_prep()
+    aret = yield from mcm_setup_prep()
+    acyy = aret[0]
+    if aret[1] > 0:
+        return
     if not s1 == 0:
-        yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
+        yield from dscan(mcm.x, -0.2, 0.2, 40, det2)
         x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
         xmax = x_pos[0]
         dxmax = MCM_XPOS - xmax
@@ -560,10 +565,12 @@ def ccr_setup_prep():
 # Prepares the URA for the C crystal setup
     hux = hrm2.read()['hrm2_ux']['value']
     hdx = hrm2.read()['hrm2_dx']['value']
+    err = 0
     if hux > -5 or hdx > -5:
         print('*************************************')
         print('Error: HRM is in the beam. Execution aborted\n')
-        return
+        err = 1
+        return err
     
     airpad.set(1)
     det2.em_range.set(0)
@@ -572,7 +579,8 @@ def ccr_setup_prep():
     if acyy < 5:
         print('*************************************')
         print('Error: URA Y-position (acyy) is too low. Execution aborted\n')
-        return
+        err = 1
+        return err
 
     yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
     d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
@@ -580,8 +588,9 @@ def ccr_setup_prep():
         print('****************************************')
         print('Error: low intensity on D21. Execution aborted\n')
         yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
-        return
-
+        err = 1
+        return err
+    return err
 
 #*******************************************************************************************************
 def ccr_setup_post():
@@ -617,8 +626,10 @@ def ccr_setup(s1=0, s2=0, s3=0):
         print("if s3 > 0, then execute cchi alignment, else - skip")
         return
     
-    yield from ccr_setup_prep()
-
+    ret = yield from ccr_setup_prep()
+    if ret > 0:
+        return
+    
     # C crystal Theta alignment
     if s1 != 0:
         print('\n')
