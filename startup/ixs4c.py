@@ -2,6 +2,7 @@ from hkl import E4CV, SimMixin, Lattice, DiffractometerConfiguration
 from ophyd import SoftPositioner
 from ophyd import Component as Cpt
 from hkl.user import *
+import pathlib
 
 class FourCircle(SimMixin, E4CV):
     """
@@ -18,6 +19,9 @@ ixs4c = FourCircle("", name="ixs4c")
 ixs4c.calc.physical_axis_names = {'omega': 'the', 'chi': 'chi', 'phi': 'phi', 'tth': 'tth'}
 ixs4c.engine.mode = "constant_phi"
 ixs4c.energy.put(9.1317)
+ixs4c_config = DiffractometerConfiguration(ixs4c)
+
+config_path = pathlib.Path("/IXS2/data/Ixs4c_config")
 
 ## aa a sample
 #ixs4c.calc.new_sample('MnF2', lattice=Lattice(a=4.873, b=4.873, c=3.13, alpha=90, beta=90, gamma=90))
@@ -44,3 +48,6 @@ ixs4c.energy.put(9.1317)
 # ixs4c.calc.forward((1,0,1)) -> calculates physical motor positions
 # given an HKL
 # ixs4c.move(0,0,0) -> physical motion corresponding to a given HKL
+
+# config_file=config_path / "test_conf.json" -> sets the file name to save the configuration
+# config.export(config_file) -> saves the ixs4c configuration
