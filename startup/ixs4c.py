@@ -49,5 +49,7 @@ config_path = pathlib.Path("/IXS2/data/Ixs4c_config")
 # given an HKL
 # ixs4c.move(0,0,0) -> physical motion corresponding to a given HKL
 
-# config_file=config_path / "test_conf.json" -> sets the file name to save the configuration
-# config.export(config_file) -> saves the ixs4c configuration
+# config_file = config_path / "test_conf.json" -> sets the file name to save the configuration
+# ixs4c_config.export(config_file) -> saves the ixs4c configuration
+# print(ixs4c_config.preview(config_file)) -> preview the configuration
+# ixs4c_config.restore(config_file) -> restores the configuration from the file
