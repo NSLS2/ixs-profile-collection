@@ -1,4 +1,4 @@
-from hkl import E4CV, SimMixin, Lattice
+from hkl import E4CV, SimMixin, Lattice, DiffractometerConfiguration
 from ophyd import SoftPositioner
 from ophyd import Component as Cpt
 from hkl.user import *
