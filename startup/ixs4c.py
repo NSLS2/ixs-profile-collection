@@ -79,3 +79,13 @@ config_path = pathlib.Path("/IXS2/data/Ixs4c_config")
 # ixs4c_config.export(config_file) -> saves the ixs4c configuration
 # print(ixs4c_config.preview(config_file)) -> preview the configuration
 # ixs4c_config.restore(config_file) -> restores the configuration from the file
+
+# apply constraints:
+# e4cv.apply_constraints(
+#    {
+#       "the": Constraint(10, 40, 0, True),
+#       "chi": Constraint(-100, 100, 0, True),
+#       "phi": Constraint(-100, 100, 0, True),
+#       "tth": Constraint(10, 92.4, 0, True),
+#    }
+# )
