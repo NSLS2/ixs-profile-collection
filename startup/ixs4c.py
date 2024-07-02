@@ -2,7 +2,7 @@ from hkl import E4CV, SimMixin, Lattice, DiffractometerConfiguration
 from ophyd import SoftPositioner
 from ophyd import Component as Cpt
 from hkl.user import *
-import pathlib
+import pathlib, pyRestTable
 
 class FourCircle(SimMixin, E4CV):
     """
@@ -35,6 +35,16 @@ def preview_config(file_name:str):
     config_file = config_path / fname
     print(ixs4c_config.preview(config_file))
 
+def all_forward_solutions(hkl_position):
+# prints out all forward solutions for the HKLPY
+    axes = ixs4c.calc.physical_axis_names
+    table = pyRestTable.Table()
+    table.labels = axes
+    for sol in ixs4c.calc.forward(hkl_position):
+        table.addRow([round(getattr(sol, k), 2) for k in axes])
+
+    print(f"solutions for forward({hkl_position}):")
+    print(table)
 
 ixs4c = FourCircle("", name="ixs4c")
 ixs4c.calc.physical_axis_names = {'omega': 'the', 'chi': 'chi', 'phi': 'phi', 'tth': 'tth'}
@@ -89,3 +99,11 @@ config_path = pathlib.Path("/IXS2/data/Ixs4c_config")
 #       "tth": Constraint(10, 92.4, 0, True),
 #    }
 # )
+
+# available modes:
+# - bissector
+# - constant_chi
+# - constant_omega
+# - constant_phi
+# - double_diffraction
+# - psi_constant
