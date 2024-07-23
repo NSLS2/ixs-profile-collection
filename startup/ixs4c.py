@@ -47,7 +47,9 @@ def all_forward_solutions(hkl_position):
     print(table)
 
 ixs4c = FourCircle("", name="ixs4c")
+
 ixs4c.calc.physical_axis_names = {'omega': 'the', 'chi': 'chi', 'phi': 'phi', 'tth': 'tth'}
+
 ixs4c.engine.mode = "constant_phi"
 ixs4c.energy.put(9.1317)
 ixs4c_config = DiffractometerConfiguration(ixs4c)
