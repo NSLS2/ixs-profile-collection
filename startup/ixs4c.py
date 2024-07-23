@@ -10,10 +10,14 @@ class FourCircle(SimMixin, E4CV):
     """
     # the reciprocal axes are defined by SimMixin
 
-    the = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-    chi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-    phi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-    tth = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+#    the = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+#    chi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+#    phi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+#    tth = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    th = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:Th}Mtr', labels=('ixs4c',))
+    chi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:ChiA}Mtr', labels=('ixs4c',))
+    phi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:PhiA}Mtr', labels=('ixs4c',))
+    tth = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:2Th}Mtr', labels=('ixs4c',))
 
 def save_config(file_name:str):
 # saves the ixs4c_config to a file
@@ -47,11 +51,12 @@ def all_forward_solutions(hkl_position):
     print(table)
 
 ixs4c = FourCircle("", name="ixs4c")
-
-ixs4c.calc.physical_axis_names = {'omega': 'the', 'chi': 'chi', 'phi': 'phi', 'tth': 'tth'}
+ixs4c.calc.energy=9.1317
+ixs4c.calc.physical_axis_names = {'omega': 'th', 'chi': 'chi', 'phi': 'phi', 'tth': 'tth'}
 
 ixs4c.engine.mode = "constant_phi"
 ixs4c.energy.put(9.1317)
+
 ixs4c_config = DiffractometerConfiguration(ixs4c)
 
 config_path = pathlib.Path("/IXS2/data/Ixs4c_config")

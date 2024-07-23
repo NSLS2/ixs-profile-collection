@@ -516,15 +516,16 @@ def LocalBumpSetup():
     dXc = cenX - cenX_target
     dThe = 1.e-3*dXc/6.0
     if abs(dThe) < 0.01:
-        print(f"Calculated horizontal e-beam shift {dThe} mrad")
+        print(f"Calculated horizontal e-beam shift {1.e3*dThe:0.1f} urad")
         input_opts = input('Do you want to put it in (yes/no): ')
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.horz_plane_nudge.set(1)
+            sleep(1)
             print('*****************************************')
             xtarget = strg_ring_orb_fb.xa_rbv.read()
-            val = 1.e3*xtarget['srofb_xa_rbv']['value']
-            print(f'Horizontal angle correction was applied. New value {val:0.1f} urad\n')
+            valx = 1.e3*xtarget['srofb_xa_rbv']['value']
+            print(f'Horizontal angle correction was applied. New value {valx:0.1f} urad\n')
             print(strg_ring_orb_fb.nudge_status.alarm_status)
         else:
             print('*****************************************')
@@ -541,15 +542,16 @@ def LocalBumpSetup():
     dYc = cenY - cenY_target
     dThe = -1.e-3*dYc/5.0
     if abs(dThe) < 0.01:
-        print(f"Calculated vertical e-beam shift {dThe} mrad")
+        print(f"Calculated vertical e-beam shift {1.e3*dThe:0.1f} urad")
         input_opts = input('Do you want to put it in (yes/no): ')
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.vert_plane_nudge.set(1)
+            sleep(1)
             print('*****************************************')
             ytarget = strg_ring_orb_fb.xy_rbv.read()
-            val = 1.e3*ytarget['srofb_xy_rbv']['value']
-            print('Vertical angle correction was applied. New value {val:0.1f} urad\n')
+            valy = 1.e3*ytarget['srofb_xy_rbv']['value']
+            print(f'Vertical angle correction was applied. New value {valy:0.1f} urad\n')
             print(strg_ring_orb_fb.nudge_status.alarm_status)
         else:
             print('*****************************************')
