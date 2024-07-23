@@ -57,6 +57,10 @@ ixs4c.calc.physical_axis_names = {'omega': 'th', 'chi': 'chi', 'phi': 'phi', 'tt
 ixs4c.engine.mode = "constant_phi"
 ixs4c.energy.put(9.1317)
 
+ixs4c.calc['th'].limits = (-20, 45)
+ixs4c.calc['chi'].limits = (-5, 5)
+ixs4c.calc['tth'].limits=(-0.5, 130)
+
 ixs4c_config = DiffractometerConfiguration(ixs4c)
 
 config_path = pathlib.Path("/IXS2/data/Ixs4c_config")
