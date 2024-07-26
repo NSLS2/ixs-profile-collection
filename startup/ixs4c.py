@@ -57,9 +57,9 @@ ixs4c.calc.physical_axis_names = {'omega': 'th', 'chi': 'chi', 'phi': 'phi', 'tt
 ixs4c.engine.mode = "constant_phi"
 ixs4c.energy.put(9.1317)
 
-ixs4c.calc['th'].limits = (-20, 45)
-ixs4c.calc['chi'].limits = (-5, 5)
-ixs4c.calc['tth'].limits=(-0.5, 130)
+ixs4c.calc['th'].limits = (-20, 90)
+ixs4c.calc['chi'].limits = (-10, 10)
+ixs4c.calc['tth'].limits=(-10, 135)
 
 ixs4c_config = DiffractometerConfiguration(ixs4c)
 
@@ -69,8 +69,8 @@ config_path = pathlib.Path("/IXS2/data/Ixs4c_config")
 #ixs4c.calc.new_sample('MnF2', lattice=Lattice(a=4.873, b=4.873, c=3.13, alpha=90, beta=90, gamma=90))
 
 ## add two, known reflections:
-# r1 = ixs4c.calc.sample.add_reflection(1,1,0,position=ixs4c.calc.Position(tth=22.7251, the=7.16641,chi=-4.43721,phi=0))
-# r2 = ixs4c.calc.sample.add_reflection(2,1,0,position=ixs4c.calc.Position(tth=36.2993, the=31.8763,chi=1.2541,phi=0))
+# r1 = ixs4c.calc.sample.add_reflection(1,1,0,position=ixs4c.calc.Position(tth=22.7251, th=7.16641,chi=-4.43721,phi=0))
+# r2 = ixs4c.calc.sample.add_reflection(2,1,0,position=ixs4c.calc.Position(tth=36.2993, th=31.8763,chi=1.2541,phi=0))
 
 # add reflections from the current position:
 # r3 = ixs4c.calc.sample.add_reflection(1,1,1, ixs4c.real_position}
@@ -118,3 +118,9 @@ config_path = pathlib.Path("/IXS2/data/Ixs4c_config")
 # - constant_phi
 # - double_diffraction
 # - psi_constant
+
+# In the USER module:
+#  select_diffractometer(ixs4c)
+#  new_sample('MnF2', a=4.873, b=4.873, c=3.13, alpha=90, beta=90, gamma=90)
+#  r1 = setor(1,1,0,tth=22.7251, th=7.1, chi=-4.43721, phi=0)
+#  r2 = setor(2,1,0,tth=36.2993, th=32,chi=1.2541,phi=0)
