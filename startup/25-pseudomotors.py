@@ -176,6 +176,33 @@ class AnalyzerCXtal(PseudoPositioner):
         ccp[1] = 100.*(C0y + 0.01*d1y + hy)
 
         return self.PseudoPosition(the=ccp[0]-th0, y=ccp[1])
+    
 
+class SamplePrime(PseudoPositioner):
+    xp = Cpt(PseudoSingle, egu='mm')
+    zp = Cpt(PseudoSingle, egu='mm')
+
+    th = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:Th}Mtr', labels=('sampleprime',))
+    phi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:PhiA}Mtr', labels=('sampleprime',))
+    sx = Cpt(EpicsMotor, 'XF:10IDD-OP{Env:1-Ax:X}Mtr', labels=('sampleprime',))
+    sz = Cpt(EpicsMotor, 'XF:10IDD-OP{Env:1-Ax:Z}Mtr', labels=('sampleprime',))
+
+    @pseudo_position_argument
+    def forward(self, pseudopos):
+        _th = np.deg2rad(self.th.position + self.phi.position)
+        _sx = pseudopos.xp*np.cos(_th) - pseudopos.zp*np.sin(_th)
+        _sz = pseudopos.xp*np.sin(_th) + pseudopos.zp*np.cos(_th)
+
+        return self.RealPosition(sx = _sx, sz = _sz)
+    
+    @real_position_argument
+    def inverse(self, realpos):
+        _th = np.deg2rad(realpos.th + realpos.phi)
+        _xp = realpos.sz*np.sin(_th) + realpos.sx*np.cos(_th)
+        _zp = realpos.sz*np.cos(_th) - realpos.sx*np.sin(_th)
+
+        return self.PseudoPosition(xp = _xp, zp = _zp)
+    
 
 anc_xtal = AnalyzerCXtal('', name='anc_xtal', egu=('deg', 'mm'))
+sam_prime = SamplePrime('', name='sp', egu=('mm', 'deg'))
