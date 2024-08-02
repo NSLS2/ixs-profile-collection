@@ -1,4 +1,4 @@
-from hkl import E4CV, SimMixin, Lattice, DiffractometerConfiguration
+from hkl import E4CV, SimMixin, Lattice, DiffractometerConfiguration, Constraint
 from ophyd import SoftPositioner
 from ophyd import Component as Cpt
 from hkl.user import *
@@ -49,6 +49,13 @@ def all_forward_solutions(hkl_position):
 
     print(f"solutions for forward({hkl_position}):")
     print(table)
+
+def p_sol(sol):
+# prints the solutionof forward calculation
+    Head = ['Two Theta','Theta','Chi','Phi']
+    data = [[sol.tth, sol.th, sol.chi, sol.phi]]
+    print(tabulate(data, headers=Head, floatfmt='.6f'))
+
 
 ixs4c = FourCircle("", name="ixs4c")
 ixs4c.calc.energy=9.1317
