@@ -53,7 +53,12 @@ def all_forward_solutions(hkl_position):
 def p_sol(sol):
 # prints the solutionof forward calculation
     Head = ['Two Theta','Theta','Chi','Phi']
-    data = [[sol.tth, sol.th, sol.chi, sol.phi]]
+    if any(isinstance(sub, tuple) for sub in sol):
+        data=[[] for i in range(len(sol))]
+        for i in range(len(sol)):
+            data[i] = [sol[i].tth, sol[i].th, sol[i].chi, sol[i].phi]
+    else:
+            data = [[sol.tth, sol.th, sol.chi, sol.phi]]
     print(tabulate(data, headers=Head, floatfmt='.6f'))
 
 
