@@ -108,15 +108,15 @@ C0z = 3.16942
 anz = 4.03784
 bny = 1.87038
 bnz = -0.62844
-b2 = bny*bny + bnz*bnz
+b2_par = bny*bny + bnz*bnz
 cny = 2.72030
 cnz = 3.40940
-c2 = cny*cny + cnz*cnz
-c1 = np.sqrt(c2)
-d2 = B0y*B0y + B0z*B0z
-dn = np.sqrt(d2)
-h2 = C0y*C0y + C0z*C0z
-hn = np.sqrt(h2)
+c2_par = cny*cny + cnz*cnz
+c1_par = np.sqrt(c2_par)
+d2_par = B0y*B0y + B0z*B0z
+dn = np.sqrt(d2_par)
+h2_par = C0y*C0y + C0z*C0z
+hn_par = np.sqrt(h2_par)
 
 
 class AnalyzerCXtal(PseudoPositioner):
@@ -132,17 +132,17 @@ class AnalyzerCXtal(PseudoPositioner):
         cth = pseudopos.the + th0
         ccy = pseudopos.y
 
-        cy = c1*np.sin(np.deg2rad(cth))
-        cz = np.sqrt(c2 - cy*cy)
-        a1 = (c2 + h2 - d2)/2.
-        d1 = cz*np.sqrt(c2*h2 - a1*a1)
-        hy = (a1*cy + d1)/c2
+        cy = c1_par*np.sin(np.deg2rad(cth))
+        cz = np.sqrt(c2_par - cy*cy)
+        a1 = (c2_par + h2_par - d2_par)/2.
+        d1 = cz*np.sqrt(c2_par*h2_par - a1*a1)
+        hy = (a1*cy + d1)/c2_par
         #
         # first motor position (mm)
         y1 = 0.01*ccy - hy - C0y
         ddy[0] = 100.*y1
         #
-        a2 = anz*anz + c2 - b2 - 2*anz*cz
+        a2 = anz*anz + c2_par - b2_par - 2*anz*cz
         d3 = np.sqrt(cy*cy - a2)
         #
         # second motor position (mm)
@@ -161,16 +161,16 @@ class AnalyzerCXtal(PseudoPositioner):
 
         _any = 0.84992 + 0.01*(d2y - d1y)
         a2 = _any*_any + anz*anz
-        a1 = (c2 + a2 - b2)/2.
-        d1 = anz*np.sqrt(a2*c2 - a1*a1)
+        a1 = (c2_par + a2 - b2_par)/2.
+        d1 = anz*np.sqrt(a2*c2_par - a1*a1)
         cy = (a1*_any + d1)/a2
-        cz = np.sqrt(c2 - cy*cy)
+        cz = np.sqrt(c2_par - cy*cy)
         #
         # crystal angle (rad)
-        ccp[0] = np.rad2deg(np.arcsin(cy/c1))
-        a2 = (c2 + h2 - d2)/2.
-        _d2 = cz*np.sqrt(c2*h2 - a2*a2)
-        hy = (a2*cy + _d2)/c2
+        ccp[0] = np.rad2deg(np.arcsin(cy/c1_par))
+        a2 = (c2_par + h2_par - d2_par)/2.
+        _d2 = cz*np.sqrt(c2_par*h2_par - a2*a2)
+        hy = (a2*cy + _d2)/c2_par
         #
         # crystal y-position
         ccp[1] = 100.*(C0y + 0.01*d1y + hy)
