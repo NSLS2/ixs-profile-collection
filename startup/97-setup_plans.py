@@ -711,7 +711,7 @@ def wcr_setup():
 #   Performs W crystal alignment
     yield from bps.mv(anpd, -90, whl, 7, analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
     yield from set_lambda_exposure(1)
-    yield from bp.rel_scan([det2], analyzer.wfth, -20, 20, 41)
+    yield from bp.rel_scan([lambda_det], analyzer.wfth, -20, 20, 41)
     x_pos = calculate_max_value(x="analyzer.wfth", sampling=100)
     yield from bps.mvr(analyzer.wfth, -20)
     yield from bps.mv(analyzer.wfth, x_pos)
@@ -801,3 +801,20 @@ def hrm_setup():
 def gap_scan():
 # scans the ID gap
     yield from dscan(ivu22, -10, 10, 10, tm1)
+    
+
+#*******************************************************************************************************
+def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
+# Mesh scan of the analyzer D crystals
+    pec_factory.prefix = "mesh_scan"
+    yield from bps.mv(whl, whl_pos, spec.tth, 0)
+    yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+    yield from bps.mv(cm_slits.outboard, 1.0, cm_slits.inboard, -1.0)
+    yield from set_lambda_exposure(ctime)
+    acyy = anc_xtal.y.get()[1]
+    for n in range(cnum):
+        yield from bp.rel_grid_scan([lambda_det], anc_xtal.y, acyy-0.875, acyy+0.625, 150, hrmE, -10, 10, 100, False)
+        sleep(600)
+    
+
+#*******************************************************************************************************
