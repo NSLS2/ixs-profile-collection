@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import lmfit
 from bluesky.callbacks import LiveFit
+from bluesky.callbacks.mpl_plotting import LiveGrid
 from bluesky.suspenders import SuspendFloor
 from ophyd import EpicsSignal
 from tabulate import tabulate
@@ -207,7 +208,16 @@ def GCarbon_Qscan(exp_time=2):
 
 #*******************************************************************************************************
 def DxtalTempCalc(uid=-1):
-    # Calculates temperature correction for the D crystals
+    """
+    Calculates temperature correction for the D crystals.
+    
+    Parameters
+    ----------
+    uid : int, optional
+          relative scan position in the database
+    
+    """
+    
     E0 = 9131.7     # energy (eV)
     TH = 88.5       # Dxtal asymmetry angle (deg)
     C1 = 3.725e-6   # constant (1/K)
@@ -467,11 +477,11 @@ def ugap_setup():
 
 #*******************************************************************************************************
 def LocalBumpSetup():
-#   Adjusts the e-beam local bump, i.e. horizontal position of the x-ray beam on the XBPM1 screen
-#
-#    uofb_pv = EpicsSignal("SR:UOFB{}ConfigMode-I", name="uofb_pv")
-#    id_bump_pv = EpicsSignal("SR:UOFB{C10-ID}Enabled-I", name="id_bump_pv")
-#    nudge_pv = EpicsSignal("SR:UOFB{C10-ID}Nudge-Enabled", name="nudge_pv")
+    """
+    Adjusts the e-beam local bump, i.e. horizontal & vertical positions of the x-ray beam on the XBPM1 screen
+
+    """
+    
     cond1 = strg_ring_orb_fb.uofb_pv.read()['srofb_uofb_pv']['value']
     cond2 = strg_ring_orb_fb.id_bump_pv.read()['srofb_id_bump_pv']['value']
     cond3 = strg_ring_orb_fb.nudge_pv.read()['srofb_nudge_pv']['value']
@@ -805,16 +815,37 @@ def gap_scan():
 
 #*******************************************************************************************************
 def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
-# Mesh scan of the analyzer D crystals
-    pec_factory.prefix = "mesh_scan"
-    yield from bps.mv(whl, whl_pos, spec.tth, 0)
-    yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
-    yield from bps.mv(cm_slits.outboard, 1.0, cm_slits.inboard, -1.0)
-    yield from set_lambda_exposure(ctime)
-    acyy = anc_xtal.y.get()[1]
-    for n in range(cnum):
-        yield from bp.rel_grid_scan([lambda_det], anc_xtal.y, acyy-0.875, acyy+0.625, 150, hrmE, -10, 10, 100, False)
-        sleep(600)
+    """
+    Performs mesh scan of the analyzer D crystals: analyzer vertical position versus energy.
     
+    Parameters
+    -----------
+    cnum    : int, optional
+              number of measurements cycles
+    whl_pos : int, optional
+              position of the whl wheel
+    ctime   : int, optional
+              counting time for lambda detector
+    
+    """
+
+    spec_factory.prefix = "mesh_scan"
+    yield from bps.mv(whl, whl_pos, spec.tth, 0)
+    yield from bps.mv(analyzer_slits.top, 0.01, analyzer_slits.bottom, -0.01, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+    yield from bps.mv(mcm_slits.outboard, 1.0, mcm_slits.inboard, -1.0)
+    yield from set_lambda_exposure(ctime)
+    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
+    hrmE_val = hrmE.read()['hrmE']['value']
+#    print(acyy, hrmE_val)
+    bec.enable_plots()
+#    subs = [LiveGrid((150, 100), 'lambda_det_md7', xlabel='Energy', ylabel='acyy', ax=myaxs)]
+#    plan = bpp.subs_wrapper(bp.rel_grid_scan([lambda_det], anc_xtal.y, -0.875, 0.625, 150, hrmE, -10, 10, 100, False), subs)
+    for n in range(cnum):
+        yield from bp.rel_grid_scan([lambda_det], anc_xtal.y, -0.875, 0.625, 150, hrmE, -10, 10, 100, False)
+#        yield from plan
+        sleep(600)
+        
+#    LiveGrid((150, 100), 'lambda_det_md7')
+    bec.disable_plots()
 
 #*******************************************************************************************************
