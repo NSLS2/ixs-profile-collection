@@ -1,0 +1,21 @@
+#John P. Sutter: April 5, 2004
+#This file contains all the constants for anaslit.mac and htthe12.mac.
+#It is called automatically by both of these files.
+#Modified by David S. Ellis 2011, for BL43
+
+print "Loading constants"
+
+#constants for the 42 analyzer setup at beamline 43
+constant  ANALYZER_SPACING_DEG 	0.702
+constant  SLIT42H_RADIUS_MM     8965
+constant  SLIT42V_RADIUS_MM		8835
+constant  ANALYZ42_RADIUS_MM    9800
+constant  OFFSET42X_MM           0
+constant  OFFSET42Z_MM           0
+constant  ANALYZ42_X_SPAC_MM     120
+constant  ANALYZ42_Z_SPAC_MM     120
+constant  ANALYZ42_WIDTH_MM      92
+constant  ANALYZ42_HEIGHT_MM     87 
+
+
+

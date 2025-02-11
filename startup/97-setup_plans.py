@@ -11,6 +11,7 @@ from bluesky.suspenders import SuspendFloor
 from ophyd import EpicsSignal
 from tabulate import tabulate
 
+from utils.sixcircle_1p53.sixcircle import *
 
 #*******************************************************************************************************
 # opens a Matplotlib figure with axes

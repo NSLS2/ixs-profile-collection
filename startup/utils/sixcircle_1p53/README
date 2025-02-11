@@ -1,0 +1,305 @@
+README for sixcircle code version 1.5 and 1.51 and 1.52 and 1.53
+
+This README is an up-to-date description of the sixcircle python code created in the Materials Dynamics Lab of the RIKEN SPring-8 Center
+It is designed to be useful for IXS experiments at SPring-8, and, especially, for remote experiments as have become necessary because of the covid-19 pandemic
+The project was conceived by Alfred Q.R. Baron and the code written by Wenyang Zhao with some input from Daisuke Ishikawa (for the viewer) and Alfred Q.R. Baron
+In addition to this README there is 
+	1.  Manual_sixc_ver1.4alpha_slightly_outdated
+	2.  sixcircle_writeup_1p51_Feb2021.pdf = writeup of some of the math behind the code, including description and figures for the axes
+
+If this code is used independently of work at BL43, please reference the writeup ("Open-source Python software for six-circle diffraction with an inelastic x-ray scattering (IXS) spectrometer" by Wenyang ZHAO and Alfred Q.R. BARON, unpublished, available at https://beamline.harima.riken.jp/bl43lxu)
+
+In typical use related to experimental work at BL43LXU, it is enough to reference a BL publication.  However, if this code is used extensively, then please include a separate reference as above.
+
+
+Changelog:
+1.5 	Basic working calculations
+1.51	Add automatic saving of orientation matrix so stable between sessions
+1.52	Add viewer
+1.53	Change printouts with pca6 
+
+To get started:
+
+python3 
+>>> import sixcircle	 		# make the variables and commands accessible using "sixcircle.command" or "sixcircle.variable"
+>>> from sixcircle import *   		# make the commands accessible without the "sixcircle."
+
+or (for work related to IXS at SPring-8) just do
+>>> from sixcircle_rqd import *		# make bl43 specific commands accessible
+>>> from sixcircle_rqd_view import *
+
+or (for full access to all code):
+python3 -i startup.py
+
+Note:  numpy and scipi are required (will work in anaconda environment)
+
+
+# The following is one recent "run" to show usage 
+# It is a diamond calibration run - ie: measure the optic mode at Q = (1.1 1.1 1.1) and confirm it is at 164.7 meV energy transfer as is
+# the SP8 calibration procedure described by Fukui, et al, JSR 15 (2008) doi:10.1107/S0909049508023248
+
+
+################################################################################################################################################
+# first just the commands without output & input
+################################################################################################################################################
+
+>>> from sixcircle_rqd import *			# import needed code
+>>> setlat()  	       	      			# set lattice parameters - manual input 3.567 x3 90/ret x3 and Diamond_RT
+>>> setorder()  				# set the Si order - enter n in Si (nnn) manual input 11
+>>> setincident() 				# choose incident beam characteristics as standard BL43 setup - manual input 1
+>>> setfrozen()  				# sets the mode/frozen angles - manual input 456
+
+>>> br (2,2,0)					# will first find find (220) - easiest to find 
+>>> mv(phi=0,chi=1)				# put in angles where found (220) (usually have set phi to zero in code at reflection)
+>>> or0(2,2,0)					# use (220) as or0 toi start
+>>> br(1,1,1)					# start to find (111) - get tth and th
+>>> mv(chi=0,phi=35.2)				# put in angles where found (111)
+>>> or1(1,1,1)					# use (111) as or1
+>>> mvagap(agapv=60,agaph=60)			# set analyzer slit gaps / Q-resolution
+>>> or_swap()					# will work near (111) so use it at or0
+>>> ca6(1.1,1.1,1.1)				# do calc of HKLs and find angle positions where to measure
+>>> save('diamond_calibration.conf')		# save if desired (not required)
+
+
+################################################################################################################################################
+# now with all the I/O
+################################################################################################################################################
+
+Python 3.7.4 (default, Aug 13 2019, 15:17:50) 
+[Clang 4.0.1 (tags/RELEASE_401/final)] :: Anaconda, Inc. on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from sixcircle_rqd import *
+
+RSC Materials Dynamics Laboratory Six Circle Code by Wenyang Zhao and Alfred Q.R. Baron
+
+Suggest:  import sixcircle; from sixcircle import *
+For IXS users at SPring-8:  from sixcircle_rqd import *
+
+Importing scbasic.py contining definitions for basci diffraction calculations
+   Includes: XX_matrix, theta_angle, CheckBr, SC_angles, etc
+
+Function Definitions from sixcicle.py:
+ - ini()                                    SixCircle initialization
+ - load('filepath'), save('filepath')       Loads,Saves crystal parameters, Wavelength, and orientation matrix
+ - UB()                                     Updates UB matrix
+ - pa()                                     Display crystal structure and reference vectors
+ - setlambda(wavelength)                    Sets LAMBDA in angstroms
+ - setlat(a,b,c,alpha,beta,gamma)           Set crystal parameters (A & deg)
+ - setfrozen() , setfrozen(456)             Choose which angles to freeze
+ - freeze(), freeze(a1,a2,a3)               Choose values for frozen angles (degrees)
+ - setaz(H,K,L)                             Sets surface normal/azimuthal reference
+ - or0(H,K,L) , or1(H,K,L)                  Set primary,secondary reference vector (or0,or1) at present angle values
+ - setor0() , setor1()                      Set primary,secondary reference vector (or0,or1) at entered angles
+ - or_check()                               Check consistency of present or0 and or1 values
+ - or_swap()                                Swaps primary and secondary reference vectors/angles
+ - wh()  (==wa())                           Prints present HKL, etc.  (SA==Scattering Angle)
+ - wh_on(), wh_off()                        turns on/off wh() call at end of br() and mv() calls
+ - mv(tth=?,th=?,chi=?,phi=?,mu=?,gam=?)    Change angles
+ - setlm()                                  Sets limits for angles.  Useful to select angles when multiple solutions for a given (H,K,L) 
+ - setlm_clear()                            Sets default (+-180 deg) limits on all angles
+ - ca(H,K,L)                                Calculate angles for a given (H,K,L)
+ - br(H,K,L)                                Move to given Q=(H,K,L)
+ - ca_a(H,K,L), ca_s(H,K,L)                 Calculates (_s=silently) & tabulates possible angle choices for given (H,K,L) within the limits from setlm 
+ - wmab(H,K,L), wmab_s(H,K,L)               Check the limits on alpha and beta for given (H,K,L)
+ - setprecision(n)                          Sets decimal precision for output (default n=4)
+
+Initilizing sixcircle setup.
+Reading configuration file ini.conf
+
+UB for Si_RT recalculated from or0 (4.0000, 0.0000, 0.0000) or1 (0.0000, 4.0000, 0.0000) and lattice parameters (5.4310, 5.4310, 5.4310, 90.0000, 90.0000, 90.0000)
+Check self-consitency of structure, or0 and or1:
+   At or0 (4.0000, 0.0000, 0.0000): dH = -0.0001, dK = 0.0000, dL = 0.0000
+   At or1 (0.0000, 4.0000, 0.0000): dH = 0.0000, dK = -0.0001, dL = 0.0000
+
+Loading sixcircle_rqd.py - for IXS users at SPring-8 - W. Zhao and A. Baron
+ - ini_rqd()                                Initialize (for BL43 IXS Spectrometer)
+ - setorder(n)                              Sets wavelength for Si(nnn) reflection near RT
+ - setbl(n)                                 Sets diffraction calcs for either BL43LXU (n=43) or BL35(n=35)
+ - setincident(n),showincident()            Sets/shows incident beam chearacterisitcs - divergence and mu.
+ - mvgap(agaph=?,agapv=?)  also setgap      Sets analyzer slit gap size (control Q resolution)
+ - ca6(H,K,L)                               Finds analyzer Q vectors when the center of the arm at (H,K,L)
+ - ca6(H,K,L,Href,Kref,Lref)                Finds analyzer q = (H,K,L)-(Href,Kref,Lref) when the center of the arm at (H,K,L)
+ - htth_q                                   Determines analyzer |Q| (and resolution including incident divergence)
+
+Incident beam has not been set up
+Setting incident beam parameters for usual operation with M3
+ -> mu set to -0.1719 degrees
+
+Beamline set to 43
+>>> setlat()  # manual input 4.567 x3 90 x3 and Diamond_
+
+Enter real space lattice parameters:
+ Lattice a (5.4310)? 3.567
+ Lattice b (5.4310)? 3.567
+ Lattice c (5.4310)? 3.567
+ Lattice alpha (90.0000)? 
+ Lattice beta (90.0000)? 
+ Lattice gam (90.0000)? 
+
+Sample description: (Si_RT)? Diamond_RT
+    -> Sample name set to Diamond_RT
+
+UB for Diamond_RT recalculated from or0 (4.0000, 0.0000, 0.0000) or1 (0.0000, 4.0000, 0.0000) and lattice parameters (3.5670, 3.5670, 3.5670, 90.0000, 90.0000, 90.0000)
+Check self-consitency of structure, or0 and or1:
+   At or0 (4.0000, 0.0000, 0.0000): dH = -1.3730, dK = -0.0000, dL = 0.0000
+   At or1 (0.0000, 4.0000, 0.0000): dH = 0.0000, dK = -1.3730, dL = 0.0000
+
+>>> setorder()
+Order: 11
+
+Wavelength set to 0.570107
+
+>>> setincident()
+
+Present incident beam type is 1 (STDM3)
+ Beam Vertical Angle (+ is moving upward):       ALPHA_V = 3.00 mrad = 0.172 deg    V Divergence = 0.20  mrad
+ Beam Horizontal Angle (effective zero of tth):  ALPHA_H = 0.00 mrad = 0.000 deg    H Divergence = 0.60  mrad
+ Sample height relative to first analyzer row:   SAM_cz  = 0.0 mm
+
+
+Incident beam type (1, 2, 3, 4, 9):
+
+ 1. Usual operation at BL43: M3 with 50 um beam
+ 2. Prism lens + KBv:  BL43, no longer used
+ 3. Multilayer KB:  BL43 small sample setup, 5 um beam
+ 4. Multilayer KB with limited horizontal acceptance (1.5 mm at 40 mm) - as 3, but reduced H divergence.
+ 9. Manual setting
+
+Please select: 1
+Setting incident beam parameters for usual operation with M3
+ -> mu set to -0.1719 degrees
+
+>>> setfrozen
+<function setfrozen at 0x101fefa0e0>
+>>> setfrozen()
+
+Current frozen: 456
+Current frozen angles:
+                   mu                 gam               omega
+              -0.1719              0.0000              0.0000
+
+tth(0)  th(1)  chi(2)  phi(3)  mu(4)  gam(5)  omega(6)  azimuth(7)  alpha(8)  beta(9)
+
+Select three frozen angles (a three-digit integer, e.g. 456): 456
+
+Current frozen: 456
+Current frozen angles:
+                   mu                 gam               omega
+              -0.1719              0.0000              0.0000
+Use freeze() command to change frozen values.
+
+>>> br(2,2,0)
+Moving to (2, 2, 0) with (mu, gam, omega) frozen at (-0.1719, 0.0000, 0.0000)
+
+H K L =  2.0000  2.0000  0.0000
+|Q| = 49.822 nm-1  SA = 26.1270 deg  at  LAMBDA = 0.570107 A
+AZ = (1.0, 0.0, 0.0)  AZIMUTH = 0.0882 deg  ALPHA = 58.0634  BETA = -31.9364
+Omega = th-tth/2 = 0.0000
+
+       tth        th       chi       phi        mu       gam
+   26.1265   13.0633   -0.3802   44.9994   -0.1719    0.0000
+
+>>> mv(phi=0,chi=1)
+
+H K L =  2.8276  0.0000  0.0681
+|Q| = 49.822 nm-1  SA = 26.1270 deg  at  LAMBDA = 0.570107 A
+AZ = (1.0, 0.0, 0.0)  AZIMUTH = 90.0652 deg  ALPHA = 13.0581  BETA = 13.0612
+Omega = th-tth/2 = 0.0000
+
+       tth        th       chi       phi        mu       gam
+   26.1265   13.0633    1.0000    0.0000   -0.1719    0.0000
+
+>>> or0(2,2,0)
+
+UB for Diamond_RT recalculated from or0 (2.0000, 2.0000, 0.0000) or1 (0.0000, 4.0000, 0.0000) and lattice parameters (3.5670, 3.5670, 3.5670, 90.0000, 90.0000, 90.0000)
+Check self-consitency of structure, or0 and or1:
+   At or0 (2.0000, 2.0000, 0.0000): dH = -0.0000, dK = -0.0000, dL = -0.0000
+   At or1 (0.0000, 4.0000, 0.0000): dH = -1.8576, dK = -2.1423, dL = -0.0000
+
+>>> br(1,1,1)
+Moving to (1, 1, 1) with (mu, gam, omega) frozen at (-0.1719, 0.0000, 0.0000)
+
+H K L =  1.0000  1.0000  1.0000
+|Q| = 30.510 nm-1  SA = 15.9123 deg  at  LAMBDA = 0.570107 A
+AZ = (1.0, 0.0, 0.0)  AZIMUTH = 30.0874 deg  ALPHA = 51.2237  BETA = -38.2992
+Omega = th-tth/2 = 0.0000
+
+       tth        th       chi       phi        mu       gam
+   15.9114    7.9557   36.0237   -0.0006   -0.1719    0.0000
+
+>>> mv (chi=0,phi=35.2)
+
+H K L =  0.2948  1.7067  -0.0153
+|Q| = 30.510 nm-1  SA = 15.9123 deg  at  LAMBDA = 0.570107 A
+AZ = (1.0, 0.0, 0.0)  AZIMUTH = -0.7964 deg  ALPHA = 87.9953  BETA = -72.2261
+Omega = th-tth/2 = 0.0000
+
+       tth        th       chi       phi        mu       gam
+   15.9114    7.9557    0.0000   35.2000   -0.1719    0.0000
+
+>>> or1(1,1,1)
+
+UB for Diamond_RT recalculated from or0 (2.0000, 2.0000, 0.0000) or1 (1.0000, 1.0000, 1.0000) and lattice parameters (3.5670, 3.5670, 3.5670, 90.0000, 90.0000, 90.0000)
+Check self-consitency of structure, or0 and or1:
+   At or0 (2.0000, 2.0000, 0.0000): dH = -0.0000, dK = -0.0000, dL = 0.0000
+   At or1 (1.0000, 1.0000, 1.0000): dH = 0.0008, dK = 0.0008, dL = -0.0015
+
+>>> mvgap(agapv=60,agaph=60)
+  agapv: 80.0 -> 60.0    agaph: 80.0 -> 60.0  
+>>> or_swap()
+
+UB for Diamond_RT recalculated from or0 (1.0000, 1.0000, 1.0000) or1 (2.0000, 2.0000, 0.0000) and lattice parameters (3.5670, 3.5670, 3.5670, 90.0000, 90.0000, 90.0000)
+Check self-consitency of structure, or0 and or1:
+   At or0 (1.0000, 1.0000, 1.0000): dH = -0.0000, dK = -0.0000, dL = -0.0000
+   At or1 (2.0000, 2.0000, 0.0000): dH = -0.0000, dK = -0.0000, dL = 0.0030
+
+>>> ca6(1.1,1.1,1.1)
+
+Q: (1.1000  1.1000  1.1000)    at tth=17.5147, th=8.7573, chi=0.0565, phi=35.2001, mu=-0.1719, gam=0.0000  H=60.0  V=60.0
+
+Sample Diamond_RT    a/b/c 3.5670/3.5670/3.5670    alpha/beta/gamma 90.0000/90.0000/90.0000
+Wavelength 0.570107    frozen=456    AZ (1.0000, 0.0000, 0.0000)    ALPHA=28.2853  BETA=-17.3406
+Or0: (1.0000, 1.0000, 1.0000)    at tth=15.9114, th=7.9557, chi=0.0000, phi=35.2000, mu=-0.1719, gam=0.0000  
+Or1: (2.0000, 2.0000, 0.0000)    at tth=26.1265, th=13.0633, chi=1.0000, phi=0.0000, mu=-0.1719, gam=0.0000
+
+a03: (  0.9582,   0.9539,   0.9937)  |Q|= 29.556 nm-1  dq:(  0.0400,   0.0394,   0.0200)
+a04: (  1.0051,   1.0022,   1.0299)  |Q|= 30.891 nm-1  dq:(  0.0401,   0.0395,   0.0196)
+a05: (  1.0524,   1.0509,   1.0654)  |Q|= 32.226 nm-1  dq:(  0.0402,   0.0397,   0.0192)
+a06: (  1.1000,   1.1000,   1.1000)  |Q|= 33.561 nm-1  dq:(  0.0403,   0.0398,   0.0187)
+a07: (  1.1479,   1.1494,   1.1338)  |Q|= 34.894 nm-1  dq:(  0.0404,   0.0399,   0.0182)
+a08: (  1.1960,   1.1990,   1.1667)  |Q|= 36.225 nm-1  dq:(  0.0405,   0.0400,   0.0178)
+a09: (  1.2443,   1.2489,   1.1988)  |Q|= 37.554 nm-1  dq:(  0.0406,   0.0401,   0.0173)
+
+a14: (  0.9030,   1.0069,   0.9945)  |Q|= 29.570 nm-1  dq:(  0.0398,   0.0395,   0.0200)
+a15: (  0.9499,   1.0553,   1.0307)  |Q|= 30.905 nm-1  dq:(  0.0400,   0.0397,   0.0196)
+a16: (  0.9972,   1.1040,   1.0662)  |Q|= 32.240 nm-1  dq:(  0.0401,   0.0398,   0.0192)
+a17: (  1.0447,   1.1530,   1.1008)  |Q|= 33.573 nm-1  dq:(  0.0402,   0.0399,   0.0187)
+a18: (  1.0926,   1.2024,   1.1346)  |Q|= 34.906 nm-1  dq:(  0.0403,   0.0400,   0.0182)
+a19: (  1.1407,   1.2520,   1.1675)  |Q|= 36.236 nm-1  dq:(  0.0404,   0.0401,   0.0178)
+a20: (  1.1891,   1.3019,   1.1996)  |Q|= 37.565 nm-1  dq:(  0.0404,   0.0402,   0.0173)
+
+a25: (  0.8481,   1.0602,   0.9945)  |Q|= 29.644 nm-1  dq:(  0.0397,   0.0397,   0.0200)
+a26: (  0.8950,   1.1086,   1.0307)  |Q|= 30.975 nm-1  dq:(  0.0398,   0.0398,   0.0196)
+a27: (  0.9422,   1.1573,   1.0661)  |Q|= 32.307 nm-1  dq:(  0.0399,   0.0399,   0.0191)
+a28: (  0.9898,   1.2064,   1.1008)  |Q|= 33.637 nm-1  dq:(  0.0400,   0.0400,   0.0187)
+a29: (  1.0376,   1.2557,   1.1345)  |Q|= 34.967 nm-1  dq:(  0.0401,   0.0401,   0.0182)
+a30: (  1.0857,   1.3053,   1.1675)  |Q|= 36.295 nm-1  dq:(  0.0402,   0.0402,   0.0178)
+a31: (  1.1341,   1.3552,   1.1995)  |Q|= 37.622 nm-1  dq:(  0.0403,   0.0403,   0.0173)
+
+a35: (  0.7935,   1.1138,   0.9936)  |Q|= 29.777 nm-1  dq:(  0.0395,   0.0398,   0.0200)
+a36: (  0.8404,   1.1622,   1.0298)  |Q|= 31.102 nm-1  dq:(  0.0397,   0.0399,   0.0196)
+a37: (  0.8876,   1.2109,   1.0653)  |Q|= 32.427 nm-1  dq:(  0.0398,   0.0400,   0.0192)
+a38: (  0.9351,   1.2600,   1.0999)  |Q|= 33.753 nm-1  dq:(  0.0399,   0.0401,   0.0187)
+a39: (  0.9830,   1.3093,   1.1336)  |Q|= 35.078 nm-1  dq:(  0.0400,   0.0402,   0.0182)
+a40: (  1.0311,   1.3589,   1.1666)  |Q|= 36.401 nm-1  dq:(  0.0401,   0.0403,   0.0178)
+a41: (  1.0795,   1.4087,   1.1986)  |Q|= 37.723 nm-1  dq:(  0.0402,   0.0404,   0.0173)
+
+Av.  dq  H(60.0): (0.0261,0.0269,0.0187)  V(60.0): (-0.0305,0.0296,-0.0000)
+
+HKL values to:  gpi.hkl_pos
+
+Command(BL43LXU):      mv tth 17.5147 th 8.7573 chi 0.0565 phi 35.2001 agaph=60.0 agapv=60.0
+
+>>> save('diamond_calibration.conf')   # save if desired (not required)
+
+Successful in writing configuration file diamond_calibration.conf

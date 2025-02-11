@@ -1,0 +1,60 @@
+#John P. Sutter: April 5, 2004
+#This file contains all the constants for anaslit.mac and htthe12.mac.
+#It is called automatically by both of these files.
+print "Loading constants"
+
+# New values 19 june 03
+# after careful look at pure al with analyzer crystals.
+constant	HADRIVE_ZERO_DEG	26.82
+constant	HADRIVE_ZERO_MM		1536.
+constant	HADRIVE_RADIUS_MM	3134
+constant	ENC_OFFSET_MM		21.45
+
+# set for march 21 2003 - after careful look at al.
+#constant	HADRIVE_ZERO_DEG	26.8295
+#constant	HADRIVE_ZERO_MM		1532.7
+#constant	HADRIVE_RADIUS_MM	3122.05
+#constant	ENC_OFFSET_MM		21.45
+# constants for arm motion - last updated 17 March 03
+# constant	HADRIVE_ZERO_DEG	26.76
+# constant	HADRIVE_ZERO_MM		1532.73
+# constant	HADRIVE_RADIUS_MM	3132.26
+# constant	ENC_OFFSET_MM		19.2
+#OLD
+#constant	HADRIVE_ZERO_DEG	26.7942  	Original
+#constant	HADRIVE_ZERO_DEG	26.684		Quick fix (Feb 03)
+#constant	HADRIVE_ZERO_MM		1525.53
+#constant	ENC_OFFSET_MM		12.0
+#constant	HADRIVE_RADIUS_MM	3132.26
+
+#constant 	ANALYZER_SPACING_DEG 	0.70
+constant	ANALYZER_DIAM_MM	95.0
+constant	ANALYZER_RADIUS_MM	9820
+
+constant	SLIT_RADIUS_MM		6120.
+constant	SLIT_HGAP_MM		55.
+constant	SLIT_HGAP_MIN_MM	15
+constant	SLIT_VGAP_CEN_MM	94.
+
+#These are constants for the 12-analyzer setup.
+constant        ANALYZ12_X_SPAC_MM      120.
+constant        ANALYZ12_Z_SPAC_MM      120.
+# OFFSET12_X and OFFSET12_Z are the offsets of the center of the
+#  analyzer setup from the center of the 2Theta arm. The directions
+#  are as given in matops.mac.
+constant        OFFSET12_X_MM           0.
+constant        OFFSET12_Z_MM           0.
+constant        ANALYZ12_RADIUS_MM      9820.
+constant        ANALYZ12_DIAM_MM        95.
+#SLIT12_RADIUS_MM = distance of 12-analyzer slit from sample center
+#SLIT12_VCEN_MM = avg position of v1_6m and v2_6m at which 12-analyzer
+#  slit is centered on beam
+#wblade = length of 12-analyzer slit blades in mm
+#dbladeH, dbladeV = displacement of blades from center of rotation
+#  spindle for the horizontal and the vertical slit, respectively.
+#  Given in mm.
+constant        SLIT12_RADIUS_MM        6012.5
+constant        SLIT12_VCEN_MM          67.
+constant        wblade                  36.5
+constant        dbladeH                 1.8
+constant        dbladeV                 1.2
