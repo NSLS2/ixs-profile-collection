@@ -8,7 +8,8 @@ nslsii.configure_base(
     get_ipython().user_ns,
     'ixs',
     publish_documents_with_kafka=False,
-    call_returns_result=True
+    call_returns_result=True,
+    redis_url="info.ixs.nsls2.bnl.gov"
 )
 
 # After the above call, you will now have the following in your namespace:
