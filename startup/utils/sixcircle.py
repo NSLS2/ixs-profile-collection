@@ -1172,3 +1172,6 @@ class SixCircle():
         print ('')
         print ('Output precision set to {0}'.format(self.PRE))
         print ('')
+        
+    def help(self):
+        self.__doc__()
