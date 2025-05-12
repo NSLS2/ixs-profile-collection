@@ -27,13 +27,14 @@ print ('For IXS users at SPring-8:  from sixcircle_rqd import *')
 print ('')
 
 # Module of six-circle calculation
-import scbasic
+from . import scbasic
 
 
 class SixCircle():
     
     def __init__(self):
         self.runquiet = False
+        self.__doc__()
         
         self.ini()
 
@@ -76,7 +77,7 @@ class SixCircle():
 
     # Initialization
     def ini(self):
-        """() \t\t\t\t\t\t\t\t\t\t SixCircle initialization"""
+        """() \t\t\t\t\t\t SixCircle initialization"""
         
         print('\nInitilizing sixcircle setup.')
         # Valid mnemonics
@@ -97,14 +98,14 @@ class SixCircle():
         # Flag of using wh() after mv() or br(), default False
         self.FLAG_WH = True
         # Load default configuration file at startup
-        if path.isfile('./conf/sixcircle_last_UB') :
-            self.load('./conf/sixcircle_last_UB')
+        if path.isfile('/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/conf/sixcircle_last_UB') :
+            self.load('/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/conf/sixcircle_last_UB')
         else :
-            self.load('./conf/ini.conf')
+            self.load('/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/conf/ini.conf')
     
     # Load a configuration file
     def load(self, filepath):
-        """('filepath') \t\t\t\t\t\t\t Load a configuration file. Loads Wavelength and orientation matrix"""
+        """('filepath') \t\t\t\t Load a configuration file. Loads Wavelength and orientation matrix"""
         try:
             with open(filepath, 'r') as f:
                 content = f.readlines()
@@ -182,7 +183,7 @@ class SixCircle():
         
     # Save a configuration file
     def save(self, filepath):
-        """('filepath') \t\t\t\t\t\t\t Save a configuration file. Saves crystal parameters, Wavelength, and orientation matrix"""
+        """('filepath') \t\t\t\t Save a configuration file. Saves crystal parameters, Wavelength, and orientation matrix"""
         
         try:
             with open(filepath, 'w') as f:
@@ -239,7 +240,7 @@ class SixCircle():
             print ('\nError in writing configuration file {0}'.format(filepath))
 
     def UB(self):
-        """() \t\t\t\t\t\t\t\t\t\t Updates UB matrix"""
+        """() \t\t\t\t\t\t Updates UB matrix"""
         
         # wavelength in finding reference reflections
         tupleB = scbasic.B_matrix(self.g_aa, self.g_bb, self.g_cc, self.g_al, self.g_be, self.g_ga)
@@ -268,7 +269,7 @@ class SixCircle():
            self.wh_refresh()
            self.or_check()
            self.runquiet_on()
-           self.save('./conf/sixcircle_last_UB')
+           self.save('/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/conf/sixcircle_last_UB')
            self.runquiet_off()
         elif errcode == 1:
             print ('\nCannot find orientation matrix:  Reflections are parallel.\n')
@@ -276,7 +277,7 @@ class SixCircle():
             print ('\nCannot find orientation matrix:  Reflections (by angles) are parallel.\n')
     
     def pa(self):
-        """() \t\t\t\t\t\t\t\t\t\t Show parameters of orientation calculation. Display crystal structure and reference vectors"""
+        """() \t\t\t\t\t\t Show parameters of orientation calculation. Display crystal structure and reference vectors"""
         
         print ('')
         print ('Primary Reflection (or0, at lambda {0:.{1}f}):'.format(self.g_lambda0,self.PRE+2))
@@ -299,7 +300,7 @@ class SixCircle():
 
     # Set wavelength
     def setlambda(self, *args):
-        """(wavelength) \t\t\t\t\t\t Sets LAMBDA in angstroms"""
+        """(wavelength) \t\t\t\t Sets LAMBDA in angstroms"""
         
         if len(args) == 0:
             LAMBDA_input =  input('\nWavelength / A ({0:.{1}f})? '.format(self.LAMBDA,self.PRE+2))
@@ -360,7 +361,7 @@ class SixCircle():
     
     # Usage: setfrozen() or e.g., setfrozen(456)  or  setmode('045')
     def setfrozen(self, *args):
-        """(), setfrozen(456) \t\t\t\t Set frozen of six-circle calculation. Choose which angles to freeze"""
+        """(), setfrozen(456) \t\t\t Set frozen of six-circle calculation. Choose which angles to freeze"""
         
         dic_ang = {0:'tth', 1:'th', 2:'chi', 3:'phi', 4:'mu', 5:'gam', 6:'omega', 7:'azimuth', 8:'alpha', 9:'beta'}
         dic_pos = {0:self.F_TTH, 1:self.F_TH, 2:self.F_CHI, 3:self.F_PHI, 4:self.F_MU, 5:self.F_GAM, 6:self.F_OMEGA, 7:self.F_AZIMUTH, 8:self.F_ALPHA, 9:self.F_BETA}
@@ -443,7 +444,7 @@ class SixCircle():
     # Set positions of three frozen angles
     # Usage: freeze() or freeze(position1, position2, position3)
     def freeze(self, *args):
-        """(), freeze(a1,a2,a3) \t\t\t\t\t Choose values for frozen angles (degrees)"""
+        """(), freeze(a1,a2,a3) \t\t\t Choose values for frozen angles (degrees)"""
         
         dic_ang = {0:'tth', 1:'th', 2:'chi', 3:'phi', 4:'mu', 5:'gam', 6:'omega', 7:'azimuth', 8:'alpha', 9:'beta'}
         dic_pos = {0:self.F_TTH, 1:self.F_TH, 2:self.F_CHI, 3:self.F_PHI, 4:self.F_MU, 5:self.F_GAM, 6:self.F_OMEGA, 7:self.F_AZIMUTH, 8:self.F_ALPHA, 9:self.F_BETA}
@@ -505,7 +506,7 @@ class SixCircle():
     # Set azimuth reference vector
     # Usage: setaz() or setaz(H,K,L)
     def setaz(self, *args):
-        """(), setaz(H,K,L) \t\t\t\t\t\t Sets surface normal/azimuthal reference"""
+        """(), setaz(H,K,L) \t\t\t\t Sets surface normal/azimuthal reference"""
         
         if len(args) == 0:
             print ('\nEnter azimuthal reference H K L:')
@@ -533,7 +534,7 @@ class SixCircle():
     # Positions of primary reflection are current positions
     # Usage: or0() or or0(H,K,L)
     def or0(self, *args):
-        """(H,K,L), or1(H,K,L) \t\t\t\t\t\t Set H, K, L of primary/secondary reflection. Set primary,secondary (or0,or1) at present angle values"""
+        """(H,K,L), or1(H,K,L) \t\t\t\t Set H, K, L of primary/secondary reflection. Set primary,secondary (or0,or1) at present angle values"""
 
         self.g_lambda0 = self.LAMBDA
         self.g_u00, self.g_u01, self.g_u02, self.g_u03, self.g_u04, self.g_u05 = (self.TTH, self.TH, self.CHI, self.PHI, self.MU, self.GAM)
@@ -562,7 +563,7 @@ class SixCircle():
 
     # Set H, K, L and positions of primary reflection
     def setor0(self):
-        """() , setor1() \t\t\t\t\t\t Set primary,secondary (or0,or1) at entered angles"""
+        """() , setor1() \t\t\t\t Set primary,secondary (or0,or1) at entered angles"""
 
         self.g_lambda0 = self.LAMBDA
         print ('\nEnter primary-reflection angles:')
@@ -664,7 +665,7 @@ class SixCircle():
 
     # Check consistency at or0 and or1
     def or_check(self):
-        """() \t\t\t\t\t\t\t\t\t Check consistency of present or0 and or1 values"""
+        """() \t\t\t\t\t Check consistency of present or0 and or1 values"""
         
         # Record original conditions
         o_FLAG_WH = self.FLAG_WH
@@ -692,7 +693,7 @@ class SixCircle():
 
     # Swap primary reflection and secondary reflection
     def or_swap(self):
-        """() \t\t\t\t\t\t\t\t\t Swaps primary and secondary reference vectors/angles """
+        """() \t\t\t\t\t Swaps primary and secondary reference vectors/angles """
 
         or0 = (self.g_lambda0, self.g_u00, self.g_u01, self.g_u02, self.g_u03, self.g_u04, self.g_u05, self.g_h0, self.g_k0, self.g_l0)
         or1 = (self.g_lambda1, self.g_u10, self.g_u11, self.g_u12, self.g_u13, self.g_u14, self.g_u15, self.g_h1, self.g_k1, self.g_l1)
@@ -725,7 +726,7 @@ class SixCircle():
 
     # Show current positions
     def wh(self):
-        """()  (==wa()) \t\t\t\t\t\t\t\t Prints present HKL, etc.  (SA==Scattering Angle)"""
+        """()  (==wa()) \t\t\t\t\t Prints present HKL, etc.  (SA==Scattering Angle)"""
         print('')
         print ('H K L =  {0:.{3}f}  {1:.{3}f}  {2:.{3}f}'.format(self.H,self.K,self.L,self.PRE))
         print ('|Q| = {0:.3f} nm-1  SA = {1:.{3}f} deg  at  LAMBDA = {2:.{4}f} A'.format(self.ABSQ*10,self.SA,self.LAMBDA,self.PRE,self.PRE+2))
@@ -747,7 +748,7 @@ class SixCircle():
 
     # Start printing positions after mv() or br()
     def wh_on(self):
-        """(), wh_off() \t\t\t\t\t\t\t turns on/off wh() call at end of br() and mv() calls"""
+        """(), wh_off() \t\t\t\t turns on/off wh() call at end of br() and mv() calls"""
         
         self.FLAG_WH = True
         print ('')
@@ -799,7 +800,7 @@ class SixCircle():
     # Set limits of positions
     # Usage:  setlm()  or  setlm(ltth=?,utth=?,lth=?,uth=?,lchi=?,uchi=?,lphi=?,uphi=?,lmu=?,umu=?,lgam=?,ugam=?,lalpha=?,ualpha=?,lbeta=?,ubeta=?)
     def setlm(self, **args):
-        """() , showlm() \t\t\t\t\t\t\t Sets/Shows limits.  Useful selecting amoung multiple solutions for (H,K,L)"""
+        """() , showlm() \t\t\t\t Sets/Shows limits.  Useful selecting amoung multiple solutions for (H,K,L)"""
 
         if len(args) == 0:
             print ('\nSet limit of positions:')
@@ -927,7 +928,7 @@ class SixCircle():
     
     # Set all limits as -180 to 180
     def setlm_clear(self):
-        """() \t\t\t\t\t\t\t\t Sets default (+-180 deg) limits on all angles"""
+        """() \t\t\t\t\t Sets default (+-180 deg) limits on all angles"""
         
         self.L_TTH = -180.0; self.U_TTH = 180.0
         self.L_TH = -180.0; self.U_TH = 180.0
@@ -945,7 +946,7 @@ class SixCircle():
     # Show the 1st set of positions in preset limits
     # Usage:  ca(H,K,L)
     def ca(self, *args):
-        """(H,K,L) \t\t\t\t\t\t\t\t\t Calculate angles for a given (H,K,L) """
+        """(H,K,L) \t\t\t\t\t Calculate angles for a given (H,K,L) """
         
         if len(args) != 3:
             print ('Usage:  ca(H,K,L)')
@@ -989,7 +990,7 @@ class SixCircle():
     # Move to H, K, L    Using first set of positions from ca_s()
     # Usage: br(H,K,L)
     def br(self, *args):
-        """(H,K,L) \t\t\t\t\t\t\t\t\t Move to given Q=(H,K,L)"""
+        """(H,K,L) \t\t\t\t\t Move to given Q=(H,K,L)"""
         
         if len(args) != 3:
             print ('Usage:  br(H,K,L)')
@@ -1071,7 +1072,7 @@ class SixCircle():
     # _a: all, show all sets of positions in preset limits
     # Usage:  ca_a(H,K,L)
     def ca_a(self, *args):
-        """(H,K,L), ca_s(H,K,L) \t\t\t\t\t Calculates (_s=silently) angles for (H,K,L) within limits from setlm"""
+        """(H,K,L), ca_s(H,K,L) \t\t\t Calculates (_s=silently) angles for (H,K,L) within limits from setlm"""
         
         if len(args) != 3:
             print ('Usage:  ca_a(H,K,L)')
@@ -1126,7 +1127,7 @@ class SixCircle():
     # Check where the limits of alpha and beta are for H, K, L
     # Usage:  wmab(H, K, L)
     def wmab(self, *args):
-        """(H,K,L), wmab_s(H,K,L) \t\t\t\t\t Check the limits on alpha and beta for given (H,K,L)"""
+        """(H,K,L), wmab_s(H,K,L) \t\t\t Check the limits on alpha and beta for given (H,K,L)"""
 
         if len(args) != 3:
             print ('Usage:  wmab(H,K,L)')
@@ -1152,7 +1153,7 @@ class SixCircle():
     # Usage:  setprecision()  or setprecision(n)
     # Default n = 4
     def setprecision(self, *args):
-        """(n) \t\t\t\t\t\t\t Sets decimal precision for output (default n=4)"""
+        """(n) \t\t\t\t Sets decimal precision for output (default n=4)"""
 
         if len(args) == 0:
             PRE_input =  input('\nOutput precision ({0})? '.format(self.PRE))
