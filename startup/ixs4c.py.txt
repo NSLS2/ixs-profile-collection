@@ -1,9 +1,10 @@
 from hkl import E4CV, SimMixin, Lattice, DiffractometerConfiguration, Constraint
 from ophyd import SoftPositioner
-from ophyd import Component as Cpt
+from ophyd import (Component as Cpt, Device)
 from hkl.user import *
 import pathlib, pyRestTable
 
+# class FourCircle(Device):
 class FourCircle(SimMixin, E4CV):
     """
     Our 4-circle.  Eulerian, vertical scattering orientation.

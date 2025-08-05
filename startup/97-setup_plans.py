@@ -532,7 +532,7 @@ def LocalBumpSetup():
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.horz_plane_nudge.set(1)
-            sleep(2)
+            yield from sleep(2)
             print('*****************************************')
             xtarget = strg_ring_orb_fb.xa_rbv.read()
             valx = 1.e3*xtarget['srofb_xa_rbv']['value']
@@ -558,7 +558,7 @@ def LocalBumpSetup():
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.vert_plane_nudge.set(1)
-            sleep(2)
+            yield from sleep(2)
             print('*****************************************')
             ytarget = strg_ring_orb_fb.xy_rbv.read()
             valy = 1.e3*ytarget['srofb_xy_rbv']['value']
