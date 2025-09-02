@@ -24,7 +24,7 @@ def whsc():
 
 def wh():
     whsc()
-    update_spec_signals()
+    # update_spec_signals()
 
 
 def wh_refresh():
@@ -55,24 +55,24 @@ def or1(*args):
     whsc()
     sc.or1(*args)
 
-def update_spec_signals():
-   spec.H.put(sc.H)
-   spec.K.put(sc.K)
-   spec.L.put(sc.L)
-   spec.Q.put(sc.ABSQ*10)
-   spec.LAMBDA.put(sc.LAMBDA)
-   spec.HAZ.put(sc.g_haz)
-   spec.KAZ.put(sc.g_kaz)
-   spec.LAZ.put(sc.g_laz)
-   spec.AZIMUTH.put(sc.AZIMUTH)
-   spec.ALPHA.put(sc.ALPHA)
-   spec.BETA.put(sc.BETA)
-   spec.OMEGA.put(sc.OMEGA)
+# def update_spec_signals():
+#    spec.H.put(sc.H)
+#    spec.K.put(sc.K)
+#    spec.L.put(sc.L)
+#    spec.Q.put(sc.ABSQ*10)
+#    spec.LAMBDA.put(sc.LAMBDA)
+#    spec.HAZ.put(sc.g_haz)
+#    spec.KAZ.put(sc.g_kaz)
+#    spec.LAZ.put(sc.g_laz)
+#    spec.AZIMUTH.put(sc.AZIMUTH)
+#    spec.ALPHA.put(sc.ALPHA)
+#    spec.BETA.put(sc.BETA)
+#    spec.OMEGA.put(sc.OMEGA)
 
 
 def br(*args):
     sc.br(*args)
-    update_spec_signals()
+    # update_spec_signals()
     yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
 
 # def br(h, k, l):
