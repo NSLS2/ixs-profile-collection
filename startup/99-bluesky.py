@@ -86,7 +86,7 @@ def sc_init(conf_file):
     freeze(0,-0.401,0)
     sc.mv(mu=-0.401)
     wh()
-    update_spec_signals()
+#    update_spec_signals()
 
 
 def ca(h, k, l):
