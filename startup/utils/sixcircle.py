@@ -723,6 +723,7 @@ class SixCircle():
         self.L = hb[2][0]
         # When azimuth reference vector is surface normal, ALPHA and BETA are incident and exit angles
         self.AZIMUTH, self.ALPHA, self.BETA = scbasic.CheckPsiAlphainBetaout(self.M_U,self.M_B,az,self.TTH/2,self.OMEGA,self.CHI,self.PHI,self.MU,self.GAM)
+        return self.H, self.K, self.L
 
     # Show current positions
     def wh(self):
@@ -986,6 +987,8 @@ class SixCircle():
             print ('Command (BL43LXU):    ', end='')
             print ('mv tth {0:.{6}f} th {1:.{6}f} chi {2:.{6}f} phi {3:.{6}f}'.format(*posprt,self.PRE))
             print ('')
+            # return 
+        return caTTH,caTH,caCHI,caPHI
     
     # Move to H, K, L    Using first set of positions from ca_s()
     # Usage: br(H,K,L)
