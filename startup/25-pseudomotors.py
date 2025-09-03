@@ -239,19 +239,19 @@ class SamplePrime(PseudoPositioner):
 #         return self.PseudoPosition(H=caH, K=caK, L=caL)
 
 
-# def hkl_to_angles(H, K, L):
-#     flag, pos = sc.ca_s(H, K, L)
-#     if flag == True:
-#         tth, th, chi, phi, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
-#         return tth, th, chi, phi
-#     else:
-#         return
+def hkl_to_angles(H, K, L):
+    flag, pos = sc.ca_s(H, K, L)
+    if flag == True:
+        tth, th, chi, phi, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
+        return tth, th, chi, phi
+    else:
+        return
     
 
-# def angles_to_hkl(Tth, Th, Chi, Phi):
-#     sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
-#     H, K, L = sc.wh_refresh()
-#     return H, K, L
+def angles_to_hkl(Tth, Th, Chi, Phi):
+    sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
+    H, K, L = sc.wh_refresh()
+    return H, K, L
 
 
 
