@@ -20,6 +20,18 @@ class Spectrometer(Device):
     th = Cpt(EpicsMotor, '-OP{Spec:1-Ax:Th}Mtr', labels=('spectrometer',))
     chi = Cpt(EpicsMotor, '-OP{Spec:1-Ax:ChiA}Mtr', labels=('spectrometer',))
     phi = Cpt(EpicsMotor, '-OP{Spec:1-Ax:PhiA}Mtr', labels=('spectrometer',))
+    H = Cpt(Signal, value=0)
+    K = Cpt(Signal, value=0)
+    L = Cpt(Signal, value=0)
+    Q = Cpt(Signal, value=0)
+    LAMBDA = Cpt(Signal, value=0)
+    HAZ = Cpt(Signal, value=0)
+    KAZ = Cpt(Signal, value=0)
+    LAZ = Cpt(Signal, value=0)
+    AZIMUTH = Cpt(Signal, value=0)
+    ALPHA = Cpt(Signal, value=0)
+    BETA = Cpt(Signal, value=0)
+    OMEGA = Cpt(Signal, value=0)
 
 
 class AnalyzerDXtals(Device):
