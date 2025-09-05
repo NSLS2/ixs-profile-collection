@@ -1,4 +1,4 @@
-from ophyd import (Component as Cpt, Device, EpicsMotor, EpicsSignal)
+from ophyd import (Component as Cpt, Device, EpicsMotor, EpicsSignal, Signal)
 
 # List of available EpicsMotor labels in this script
 # [analyzer, spectrometer, analyzerdxtals, analyzerslits, mcmslits, samplestage, whl, anapd, anpd]
