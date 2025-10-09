@@ -233,15 +233,19 @@ class HKLPseudo(PseudoPositioner):
     @pseudo_position_argument
     def forward(self, pseudopos):
         """(H, K, L) -> (tth, th, chi, phi)"""
-        H, K, L = pseudopos
+        ###TESTING###
+        self.H.put(pseudopos.H)
+        self.K.put(pseudopos.K)
+        self.L.put(pseudopos.L)
+        ###END TESTING###
         # print("H, K, L in pseduopos", H, K, L)
-        catth, cath, cachi, caphi = self._calc_to_real(H, K, L)
+        catth, cath, cachi, caphi = self._calc_to_real(self.H.get(), self.K.get(), self.L.get())
         return self.RealPosition(tth=catth, th=cath, chi=cachi, phi=caphi)
     
     @real_position_argument
     def inverse(self, realpos):
         """(tth, th, chi, phi) -> (H, K, L)"""
-        tth, th, chi, phi = realpos
+        tth, th, chi, phi = realpos.Tth, realpos.Th, realpos.Chi, realpos.Phi
         # print("angles in realpos", tth, th, chi, phi)
         caH, caK, caL = self._real_to_calc(tth, th, chi, phi)
         return self.PseudoPosition(H=caH, K=caK, L=caL)
@@ -251,6 +255,7 @@ def hkl_to_angles(H, K, L):
     flag, pos = sc.ca_s(H, K, L)
     if flag == True:
         tth, th, chi, phi, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
+        sc.br(H, K, L)
         return tth, th, chi, phi
     else:
         return
@@ -265,4 +270,4 @@ def angles_to_hkl(Tth, Th, Chi, Phi):
 
 anc_xtal = AnalyzerCXtal('', name='anc_xtal', egu=('deg', 'mm'))
 sam_prime = SamplePrime('', name='sp', egu=('mm', 'deg'))
-# hklpseudo = HKLPseudo(name='hkl', calc_to_real=hkl_to_angles, real_to_calc=angles_to_hkl)
+hklpseudo = HKLPseudo(name='hkl', calc_to_real=hkl_to_angles, real_to_calc=angles_to_hkl)
