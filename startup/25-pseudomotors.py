@@ -3,6 +3,7 @@ from ophyd import (EpicsMotor, PseudoSingle, PseudoPositioner,
 from ophyd.pseudopos import (pseudo_position_argument, real_position_argument)
 import numpy as np
 from scipy import interpolate
+from ophyd import SoftPositioner
 
 # List of available EpicsMotor labels in this script
 # [blenergy, dcmenergy, hrmenergy, analyzercxtal]
@@ -204,39 +205,46 @@ class SamplePrime(PseudoPositioner):
         return self.PseudoPosition(xp = _xp, zp = _zp)
     
 
-# class HKLPseudo(PseudoPositioner):
-# # Defines H, K, L pseudomotors for the Six Circle diffractometer code
-#     H = Cpt(PseudoSingle)
-#     K = Cpt(PseudoSingle)
-#     L = Cpt(PseudoSingle)
+class HKLPseudo(PseudoPositioner):
+# Defines H, K, L pseudomotors for the Six Circle diffractometer code
+    H = Cpt(PseudoSingle)
+    K = Cpt(PseudoSingle)
+    L = Cpt(PseudoSingle)
 
-#     th = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:Th}Mtr', labels=('scir',))
-#     chi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:ChiA}Mtr', labels=('scir',))
-#     phi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:PhiA}Mtr', labels=('scir',))
-#     tth = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:2Th}Mtr', labels=('scir',))
+    th = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    chi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    phi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    tth = Cpt(SoftPositioner, kind="hinted", init_pos=0)
 
-#     def __init__(self, *, calc_to_real, real_to_calc, **kwargs):
-#         """
-#         calc_to_real: function (H, K, L) -> (tth, th, chi, phi)
-#         real_to_calc: function (tth, th, chi, phi) -> (H, K, L)
-#         """
-#         self._calc_to_real = calc_to_real
-#         self._real_to_calc = real_to_calc
-#         super().__init__(**kwargs)
+    # th = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:Th}Mtr', labels=('scir',))
+    # chi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:ChiA}Mtr', labels=('scir',))
+    # phi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:PhiA}Mtr', labels=('scir',))
+    # tth = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:2Th}Mtr', labels=('scir',))
 
-#     @pseudo_position_argument
-#     def forward(self, pseudopos):
-#         """(H, K, L) -> (tth, th, chi, phi)"""
-#         H, K, L = pseudopos
-#         catth, cath, cachi, caphi = self._calc_to_real(H, K, L)
-#         return self.RealPosition(tth=catth, th=cath, chi=cachi, phi=caphi)
+    def __init__(self, *, calc_to_real, real_to_calc, **kwargs):
+        """
+        calc_to_real: function (H, K, L) -> (tth, th, chi, phi)
+        real_to_calc: function (tth, th, chi, phi) -> (H, K, L)
+        """
+        self._calc_to_real = calc_to_real
+        self._real_to_calc = real_to_calc
+        super().__init__(**kwargs)
+
+    @pseudo_position_argument
+    def forward(self, pseudopos):
+        """(H, K, L) -> (tth, th, chi, phi)"""
+        H, K, L = pseudopos
+        # print("H, K, L in pseduopos", H, K, L)
+        catth, cath, cachi, caphi = self._calc_to_real(H, K, L)
+        return self.RealPosition(tth=catth, th=cath, chi=cachi, phi=caphi)
     
-#     @real_position_argument
-#     def inverse(self, realpos):
-#         """(tth, th, chi, phi) -> (H, K, L)"""
-#         tth, th, chi, phi = realpos
-#         caH, caK, caL = self._real_to_calc(tth, th, chi, phi)
-#         return self.PseudoPosition(H=caH, K=caK, L=caL)
+    @real_position_argument
+    def inverse(self, realpos):
+        """(tth, th, chi, phi) -> (H, K, L)"""
+        tth, th, chi, phi = realpos
+        # print("angles in realpos", tth, th, chi, phi)
+        caH, caK, caL = self._real_to_calc(tth, th, chi, phi)
+        return self.PseudoPosition(H=caH, K=caK, L=caL)
 
 
 def hkl_to_angles(H, K, L):
