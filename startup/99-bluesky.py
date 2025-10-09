@@ -55,19 +55,19 @@ def or1(*args):
     whsc()
     sc.or1(*args)
 
-# def update_spec_signals():
-#    spec.H.put(sc.H)
-#    spec.K.put(sc.K)
-#    spec.L.put(sc.L)
-#    spec.Q.put(sc.ABSQ*10)
-#    spec.LAMBDA.put(sc.LAMBDA)
-#    spec.HAZ.put(sc.g_haz)
-#    spec.KAZ.put(sc.g_kaz)
-#    spec.LAZ.put(sc.g_laz)
-#    spec.AZIMUTH.put(sc.AZIMUTH)
-#    spec.ALPHA.put(sc.ALPHA)
-#    spec.BETA.put(sc.BETA)
-#    spec.OMEGA.put(sc.OMEGA)
+def update_spec_signals():
+   spec.H.put(sc.H)
+   spec.K.put(sc.K)
+   spec.L.put(sc.L)
+   spec.Q.put(sc.ABSQ*10)
+   spec.LAMBDA.put(sc.LAMBDA)
+   spec.HAZ.put(sc.g_haz)
+   spec.KAZ.put(sc.g_kaz)
+   spec.LAZ.put(sc.g_laz)
+   spec.AZIMUTH.put(sc.AZIMUTH)
+   spec.ALPHA.put(sc.ALPHA)
+   spec.BETA.put(sc.BETA)
+   spec.OMEGA.put(sc.OMEGA)
 
 
 def br(*args):
