@@ -83,8 +83,8 @@ def br(*args):
 def sc_init(conf_file):
     sc.load(conf_file)
     setfrozen(345)
-    freeze(0,-0.401,0)
-    sc.mv(mu=-0.401)
+    freeze(0,-0.401,0.401)
+    sc.mv(mu=-0.401, gam=0.401)
     wh()
 #    update_spec_signals()
 
