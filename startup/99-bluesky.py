@@ -22,38 +22,40 @@ def whsc():
     sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
 
 
-def wh():
-    whsc()
-    # update_spec_signals()
+# def wh():
+#     res = hklps.position
+#     sc.wh()
+#     # update_spec_signals()
 
 
-def wh_refresh():
-    whsc()
-    return sc.H, sc.K, sc.L
+# def wh_refresh():
+#     res = hklps.position
+#     sc.wh_refresh()
+#     # return sc.H, sc.K, sc.L
 
 
-def freeze(*arg):
-    sc.freeze(*arg)
+# def freeze(*arg):
+#     sc.freeze(*arg)
 
 
-def setfrozen(*arg):
-    sc.setfrozen(*arg)
+# def setfrozen(*arg):
+#     sc.setfrozen(*arg)
 
 
-def pa():
-    sc.pa()
+# def pa():
+#     sc.pa()
 
 
-def or0(*args):
-# defines the OR0 vector from the current angle positions
-    whsc()
-    sc.or0(*args)
+# def or0(*args):
+# # defines the OR0 vector from the current angle positions
+#     whsc()
+#     sc.or0(*args)
 
 
-def or1(*args):
-# defines the OR0 vector from the current angle positions
-    whsc()
-    sc.or1(*args)
+# def or1(*args):
+# # defines the OR0 vector from the current angle positions
+#     whsc()
+#     sc.or1(*args)
 
 def update_spec_signals():
    spec.H.put(sc.H)
@@ -80,12 +82,14 @@ def br(*args):
 #     RE.md.update({'H', h, 'K', k, 'L', l})
 #     yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
 
-def sc_init(conf_file):
+def sc_init(sc, conf_file):
+# initializes the six circle with the configuration file
     sc.load(conf_file)
-    setfrozen(345)
-    freeze(0,-0.401,0.401)
+    sc.wh_off()
+    sc.setfrozen(345)
+    sc.freeze(0,-0.401,0.401)
     sc.mv(mu=-0.401, gam=0.401)
-    wh()
+    sc.wh()
 #    update_spec_signals()
 
 
@@ -98,4 +102,24 @@ def ca(h, k, l):
 #        sc.mv(tth = result[0], th = result[1], chi = result[2], phi = result[3])
 
 
-sc_init('/IXS2/data/run2025/dia_test.conf')
+sc_init(hklps.sc, '/IXS2/data/run2025/dia_test.conf')
+
+def hkl_positions():
+# prints the positions of the pseudomotors (H, K, L) and real motors (Tth, Th, Chi, Phi)
+    sc.wh_off()
+# Print pseudomotor positions (H, K, L)
+    print("Pseudopositions:", hklps.position)
+
+    # Print real motor positions (Tth, Th, Chi, Phi)
+    print("Real positions:", hklps.real_position)
+    print()
+    # Or, for individual values:
+    print(f"H: {hklps.position.H}")
+    print(f"K: {hklps.position.K}")
+    print(f"L: {hklps.position.L}")
+    print()
+    print(f"Tth: {hklps.real_position.tth}")
+    print(f"Th: {hklps.real_position.th}")
+    print(f"Chi: {hklps.real_position.chi}")
+    print(f"Phi: {hklps.real_position.phi}")
+

@@ -5,6 +5,8 @@ import numpy as np
 from scipy import interpolate
 from ophyd import SoftPositioner
 
+from utils.sixcircle import SixCircle
+
 # List of available EpicsMotor labels in this script
 # [blenergy, dcmenergy, hrmenergy, analyzercxtal]
 
@@ -209,15 +211,14 @@ def hkl_to_angles(H, K, L):
     flag, pos = sc.ca_s(H, K, L)
     if flag == True:
         tth, th, chi, phi, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
-        sc.br(H, K, L)
+        # sc.br(H, K, L)
         return tth, th, chi, phi
     else:
         return None
     
 
 def angles_to_hkl(Tth, Th, Chi, Phi):
-    sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
-    H, K, L = sc.wh_refresh()
+    H, K, L = sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
     return H, K, L
 
 
@@ -245,15 +246,17 @@ class HKLPseudo(PseudoPositioner):
     #     self._calc_to_real = calc_to_real
     #     self._real_to_calc = real_to_calc
     #     super().__init__(**kwargs)
+    @property
+    def position(self):
+        """Return the current pseudo position (H, K, L)."""
+        realpos = self.real_position
+        h, k, l = angles_to_hkl(realpos.tth, realpos.th, realpos.chi, realpos.phi)
+        sc.wh_refresh()
+        return self.PseudoPosition(H=h, K=k, L=l)
 
     @pseudo_position_argument
     def forward(self, pseudopos):
         """(H, K, L) -> (tth, th, chi, phi)"""
-        ###TESTING###
-        # self.H.put(pseudopos.H)
-        # self.K.put(pseudopos.K)
-        # self.L.put(pseudopos.L)
-        ###END TESTING###
         # print("H, K, L in pseduopos", H, K, L)
         res = hkl_to_angles(pseudopos.H, pseudopos.K, pseudopos.L)
 
@@ -272,8 +275,64 @@ class HKLPseudo(PseudoPositioner):
         return self.PseudoPosition(H=caH, K=caK, L=caL)
 
 
+class HKLPseudoV2(PseudoPositioner):
+    H = Cpt(PseudoSingle)
+    K = Cpt(PseudoSingle)
+    L = Cpt(PseudoSingle)
+
+    th = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    chi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    phi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    tth = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    
+    def __init__(self, *args, **kwargs):
+        self.sc = SixCircle()       
+        super().__init__(**kwargs)
+
+    def hkl_to_angles(self, H, K, L):
+        flag, pos = self.sc.ca_s(H, K, L)
+        if flag == True:
+            tth, th, chi, phi, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
+            # sc.br(H, K, L)
+            return tth, th, chi, phi
+        else:
+            return None
+
+    def angles_to_hkl(self, Tth, Th, Chi, Phi):
+        H, K, L = self.sc.mv(tth=Tth, th=Th, chi=Chi, phi=Phi)
+        return H, K, L
+
+    @property
+    def position(self):
+        """Return the current pseudo position (H, K, L)."""
+        realpos = self.real_position
+        h, k, l = self.angles_to_hkl(realpos.tth, realpos.th, realpos.chi, realpos.phi)
+        self.sc.wh_refresh()
+        return self.PseudoPosition(H=h, K=k, L=l)
+
+    @pseudo_position_argument
+    def forward(self, pseudopos):
+        """(H, K, L) -> (tth, th, chi, phi)"""
+        # print("H, K, L in pseduopos", H, K, L)
+        res = self.hkl_to_angles(pseudopos.H, pseudopos.K, pseudopos.L)
+        self.sc.wh_refresh()
+        if res is None:
+            raise ValueError(f"Cannot reach (H,K,L)=({pseudopos.h},{pseudopos.k},{pseudopos.l})")
+        
+        catth, cath, cachi, caphi = res
+        return self.RealPosition(tth=catth, th=cath, chi=cachi, phi=caphi)
+    
+    @real_position_argument
+    def inverse(self, realpos):
+        """(tth, th, chi, phi) -> (H, K, L)"""
+        # tth, th, chi, phi = realpos.Tth, realpos.Th, realpos.Chi, realpos.Phi
+        # print("angles in realpos", tth, th, chi, phi)
+        caH, caK, caL = self.angles_to_hkl(realpos.tth, realpos.th, realpos.chi, realpos.phi)
+        self.sc.wh_refresh()
+        return self.PseudoPosition(H=caH, K=caK, L=caL)
+
 
 anc_xtal = AnalyzerCXtal('', name='anc_xtal', egu=('deg', 'mm'))
 sam_prime = SamplePrime('', name='sp', egu=('mm', 'deg'))
 # hklpseudo = HKLPseudo(name='hkl', calc_to_real=hkl_to_angles, real_to_calc=angles_to_hkl)
-klpseudo = HKLPseudo(name='hklpseudo')
+hklps = HKLPseudoV2(name='hkl')

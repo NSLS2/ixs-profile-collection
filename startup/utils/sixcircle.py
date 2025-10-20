@@ -794,9 +794,10 @@ class SixCircle():
         if 'gam' in args.keys():
             self.GAM = args['gam']
         # Get (H, K, L, SA, OMEGA, ALPHA, BETA, AZIMUTH, ABSQ) at new positions
-        self.wh_refresh()
+        H, K, L = self.wh_refresh()
         if self.FLAG_WH == True:
             self.wh()
+        return H, K, L
 
     # Set limits of positions
     # Usage:  setlm()  or  setlm(ltth=?,utth=?,lth=?,uth=?,lchi=?,uchi=?,lphi=?,uphi=?,lmu=?,umu=?,lgam=?,ugam=?,lalpha=?,ualpha=?,lbeta=?,ubeta=?)
