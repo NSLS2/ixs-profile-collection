@@ -1,4 +1,4 @@
-from ophyd import (EpicsMotor, PseudoSingle, PseudoPositioner,
+from ophyd import (EpicsMotor, PseudoSingle, PseudoPositioner, Device, Signal,
                    Component as Cpt)
 from ophyd.pseudopos import (pseudo_position_argument, real_position_argument)
 import numpy as np
@@ -330,9 +330,49 @@ class HKLPseudoV2(PseudoPositioner):
         caH, caK, caL = self.angles_to_hkl(realpos.tth, realpos.th, realpos.chi, realpos.phi)
         self.sc.wh_refresh()
         return self.PseudoPosition(H=caH, K=caK, L=caL)
+    
+
+class HKLDerived(Device):
+    alpha = Cpt(Signal, value=0.0, kind='hinted')
+    beta  = Cpt(Signal, value=0.0, kind='hinted')
+    omega = Cpt(Signal, value=0.0, kind='hinted')
+    mu = Cpt(Signal, value=0.0, kind='hinted')
+    gam = Cpt(Signal, value=0.0, kind='hinted')
+    sa = Cpt(Signal, value=0.0, kind='hinted')
+    azimuth = Cpt(Signal, value=0.0, kind='hinted')
+
+    def __init__(self, hkl_pseudo, *args, **kwargs):
+        self.hkl_pseudo = hkl_pseudo
+        super().__init__(*args, **kwargs)
+
+    def compute(self):
+        # Use the current pseudo position
+        pos = self.hkl_pseudo.position
+        # Call the same geometric transformation
+        flag, vals = self.hkl_pseudo.sc.ca_s(pos.H, pos.K, pos.L)
+        if not flag:
+            return None, None, None
+        # Extract the relevant parameters
+        *_, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = vals[0]
+        return caALPHA, caBETA, caOMEGA, caMU, caGAM, caSA, caAZIMUTH
+
+    def trigger(self):
+        result = self.compute()
+        if result is not None:
+            a, b, o, m, g, s, az = result
+            self.alpha.put(a)
+            self.beta.put(b)
+            self.omega.put(o)
+            self.mu.put(m)
+            self.gam.put(g)
+            self.sa.put(s)
+            self.azimuth.put(az)
+        return super().trigger()
+
 
 
 anc_xtal = AnalyzerCXtal('', name='anc_xtal', egu=('deg', 'mm'))
 sam_prime = SamplePrime('', name='sp', egu=('mm', 'deg'))
 # hklpseudo = HKLPseudo(name='hkl', calc_to_real=hkl_to_angles, real_to_calc=angles_to_hkl)
 hklps = HKLPseudoV2(name='hkl')
+hkl_params = HKLDerived(hklps, name='hkl_params')

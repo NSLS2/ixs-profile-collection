@@ -73,7 +73,7 @@ sc = SixCircle()
 
 
 def br(*args):
-    sc.br(*args)
+    hklps.sc.br(*args)
     # update_spec_signals()
     #yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
 
@@ -82,19 +82,19 @@ def br(*args):
 #     RE.md.update({'H', h, 'K', k, 'L', l})
 #     yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
 
-def sc_init(sc, conf_file):
+def sc_init(conf_file):
 # initializes the six circle with the configuration file
-    sc.load(conf_file)
-    sc.wh_off()
-    sc.setfrozen(345)
-    sc.freeze(0,-0.401,0.401)
-    sc.mv(mu=-0.401, gam=0.401)
-    sc.wh()
+    hklps.sc.load(conf_file)
+    hklps.sc.wh_off()
+    hklps.sc.setfrozen(345)
+    hklps.sc.freeze(0,-0.401,0.401)
+    hklps.sc.mv(mu=-0.401, gam=0.401)
+    hklps.sc.wh()
 #    update_spec_signals()
 
 
 def ca(h, k, l):
-    res = sc.ca(h,k,l)
+    res = hklps.sc.ca(h,k,l)
 
 
 #def mv()
@@ -102,7 +102,7 @@ def ca(h, k, l):
 #        sc.mv(tth = result[0], th = result[1], chi = result[2], phi = result[3])
 
 
-sc_init(hklps.sc, '/IXS2/data/run2025/dia_test.conf')
+sc_init('/IXS2/data/run2025/dia_test.conf')
 
 # def hkl_positions():
 # # prints the positions of the pseudomotors (H, K, L) and real motors (Tth, Th, Chi, Phi)
