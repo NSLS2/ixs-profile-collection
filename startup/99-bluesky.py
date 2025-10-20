@@ -13,13 +13,13 @@ from utils.sixcircle import SixCircle
 
 sc = SixCircle()
 
-def whsc():
-# Defines the current position of the sample
-    Th = spec.th.position
-    Tth = spec.tth.position
-    Chi = spec.chi.position
-    Phi = spec.phi.position
-    sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
+# def whsc():
+# # Defines the current position of the sample
+#     Th = spec.th.position
+#     Tth = spec.tth.position
+#     Chi = spec.chi.position
+#     Phi = spec.phi.position
+#     sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
 
 
 # def wh():
@@ -57,25 +57,25 @@ def whsc():
 #     whsc()
 #     sc.or1(*args)
 
-def update_spec_signals():
-   spec.H.put(sc.H)
-   spec.K.put(sc.K)
-   spec.L.put(sc.L)
-   spec.Q.put(sc.ABSQ*10)
-   spec.LAMBDA.put(sc.LAMBDA)
-   spec.HAZ.put(sc.g_haz)
-   spec.KAZ.put(sc.g_kaz)
-   spec.LAZ.put(sc.g_laz)
-   spec.AZIMUTH.put(sc.AZIMUTH)
-   spec.ALPHA.put(sc.ALPHA)
-   spec.BETA.put(sc.BETA)
-   spec.OMEGA.put(sc.OMEGA)
+# def update_spec_signals():
+#    spec.H.put(sc.H)
+#    spec.K.put(sc.K)
+#    spec.L.put(sc.L)
+#    spec.Q.put(sc.ABSQ*10)
+#    spec.LAMBDA.put(sc.LAMBDA)
+#    spec.HAZ.put(sc.g_haz)
+#    spec.KAZ.put(sc.g_kaz)
+#    spec.LAZ.put(sc.g_laz)
+#    spec.AZIMUTH.put(sc.AZIMUTH)
+#    spec.ALPHA.put(sc.ALPHA)
+#    spec.BETA.put(sc.BETA)
+#    spec.OMEGA.put(sc.OMEGA)
 
 
 def br(*args):
     sc.br(*args)
     # update_spec_signals()
-    yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
+    #yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
 
 # def br(h, k, l):
 #     sc.br(h, k, l)
@@ -104,22 +104,22 @@ def ca(h, k, l):
 
 sc_init(hklps.sc, '/IXS2/data/run2025/dia_test.conf')
 
-def hkl_positions():
-# prints the positions of the pseudomotors (H, K, L) and real motors (Tth, Th, Chi, Phi)
-    sc.wh_off()
-# Print pseudomotor positions (H, K, L)
-    print("Pseudopositions:", hklps.position)
+# def hkl_positions():
+# # prints the positions of the pseudomotors (H, K, L) and real motors (Tth, Th, Chi, Phi)
+#     sc.wh_off()
+# # Print pseudomotor positions (H, K, L)
+#     print("Pseudopositions:", hklps.position)
 
-    # Print real motor positions (Tth, Th, Chi, Phi)
-    print("Real positions:", hklps.real_position)
-    print()
-    # Or, for individual values:
-    print(f"H: {hklps.position.H}")
-    print(f"K: {hklps.position.K}")
-    print(f"L: {hklps.position.L}")
-    print()
-    print(f"Tth: {hklps.real_position.tth}")
-    print(f"Th: {hklps.real_position.th}")
-    print(f"Chi: {hklps.real_position.chi}")
-    print(f"Phi: {hklps.real_position.phi}")
+#     # Print real motor positions (Tth, Th, Chi, Phi)
+#     print("Real positions:", hklps.real_position)
+#     print()
+#     # Or, for individual values:
+#     print(f"H: {hklps.position.H}")
+#     print(f"K: {hklps.position.K}")
+#     print(f"L: {hklps.position.L}")
+#     print()
+#     print(f"Tth: {hklps.real_position.tth}")
+#     print(f"Th: {hklps.real_position.th}")
+#     print(f"Chi: {hklps.real_position.chi}")
+#     print(f"Phi: {hklps.real_position.phi}")
 
