@@ -33,28 +33,27 @@ def wh():
 #     # return sc.H, sc.K, sc.L
 
 
-# def freeze(*arg):
-#     sc.freeze(*arg)
+def freeze(*arg):
+    hklps.sc.freeze(*arg)
 
 
-# def setfrozen(*arg):
-#     sc.setfrozen(*arg)
+def setfrozen(*arg):
+    hklps.sc.setfrozen(*arg)
 
 
-# def pa():
-#     sc.pa()
+def pa():
+    hklps.sc.pa()
 
 
-# def or0(*args):
-# # defines the OR0 vector from the current angle positions
-#     whsc()
-#     sc.or0(*args)
+def or0(h,k,l):
+# defines the OR0 vector from the current angle positions
+    hklps.sc.or0(h,k,l)
 
 
-# def or1(*args):
-# # defines the OR0 vector from the current angle positions
-#     whsc()
-#     sc.or1(*args)
+def or1(h,k,l):
+# defines the OR1 vector from the current angle positions
+    hklps.sc.or1(h,k,l)
+
 
 # def update_spec_signals():
 #    spec.H.put(sc.H)
@@ -77,8 +76,7 @@ def wh():
     #yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
 
 def br(h, k, l):
-    # hklps.sc.br(h, k, l)
-    # RE.md.update({'H', h, 'K', k, 'L', l})
+    # moves the sample to the desired H, K, L positions
     yield from bps.mv(hklps.H, h, hklps.K, k, hklps.L, l)
 
 
