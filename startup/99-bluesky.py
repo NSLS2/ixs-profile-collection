@@ -22,10 +22,9 @@ sc = SixCircle()
 #     sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
 
 
-# def wh():
-#     res = hklps.position
-#     sc.wh()
-#     # update_spec_signals()
+def wh():
+    # updates the H, K, L pseudomotors from the current position of the sample
+    hklps.sc.wh()
 
 
 # def wh_refresh():
@@ -72,19 +71,53 @@ sc = SixCircle()
 #    spec.OMEGA.put(sc.OMEGA)
 
 
-def br(*args):
-    hklps.sc.br(*args)
+# def br(*args):
+#     hklps.sc.br(*args)
     # update_spec_signals()
     #yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
 
-# def br(h, k, l):
-#     sc.br(h, k, l)
-#     RE.md.update({'H', h, 'K', k, 'L', l})
-#     yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
+def br(h, k, l):
+    # hklps.sc.br(h, k, l)
+    # RE.md.update({'H', h, 'K', k, 'L', l})
+    yield from bps.mv(hklps.H, h, hklps.K, k, hklps.L, l)
+
+
+from bluesky import plan_stubs as bps
+
+def mv(mu=None, gam=None, tth=None, th=None, chi=None, phi=None):
+    """
+    Smart move dispatcher:
+      - For mu, gam: move via SixCircle (geometry engine).
+      - For tth, th, chi, phi: move real motors using Bluesky RunEngine.
+    """
+    moves = {}  # collect real motor moves
+    sc_args = {}  # for self.sc.mv()
+
+    # classify arguments
+    if mu is not None:
+        sc_args['mu'] = mu
+    if gam is not None:
+        sc_args['gam'] = gam
+    if tth is not None:
+        moves[hklps.tth] = tth
+    if th is not None:
+        moves[hklps.th] = th
+    if chi is not None:
+        moves[hklps.chi] = chi
+    if phi is not None:
+        moves[hklps.phi] = phi
+
+    # move motors first (if any)
+    if moves:
+        yield from bps.mv(*sum(moves.items(), ()))  # expands {motor: pos} → motor, pos, motor, pos
+    # move the geometry (mu/gam) next
+    if sc_args:
+        hklps.sc.mv(**sc_args)
+
 
 def sc_init(conf_file):
 # initializes the six circle with the configuration file
-    hklps.sc.load(conf_file)
+    # hklps.sc.load(conf_file)
     hklps.sc.wh_off()
     hklps.sc.setfrozen(345)
     hklps.sc.freeze(0,-0.401,0.401)
@@ -102,7 +135,7 @@ def ca(h, k, l):
 #        sc.mv(tth = result[0], th = result[1], chi = result[2], phi = result[3])
 
 
-sc_init('/IXS2/data/run2025/dia_test.conf')
+# sc_init('/IXS2/data/run2025/dia_test.conf')
 
 # def hkl_positions():
 # # prints the positions of the pseudomotors (H, K, L) and real motors (Tth, Th, Chi, Phi)
