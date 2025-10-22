@@ -8,6 +8,8 @@ from suitcase.spec import DocumentToSpec
 spec_cb = DocumentToSpec('/tmp/spec1.spec')
 RE.subscribe(spec_cb)
 '''
+import tkinter as tk
+from tkinter import filedialog
 
 from utils.sixcircle import SixCircle
 
@@ -80,8 +82,6 @@ def br(h, k, l):
     yield from bps.mv(hklps.H, h, hklps.K, k, hklps.L, l)
 
 
-from bluesky import plan_stubs as bps
-
 def mv(mu=None, gam=None, tth=None, th=None, chi=None, phi=None):
     """
     Smart move dispatcher:
@@ -113,9 +113,46 @@ def mv(mu=None, gam=None, tth=None, th=None, chi=None, phi=None):
         hklps.sc.mv(**sc_args)
 
 
-def sc_init(conf_file):
+def ca(h, k, l):
+    res = hklps.sc.ca(h,k,l)
+
+
+def select_file_to_open(initialdir=".", filetypes=(("All files", "*.*"),)):
+    # Opens a file dialog to select a file
+    root = tk.Tk()
+    root.withdraw()  # hide the empty Tk window
+    filename = filedialog.askopenfilename(initialdir=initialdir, filetypes=filetypes)
+    root.destroy()
+    return filename
+
+def select_file_to_save(initialdir="."):
+    # Opens a file dialog to select a directory
+    root = tk.Tk()
+    root.withdraw()
+    filename = filedialog.asksaveasfilename(initialdir=initialdir, defaultextension=".conf", filetypes=(("Config files", "*.conf"), ("All files", "*.*")))
+    root.destroy()
+    return filename
+
+def loadsc():
+# loads the six circle with a configuration file
+    config_file = select_file_to_open(initialdir="/IXS2/data/", filetypes=(("Config files", "*.conf"),))
+    if config_file:
+        # print(f"Loading six-circle configuration from {config_file}")
+        hklps.sc.load(config_file)
+
+
+def savesc():
+# saves the six circle configuration to a file
+    config_file = select_file_to_save(initialdir="/IXS2/data/")
+    if config_file:
+        print(f"Saving six-circle configuration to {config_file}")
+        hklps.sc.save(config_file)
+
+
+def sc_init():
 # initializes the six circle with the configuration file
-    # hklps.sc.load(conf_file)
+    # config_file = select_file(initialdir="/IXS2/data/")
+    # hklps.sc.load(config_file)
     hklps.sc.wh_off()
     hklps.sc.setfrozen(345)
     hklps.sc.freeze(0,-0.401,0.401)
@@ -123,17 +160,7 @@ def sc_init(conf_file):
     hklps.sc.wh()
 #    update_spec_signals()
 
-
-def ca(h, k, l):
-    res = hklps.sc.ca(h,k,l)
-
-
-#def mv()
-#    if mov == True and result is not None:
-#        sc.mv(tth = result[0], th = result[1], chi = result[2], phi = result[3])
-
-
-# sc_init('/IXS2/data/run2025/dia_test.conf')
+sc_init()
 
 # def hkl_positions():
 # # prints the positions of the pseudomotors (H, K, L) and real motors (Tth, Th, Chi, Phi)
