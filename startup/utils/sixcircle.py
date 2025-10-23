@@ -984,9 +984,9 @@ class SixCircle():
             print (posfmt.format(*posprt))
             print ('')
             print ('Command (sixcircle):  ', end='')
-            print ('mv (tth={0:.{6}f}, th={1:.{6}f}, chi={2:.{6}f}, phi={3:.{6}f}, mu={4:.{6}f}, gam={5:.{6}f})'.format(*posprt,self.PRE))
-            print ('Command (BL43LXU):    ', end='')
-            print ('mv tth {0:.{6}f} th {1:.{6}f} chi {2:.{6}f} phi {3:.{6}f}'.format(*posprt,self.PRE))
+            print ('mv(tth={0:.{6}f}, th={1:.{6}f}, chi={2:.{6}f}, phi={3:.{6}f}, mu={4:.{6}f}, gam={5:.{6}f})'.format(*posprt,self.PRE))
+            # print ('Command (BL43LXU):    ', end='')
+            # print ('mv tth {0:.{6}f} th {1:.{6}f} chi {2:.{6}f} phi {3:.{6}f}'.format(*posprt,self.PRE))
             print ('')
             # return 
         return caTTH,caTH,caCHI,caPHI
