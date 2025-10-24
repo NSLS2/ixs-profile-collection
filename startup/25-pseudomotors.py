@@ -345,30 +345,44 @@ class HKLDerived(Device):
         self.hkl_pseudo = hkl_pseudo
         super().__init__(*args, **kwargs)
 
-    def compute(self):
-        # Use the current pseudo position
-        pos = self.hkl_pseudo.position
-        # Call the same geometric transformation
-        flag, vals = self.hkl_pseudo.sc.ca_s(pos.H, pos.K, pos.L)
-        if not flag:
-            return None, None, None
-        # Extract the relevant parameters
-        *_, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = vals[0]
-        return caALPHA, caBETA, caOMEGA, caMU, caGAM, caSA, caAZIMUTH
+            # Subscribe to changes in key real motors
+        for m in [self.hkl_pseudo.tth, self.hkl_pseudo.th,
+                  self.hkl_pseudo.chi, self.hkl_pseudo.phi]:
+            m.subscribe(self._on_motor_change)
+
+        # Initialize derived values
+        self._update_from_motors()
+
+    def _on_motor_change(self, *args, **kwargs):
+        """Callback when any subscribed motor position changes."""
+        self._update_from_motors()
+
+    def _update_from_motors(self):
+        """Recalculate derived parameters based on current positions."""
+        try:
+            realpos = self.hkl_pseudo.real_position
+            H, K, L = self.hkl_pseudo.angles_to_hkl(
+                realpos.tth, realpos.th, realpos.chi, realpos.phi
+            )
+
+            flag, pos = self.hkl_pseudo.sc.ca_s(H, K, L)
+            if flag:
+                *_, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
+                self.alpha.put(caALPHA)
+                self.beta.put(caBETA)
+                self.omega.put(caOMEGA)
+                self.mu.put(caMU)
+                self.gam.put(caGAM)
+                self.sa.put(caSA)
+                self.azimuth.put(caAZIMUTH)
+
+        except Exception as ex:
+            print(f"[HKLDerived] Update failed: {ex}")
 
     def trigger(self):
-        result = self.compute()
-        if result is not None:
-            a, b, o, m, g, s, az = result
-            self.alpha.put(a)
-            self.beta.put(b)
-            self.omega.put(o)
-            self.mu.put(m)
-            self.gam.put(g)
-            self.sa.put(s)
-            self.azimuth.put(az)
+        """Refresh before any scan baseline read."""
+        self._update_from_motors()
         return super().trigger()
-
 
 
 anc_xtal = AnalyzerCXtal('', name='anc_xtal', egu=('deg', 'mm'))

@@ -15,24 +15,10 @@ from utils.sixcircle import SixCircle
 
 sc = SixCircle()
 
-# def whsc():
-# # Defines the current position of the sample
-#     Th = spec.th.position
-#     Tth = spec.tth.position
-#     Chi = spec.chi.position
-#     Phi = spec.phi.position
-#     sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
-
 
 def wh():
     # updates the H, K, L pseudomotors from the current position of the sample
     hklps.sc.wh()
-
-
-# def wh_refresh():
-#     res = hklps.position
-#     sc.wh_refresh()
-#     # return sc.H, sc.K, sc.L
 
 
 def freeze(*arg):
@@ -57,25 +43,6 @@ def or1(h,k,l):
     hklps.sc.or1(h,k,l)
 
 
-# def update_spec_signals():
-#    spec.H.put(sc.H)
-#    spec.K.put(sc.K)
-#    spec.L.put(sc.L)
-#    spec.Q.put(sc.ABSQ*10)
-#    spec.LAMBDA.put(sc.LAMBDA)
-#    spec.HAZ.put(sc.g_haz)
-#    spec.KAZ.put(sc.g_kaz)
-#    spec.LAZ.put(sc.g_laz)
-#    spec.AZIMUTH.put(sc.AZIMUTH)
-#    spec.ALPHA.put(sc.ALPHA)
-#    spec.BETA.put(sc.BETA)
-#    spec.OMEGA.put(sc.OMEGA)
-
-
-# def br(*args):
-#     hklps.sc.br(*args)
-    # update_spec_signals()
-    #yield from bps.mv(spec.th, sc.TH, spec.tth, sc.TTH, spec.chi, sc.CHI, spec.phi, sc.PHI)
 
 def br(h, k, l):
     # moves the sample to the desired H, K, L positions
