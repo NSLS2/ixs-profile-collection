@@ -127,6 +127,16 @@ def sc_init():
     hklps.sc.wh()
 #    update_spec_signals()
 
+
+def UB_print():
+    # prints the current UB matrix
+    print ('\nUB recalculated for {} '.format(sc.g_sample),end='')
+    print (' with ({0:.{3}f}, {1:.{3}f}, {2:.{3}f} '.format(sc.g_aa, sc.g_bb, sc.g_cc, sc.PRE),end='')
+    print (' {1:.{3}f}, {2:.{3}f}, {2:.{3}f})'.format(sc.g_al, sc.g_be, sc.g_ga, 2))
+    print ('     or0 = ({0:.{3}f}, {1:.{3}f}, {2:.{3}f})    and '.format(sc.g_h0, sc.g_k0, sc.g_l0, sc.PRE),end='')
+    print ('     or1 = ({0:.{3}f}, {1:.{3}f}, {2:.{3}f}) '.format(sc.g_h1, sc.g_k1, sc.g_l1, sc.PRE))
+
+
 sc_init()
 
 # def hkl_positions():

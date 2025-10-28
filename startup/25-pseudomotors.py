@@ -364,6 +364,13 @@ class HKLDerived(Device):
             H, K, L = self.hkl_pseudo.angles_to_hkl(
                 realpos.tth, realpos.th, realpos.chi, realpos.phi
             )
+            # --- Safety guard for HKL = (0,0,0) or NaN ---
+            if (
+                np.isnan(H) or np.isnan(K) or np.isnan(L)
+                or (H == 0 and K == 0 and L == 0)
+            ):
+                print("[HKLDerived] Skipping update: undefined HKL (0,0,0) or NaN values.")
+                return  # Skip update safely
 
             flag, pos = self.hkl_pseudo.sc.ca_s(H, K, L)
             if flag:
