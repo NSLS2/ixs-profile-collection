@@ -22,9 +22,9 @@ from os import path
 print ('')
 print ('RSC Materials Dynamics Laboratory Six Circle Code by Wenyang Zhao and Alfred Q.R. Baron')
 print ('')
-print ('Suggest:  import sixcircle; from sixcircle import *')
-print ('For IXS users at SPring-8:  from sixcircle_rqd import *')
-print ('')
+# print ('Suggest:  import sixcircle; from sixcircle import *')
+# print ('For IXS users at SPring-8:  from sixcircle_rqd import *')
+# print ('')
 
 # Module of six-circle calculation
 from . import scbasic
@@ -34,7 +34,7 @@ class SixCircle():
     
     def __init__(self):
         self.runquiet = False
-        self.__doc__()
+        # self.__doc__()
         
         self.ini()
 
@@ -96,7 +96,8 @@ class SixCircle():
         # Output precision, default PRE=3, (PRE+2) for wavelength
         self.PRE = 3
         # Flag of using wh() after mv() or br(), default False
-        self.FLAG_WH = True
+        # self.FLAG_WH = True
+        self.FLAG_WH = False
         # Load default configuration file at startup
         if path.isfile('/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/conf/sixcircle_last_UB') :
             self.load('/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/conf/sixcircle_last_UB')

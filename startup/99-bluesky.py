@@ -120,6 +120,7 @@ def sc_init():
 # initializes the six circle with the configuration file
     # config_file = select_file(initialdir="/IXS2/data/")
     # hklps.sc.load(config_file)
+    hklps.sc.__doc__()
     hklps.sc.wh_off()
     hklps.sc.setfrozen(345)
     hklps.sc.freeze(0,-0.401,0.401)

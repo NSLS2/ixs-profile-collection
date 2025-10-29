@@ -369,7 +369,7 @@ class HKLDerived(Device):
                 np.isnan(H) or np.isnan(K) or np.isnan(L)
                 or (H == 0 and K == 0 and L == 0)
             ):
-                print("[HKLDerived] Skipping update: undefined HKL (0,0,0) or NaN values.")
+                # print("[HKLDerived] Skipping update: undefined HKL (0,0,0) or NaN values.")
                 return  # Skip update safely
 
             flag, pos = self.hkl_pseudo.sc.ca_s(H, K, L)
