@@ -4,14 +4,14 @@
 GLOBAL g_sample dia
 
 # Azimuthal reference H K L
-GLOBAL g_haz 0.000
-GLOBAL g_kaz 0.000
-GLOBAL g_laz 1.000
+GLOBAL g_haz -1.000
+GLOBAL g_kaz 1.000
+GLOBAL g_laz 0.000
 
 # Lattice parameters
-GLOBAL g_aa 3.577
-GLOBAL g_bb 3.577
-GLOBAL g_cc 3.577
+GLOBAL g_aa 3.569
+GLOBAL g_bb 3.569
+GLOBAL g_cc 3.569
 GLOBAL g_al 90.000
 GLOBAL g_be 90.000
 GLOBAL g_ga 90.000
@@ -25,12 +25,12 @@ GLOBAL g_k0 1.000
 GLOBAL g_l0 1.000
 
 # Primary-reflection angles: tth, th, chi, phi, mu, gam
-GLOBAL g_u00 38.379
-GLOBAL g_u01 58.069
-GLOBAL g_u02 0.802
+GLOBAL g_u00 38.470
+GLOBAL g_u01 51.340
+GLOBAL g_u02 1.613
 GLOBAL g_u03 0.000
 GLOBAL g_u04 -0.401
-GLOBAL g_u05 0.000
+GLOBAL g_u05 0.401
 
 # Secondary-reflection wavelength
 GLOBAL g_lambda1 1.35769
@@ -41,12 +41,12 @@ GLOBAL g_k1 2.000
 GLOBAL g_l1 0.000
 
 # Secondary-reflection angles: tth, th, chi, phi, mu, gam
-GLOBAL g_u10 64.924
-GLOBAL g_u11 36.118
-GLOBAL g_u12 0.751
+GLOBAL g_u10 65.092
+GLOBAL g_u11 29.383
+GLOBAL g_u12 1.612
 GLOBAL g_u13 0.000
 GLOBAL g_u14 -0.401
-GLOBAL g_u15 0.000
+GLOBAL g_u15 0.401
 
 # Limit of positions
 GLOBAL L_TTH 0.000

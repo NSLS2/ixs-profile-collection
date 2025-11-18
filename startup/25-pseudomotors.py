@@ -6,6 +6,7 @@ from scipy import interpolate
 from ophyd import SoftPositioner
 
 from utils.sixcircle import SixCircle
+import time
 
 # List of available EpicsMotor labels in this script
 # [blenergy, dcmenergy, hrmenergy, analyzercxtal]
@@ -280,16 +281,25 @@ class HKLPseudoV2(PseudoPositioner):
     K = Cpt(PseudoSingle)
     L = Cpt(PseudoSingle)
 
-    th = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-    chi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-    phi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-    tth = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    th = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:Th}Mtr', labels=('scir',))
+    chi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:ChiA}Mtr', labels=('scir',))
+    phi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:PhiA}Mtr', labels=('scir',))
+    tth = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:2Th}Mtr', labels=('scir',))
+
+    # th = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    # chi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    # phi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    # tth = Cpt(SoftPositioner, kind="hinted", init_pos=0)
     
     def __init__(self, *args, **kwargs):
         self.sc = SixCircle()       
         super().__init__(**kwargs)
 
     def hkl_to_angles(self, H, K, L):
+        # Optional: reject (0,0,0) early if invalid
+        if np.allclose([H, K, L], [0, 0, 0]):
+            return None  # or raise?
+        
         flag, pos = self.sc.ca_s(H, K, L)
         if flag == True:
             tth, th, chi, phi, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
@@ -299,6 +309,7 @@ class HKLPseudoV2(PseudoPositioner):
             return None
 
     def angles_to_hkl(self, Tth, Th, Chi, Phi):
+        # breakpoint()
         H, K, L = self.sc.mv(tth=Tth, th=Th, chi=Chi, phi=Phi)
         return H, K, L
 
@@ -342,46 +353,67 @@ class HKLDerived(Device):
     azimuth = Cpt(Signal, value=0.0, kind='hinted')
 
     def __init__(self, hkl_pseudo, *args, **kwargs):
-        self.hkl_pseudo = hkl_pseudo
+        # self.hkl_pseudo = hkl_pseudo
         super().__init__(*args, **kwargs)
 
-            # Subscribe to changes in key real motors
-        for m in [self.hkl_pseudo.tth, self.hkl_pseudo.th,
-                  self.hkl_pseudo.chi, self.hkl_pseudo.phi]:
-            m.subscribe(self._on_motor_change)
+        # Subscribe to changes in key real motors
+        # for m in [self.hkl_pseudo.tth, self.hkl_pseudo.th,
+        #           self.hkl_pseudo.chi, self.hkl_pseudo.phi]:
+        #     m.subscribe(self._on_motor_change)
 
         # Initialize derived values
-        self._update_from_motors()
+        self._update_from_motors(hkl_pseudo)
 
     def _on_motor_change(self, *args, **kwargs):
         """Callback when any subscribed motor position changes."""
         self._update_from_motors()
 
-    def _update_from_motors(self):
+    def _update_from_motors(self, hkl_pseudo):
         """Recalculate derived parameters based on current positions."""
         try:
-            realpos = self.hkl_pseudo.real_position
-            H, K, L = self.hkl_pseudo.angles_to_hkl(
-                realpos.tth, realpos.th, realpos.chi, realpos.phi
-            )
-            # --- Safety guard for HKL = (0,0,0) or NaN ---
-            if (
-                np.isnan(H) or np.isnan(K) or np.isnan(L)
-                or (H == 0 and K == 0 and L == 0)
-            ):
-                # print("[HKLDerived] Skipping update: undefined HKL (0,0,0) or NaN values.")
-                return  # Skip update safely
+            hkl_pseudo = getattr(self, "hkl_pseudo", None)
+            if hkl_pseudo is None:
+                print("[HKLDerived] No hkl_pseudo device attached — skipping update.")
+                return
 
-            flag, pos = self.hkl_pseudo.sc.ca_s(H, K, L)
-            if flag:
-                *_, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
-                self.alpha.put(caALPHA)
-                self.beta.put(caBETA)
-                self.omega.put(caOMEGA)
-                self.mu.put(caMU)
-                self.gam.put(caGAM)
-                self.sa.put(caSA)
-                self.azimuth.put(caAZIMUTH)
+            realpos = hkl_pseudo.real_position
+
+            # Extract positions safely
+            tth = getattr(realpos, "tth", None)
+            th  = getattr(realpos, "th", None)
+            chi = getattr(realpos, "chi", None)
+            phi = getattr(realpos, "phi", None)
+
+            if any(v is None for v in [tth, th, chi, phi]):
+                print("[HKLDerived] Skipping update: one or more motor positions are None.")
+                return
+
+            if any(np.isnan(v) for v in [tth, th, chi, phi]):
+                print("[HKLDerived] Skipping update: one or more motor positions are NaN.")
+                return
+
+            H, K, L = hkl_pseudo.angles_to_hkl(tth, th, chi, phi)
+
+            if (H is None or K is None or L is None or
+                np.isnan(H) or np.isnan(K) or np.isnan(L) or
+                np.allclose([H, K, L], [0, 0, 0])):
+                print("[HKLDerived] Skipping update: invalid or undefined HKL position.")
+                return
+
+            flag, pos = hkl_pseudo.sc.ca_s(H, K, L)
+            if not flag or not pos:
+                print("[HKLDerived] Skipping update: ca_s() returned invalid result.")
+                return
+
+            *_, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
+
+            self.alpha.put(caALPHA)
+            self.beta.put(caBETA)
+            self.omega.put(caOMEGA)
+            self.mu.put(caMU)
+            self.gam.put(caGAM)
+            self.sa.put(caSA)
+            self.azimuth.put(caAZIMUTH)
 
         except Exception as ex:
             print(f"[HKLDerived] Update failed: {ex}")
@@ -396,4 +428,12 @@ anc_xtal = AnalyzerCXtal('', name='anc_xtal', egu=('deg', 'mm'))
 sam_prime = SamplePrime('', name='sp', egu=('mm', 'deg'))
 # hklpseudo = HKLPseudo(name='hkl', calc_to_real=hkl_to_angles, real_to_calc=angles_to_hkl)
 hklps = HKLPseudoV2(name='hkl')
+for m in [hklps.tth, hklps.th, hklps.chi, hklps.phi]:
+    try:
+        m.wait_for_connection(timeout=5)
+        m.read()  # Force PV read to populate .position
+    except Exception as ex:
+        print(f"[Startup] Warning: {m.name} not ready ({ex})")
+
 hkl_params = HKLDerived(hklps, name='hkl_params')
+# hkl_params._update_from_motors(hklps)  # initial update

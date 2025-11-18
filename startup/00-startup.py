@@ -3,6 +3,7 @@ from ophyd.signal import EpicsSignalBase
 EpicsSignalBase.set_defaults(timeout=10, connection_timeout=10)  # new style
 
 import nslsii
+import os
 
 nslsii.configure_base(
     get_ipython().user_ns,
@@ -35,6 +36,7 @@ nslsii.configure_base(
 # At the end of every run, verify that files were saved and
 # print a confirmation message.
 from bluesky.callbacks.broker import verify_files_saved
+from bluesky.utils import PersistentDict
 
 # RE.subscribe(post_run(verify_files_saved), 'stop')
 
@@ -49,7 +51,7 @@ from bluesky.callbacks.broker import verify_files_saved
 # logging.basicConfig(level=logging.DEBUG)
 
 bec.disable_plots()
-#bec.enable_plots()
+# bec.enable_plots()
 
 # New figure title so no overplot.
 def relabel_fig(fig, new_label):
@@ -65,6 +67,7 @@ mpl.rcParams["axes.grid"] = True
 RE.md["beamline_id"] = "IXS"
 RE.md["owner"] = "xf10id"
 RE.md["group"] = "ixs"
+RE.md = PersistentDict('/nsls2/data/ixs/shared/config/bluesky/profile_collection/md')
 
 from pyOlog.ophyd_tools import get_all_positioners
 
@@ -91,7 +94,15 @@ def spec_factory(name, doc):
 
 
 spec_factory.enabled = True
-spec_factory.prefix = "spec_test"
+# Check if the 'spec_file' key exists and is not empty
+if RE.md.get('spec_file'):
+    config_file = RE.md['spec_file']
+    directory, prefix = os.path.split(config_file)
+    prefix = os.path.splitext(prefix)[0]  # remove .spec if present
+    spec_factory.directory = directory
+    spec_factory.prefix = prefix
+else:
+    spec_factory.prefix = "spec_test"
 
 spec_router = RunRouter([spec_factory])
 RE.subscribe(spec_router)
