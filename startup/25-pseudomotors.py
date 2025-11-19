@@ -353,7 +353,7 @@ class HKLDerived(Device):
     azimuth = Cpt(Signal, value=0.0, kind='hinted')
 
     def __init__(self, hkl_pseudo, *args, **kwargs):
-        # self.hkl_pseudo = hkl_pseudo
+        self.hkl_pseudo = hkl_pseudo
         super().__init__(*args, **kwargs)
 
         # Subscribe to changes in key real motors
@@ -362,21 +362,21 @@ class HKLDerived(Device):
         #     m.subscribe(self._on_motor_change)
 
         # Initialize derived values
-        self._update_from_motors(hkl_pseudo)
+        self._update_from_motors()
 
     def _on_motor_change(self, *args, **kwargs):
         """Callback when any subscribed motor position changes."""
         self._update_from_motors()
 
-    def _update_from_motors(self, hkl_pseudo):
+    def _update_from_motors(self):
         """Recalculate derived parameters based on current positions."""
         try:
-            hkl_pseudo = getattr(self, "hkl_pseudo", None)
-            if hkl_pseudo is None:
-                print("[HKLDerived] No hkl_pseudo device attached — skipping update.")
-                return
+            # hkl_pseudo = getattr(self, "hkl_pseudo", None)
+            # if hkl_pseudo is None:
+            #     print("[HKLDerived] No hkl_pseudo device attached — skipping update.")
+            #     return
 
-            realpos = hkl_pseudo.real_position
+            realpos = self.hkl_pseudo.real_position
 
             # Extract positions safely
             tth = getattr(realpos, "tth", None)
@@ -392,7 +392,7 @@ class HKLDerived(Device):
                 print("[HKLDerived] Skipping update: one or more motor positions are NaN.")
                 return
 
-            H, K, L = hkl_pseudo.angles_to_hkl(tth, th, chi, phi)
+            H, K, L = self.hkl_pseudo.angles_to_hkl(tth, th, chi, phi)
 
             if (H is None or K is None or L is None or
                 np.isnan(H) or np.isnan(K) or np.isnan(L) or
@@ -400,7 +400,7 @@ class HKLDerived(Device):
                 print("[HKLDerived] Skipping update: invalid or undefined HKL position.")
                 return
 
-            flag, pos = hkl_pseudo.sc.ca_s(H, K, L)
+            flag, pos = self.hkl_pseudo.sc.ca_s(H, K, L)
             if not flag or not pos:
                 print("[HKLDerived] Skipping update: ca_s() returned invalid result.")
                 return
@@ -436,4 +436,4 @@ for m in [hklps.tth, hklps.th, hklps.chi, hklps.phi]:
         print(f"[Startup] Warning: {m.name} not ready ({ex})")
 
 hkl_params = HKLDerived(hklps, name='hkl_params')
-# hkl_params._update_from_motors(hklps)  # initial update
+#hkl_params._update_from_motors(hklps)  # initial update
