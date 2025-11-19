@@ -86,6 +86,9 @@ class Pinhole(Device):
     dx = Cpt(EpicsMotor, '-Ax:DX}Mtr', labels=('pinhole',))
     dy = Cpt(EpicsMotor, '-Ax:DY}Mtr', labels=('pinhole',))
 
+from ophyd.status import SubscriptionStatus
+import numpy as np
+import time as ttime
 
 class MCMBase(PVPositioner):
     setpoint = FCpt(EpicsSignal, '{self.prefix}{self._ch_name}')
@@ -97,14 +100,42 @@ class MCMBase(PVPositioner):
     # all six axes are coupled, so 'InPos' is an array of six values
     done = Cpt(EpicsSignal, '}InPos')
     done_value = True
+    global_in_pos = Cpt(EpicsSignal, "}Mtr_InPos")  # , kind="normal", lazy=True)
+    # global_in_pos = Cpt(EpicsSignal, "XF:10IDD-OP{MCM:1}Mtr_InPos", add_prefix=())  # for testing only
 
     def __init__(self, prefix, ch_name=None, **kwargs):
         self._ch_name = ch_name
         super().__init__(prefix, **kwargs)
+        self._counter = 0
 
     @property
     def moving(self):
         return (self.done_value != all(self.done.get(use_monitor=False)))
+
+    def set(self, value, **kwargs):
+        """Set the motor to the given value."""
+        self.setpoint.set(value).wait()
+        self.actuate.set(self.actuate_value).wait()
+
+        def callback(*, old_value, value, **kwargs):
+            # print(f"Motor ...{self._ch_name} changed from {old_value} -> {value} (counter = {self._counter})")
+            if not np.array_equal(old_value, value):
+                if np.array_equal(value, [1]*6):  # Initial and final state should differ
+                    # print("  All positions in place")
+                    self._counter = 0
+                    return True
+
+            # Reactuate every 2 seconds
+            ttime.sleep(0.2)
+            if self._counter % 10 == 0:
+                # print(  "Trying to actuate again...")
+                # self.stop_signal.set(self.stop_value).wait()  # uncomment if you need to kill the motor and then actuate
+                self.actuate.set(self.actuate_value).wait()
+            self._counter += 1
+            return False
+
+        st = SubscriptionStatus(self.global_in_pos, callback, run=False)
+        return st
 
 
 class MCM(Device):
