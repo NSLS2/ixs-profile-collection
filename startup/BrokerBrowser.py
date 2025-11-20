@@ -1,11 +1,32 @@
+import tkinter as tk
 from tkinter import ttk, messagebox
-# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+import tkinter.font as tkfont
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
+plt.ioff() # prevent extra standalone plot windows
+plt.rcParams.update({
+    'axes.titlesize': 12,
+    'axes.labelsize': 12,
+    'xtick.labelsize': 11,
+    'ytick.labelsize': 11,
+    'legend.fontsize': 11,
+    'font.size': 11,
+})
+import numpy as np
+import pandas as pd
+
 
 class BrokerBrowser(tk.Tk):
     def __init__(self, db):
         super().__init__()
+        default_font = ("Segoe UI", 12)
+        self.option_add("*Font", default_font)
+
+        style = ttk.Style()
+        style.configure('.', font=default_font)
+        style.configure("Treeview", font=default_font)
+        style.configure("Treeview.Heading", font=(default_font[0], 11, "bold"))
+
         self.title("Databroker Browser")
         self.geometry("1400x750")
         self.db = db
@@ -13,23 +34,18 @@ class BrokerBrowser(tk.Tk):
         self.current_hdr = None
         self.current_table = None
 
-        # ========= Main Paned Window (3 columns) =========
         paned = ttk.Panedwindow(self, orient="horizontal")
         paned.pack(fill="both", expand=True)
 
-        # Left pane (1/4 width)
         left = ttk.Frame(paned, padding=5)
         paned.add(left, weight=1)
 
-        # Middle pane (1/4 width)
         middle = ttk.Frame(paned, padding=10)
         paned.add(middle, weight=1)
 
-        # Right pane (1/2 width) – plot window
         right = ttk.Frame(paned, padding=10)
         paned.add(right, weight=2)
 
-        # ========= LEFT PANE =========
         ttk.Label(left, text="Search type:").pack(anchor="w")
         self.query_type = tk.StringVar(value="metadata")
         ttk.Combobox(left, textvariable=self.query_type,
@@ -41,7 +57,6 @@ class BrokerBrowser(tk.Tk):
 
         ttk.Button(left, text="Search", command=self.search_runs).pack(pady=4)
 
-        # Treeview with only 2 columns
         self.tree = ttk.Treeview(
             left,
             columns=("uid", "scan_id"),
@@ -54,31 +69,28 @@ class BrokerBrowser(tk.Tk):
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self.show_details)
 
-        # ========= MIDDLE PANE (motors, detectors) =========
         self.plan_label = ttk.Label(middle, text="Plan: ---")
         self.plan_label.pack(anchor="w", pady=5)
 
         ttk.Label(middle, text="Motors:").pack(anchor="w")
-        self.motor_list = tk.Listbox(middle, height=6)
+        self.motor_list = tk.Listbox(middle, height=6, exportselection=False, font=default_font)
         self.motor_list.pack(fill="x", pady=4)
         self.motor_list.bind("<<ListboxSelect>>", self.update_plot)
 
         ttk.Label(middle, text="Detectors:").pack(anchor="w")
-        self.det_list = tk.Listbox(middle, selectmode="extended", height=10)
+        self.det_list = tk.Listbox(middle, selectmode="extended", height=10, exportselection=False, font=default_font)
         self.det_list.pack(fill="x", pady=4)
         self.det_list.bind("<<ListboxSelect>>", self.update_plot)
 
         self.points_label = ttk.Label(middle, text="Number of points: ---")
         self.points_label.pack(anchor="w", pady=5)
 
-        # ========= RIGHT PANE (matplotlib plot) =========
         self.fig, self.ax = plt.subplots(figsize=(5, 4))
         self.canvas = FigureCanvasTkAgg(self.fig, master=right)
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
 
-    # ===========================================
-    # SEARCH
-    # ===========================================
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
     def search_runs(self):
         qtype = self.query_type.get()
         query = self.query_entry.get().strip()
@@ -106,9 +118,6 @@ class BrokerBrowser(tk.Tk):
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ===========================================
-    # DETAILS PANEL
-    # ===========================================
     def show_details(self, event):
         sel = self.tree.selection()
         if not sel:
@@ -122,65 +131,58 @@ class BrokerBrowser(tk.Tk):
             messagebox.showerror("Error", f"Failed to load: {e}")
             return
 
-        # Begin data access outside Tk calls
         plan = hdr.start.get("plan_name", "unknown")
         motors = hdr.start.get("motors", [])
         detectors = hdr.start.get("detectors", [])
         num_points = hdr.start.get("num_points", "?")
 
-        # Load the table, which may be heavy
         try:
             self.current_table = hdr.table()
         except Exception as e:
             messagebox.showerror("Error", f"Table error: {e}")
             return
 
-        # Tk updates
         self.plan_label.config(text=f"Plan: {plan}")
         self.points_label.config(text=f"Number of points: {num_points}")
 
-        # Motors
         self.motor_list.delete(0, tk.END)
         for m in motors:
             self.motor_list.insert(tk.END, m)
-        if motors:
-            self.motor_list.selection_set(0)
-            self.motor_list.activate(0)
 
-        # Detectors
         self.det_list.delete(0, tk.END)
+        det_cols = []
         if detectors:
-            # Detector columns are expanded names inside table
             root = detectors[0]
             tbl_cols = self.current_table.columns
             det_cols = [c for c in tbl_cols if root in c]
-
             for d in det_cols:
                 self.det_list.insert(tk.END, d)
 
-            # Default: last detector selected
+        def do_default_select():
+            if motors:
+                self.motor_list.selection_clear(0, tk.END)
+                self.motor_list.selection_set(0)
+                self.motor_list.activate(0)
+
             if det_cols:
                 last = len(det_cols) - 1
+                self.det_list.selection_clear(0, tk.END)
                 self.det_list.selection_set(last)
                 self.det_list.activate(last)
 
-        self.update_plot()
+            self.update_plot()
 
-    # ===========================================
-    # PLOTTING
-    # ===========================================
+        self.after_idle(do_default_select)
+
     def update_plot(self, event=None):
         if self.current_table is None:
             return
 
-        breakpoint()
-        # Selected motor
         motor_sel = self.motor_list.curselection()
         if not motor_sel:
             return
         motor = self.motor_list.get(motor_sel[0])
 
-        # Selected detectors (multiple)
         det_indices = self.det_list.curselection()
         if not det_indices:
             return
@@ -191,11 +193,8 @@ class BrokerBrowser(tk.Tk):
             return
 
         x = tab[motor].values
-
-        # Clear plot
         self.ax.clear()
 
-        # Cycle through detectors with distinct colors
         colors = plt.cm.tab10.colors
         for i, det in enumerate(detectors):
             if det not in tab.columns:
@@ -207,8 +206,12 @@ class BrokerBrowser(tk.Tk):
         self.ax.set_ylabel("Detector signal")
         self.ax.legend()
         self.ax.grid(True)
-
         self.canvas.draw()
+
+    def on_close(self):
+        plt.close('all')
+        self.destroy()
+
 
 
 def OpenBrokerBrowser():
