@@ -16,7 +16,7 @@ from tabulate import tabulate
 #*******************************************************************************************************
 # opens a Matplotlib figure with axes
 myfig, myaxs = plt.subplots(figsize=(8,5), num=1)
-
+plt.ion()  # enable interactive mode
 
 #*******************************************************************************************************
 def peaks_stats_print(dets_name, peak_stats):
@@ -137,6 +137,10 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
     myaxs.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
     myaxs.plot(table[x], gauss.values, label=f"gaussian fit {channel}")
     myaxs.legend()
+
+    myaxs.figure.canvas.draw_idle()
+    myaxs.figure.canvas.flush_events()
+    
     return lf.result.values
 
 
