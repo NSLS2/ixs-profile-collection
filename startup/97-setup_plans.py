@@ -68,15 +68,18 @@ def plotselect(det_name, mot_name):
 
 
 #*******************************************************************************************************
-def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
+def dscan(mot, start, stop, steps, det, det_channel_picks=None, md=None):
 # performs relative scan of a detector DET channel 
     myaxs.clear()
-    
+    if det_channel_picks is None:
+        det_channel_picks = [0]
+    md = md or {}
+
     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
 
     subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.rel_scan([det], mot, start, stop, steps), subs_list)
+    plan = bpp.subs_wrapper(bp.rel_scan([det], mot, start, stop, steps, md=md), subs_list)
         
     yield from plan
 
@@ -89,15 +92,18 @@ def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
 
 
 #*******************************************************************************************************
-def ascan(mot, start, stop, steps, det, det_channel_picks=[0]):
+def ascan(mot, start, stop, steps, det, det_channel_picks=None, md=None):
 # performs relative scan of a detector DET channel 
     myaxs.clear()
-    
+    if det_channel_picks is None:
+        det_channel_picks = [0]
+    md = md or {}
+
     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
 
     subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps), subs_list)
+    plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps, md=md), subs_list)
         
     yield from plan
 
@@ -140,7 +146,7 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
 
     myaxs.figure.canvas.draw_idle()
     myaxs.figure.canvas.flush_events()
-    
+
     return lf.result.values
 
 

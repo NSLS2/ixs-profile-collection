@@ -12,39 +12,47 @@ RE.subscribe(spec_cb)
 import tkinter as tk
 from tkinter import filedialog
 
+def setlat(*args):
+    """(), setlat(a,b,c,alpha,beta,gamma) \t Set lattice parameters. Set crystal parameters (A & deg) """
+    hklps.sc.setlat(*args)
 
 def wh():
     # updates the H, K, L pseudomotors from the current position of the sample
     hklps.sc.wh()
 
+def freeze(*args):
+    """(), freeze(a1,a2,a3) \t\t\t Choose values for frozen angles (degrees)"""
+    hklps.sc.freeze(*args)
 
-def freeze(*arg):
-    hklps.sc.freeze(*arg)
-
-
-def setfrozen(*arg):
-    hklps.sc.setfrozen(*arg)
-
+def setfrozen(*args):
+    """(), setfrozen(456) \t\t\t Set frozen of six-circle calculation. Choose which angles to freeze"""
+    hklps.sc.setfrozen(*args)
 
 def pa():
     hklps.sc.pa()
 
-
 def or0(h,k,l):
-# defines the OR0 vector from the current angle positions
+    """(H,K,L), \t\t\t\t Set H, K, L of primary reflection at present angles"""
+    # defines the OR0 vector from the current angle positions
     hklps.sc.or0(h,k,l)
 
+def setor0():
+    """() , setor0() \t\t\t\t Set primary reflection at entered angles"""
+    hklps.sc.setor0()
 
 def or1(h,k,l):
+    """(H,K,L), \t\t\t\t Set H, K, L of secondary reflection at present angles"""
 # defines the OR1 vector from the current angle positions
     hklps.sc.or1(h,k,l)
 
-
+def setor1():
+    """() , setor1() \t\t\t\t Set secondary reflection at entered angles"""
+    hklps.sc.setor1()
 
 def br(h, k, l):
+    """(H,K,L) \t\t\t\t\t Move to given Q=(H,K,L)"""
     # moves the sample to the desired H, K, L positions
     yield from bps.mv(hklps.H, h, hklps.K, k, hklps.L, l)
-
 
 def mv(mu=None, gam=None, tth=None, th=None, chi=None, phi=None):
     """
@@ -78,6 +86,7 @@ def mv(mu=None, gam=None, tth=None, th=None, chi=None, phi=None):
 
 
 def ca(h, k, l):
+    """(H,K,L) \t\t\t\t\t Calculate angles for a given (H,K,L) """
     res = hklps.sc.ca(h,k,l)
 
 
@@ -112,33 +121,6 @@ def savesc():
         print(f"Saving six-circle configuration to {config_file}")
         hklps.sc.save(config_file)
 
-
-# def select_spec_file(initialdir="."):
-#     # Opens a file dialog to select a directory
-#     root = tk.Tk()
-#     root.withdraw()
-#     filename = filedialog.asksaveasfilename(initialdir=initialdir, filetypes=(("SPEC files", "*.spec"), ("All files", "*.*")))
-#     root.destroy()
-#     return filename
-
-
-# def newfile():
-# # opens a new spec-file
-#     config_file = select_spec_file(initialdir="/IXS2/data/")
-
-#     if config_file:
-#         # Split path and extension safely
-#         directory, prefix = os.path.split(config_file)
-#         prefix = os.path.splitext(prefix)[0]  # remove .spec if present
-
-#         # Assign to both RE.md and spec_factory
-#         RE.md['spec_file'] = config_file
-#         spec_factory.directory = directory
-#         spec_factory.prefix = prefix
-
-#         print(f"New SPEC file selected:\n Directory: {directory}\n Prefix: {prefix}")
-#     else:
-#         print("File selection cancelled.")
 
 def newfile():
     """
@@ -190,6 +172,8 @@ def sc_init():
     hklps.sc.wh()
 #    update_spec_signals()
 
+sc_init()
+
 def print_all(H, K, L):
     # prints all angles and positions
     # H, K, L = 1, 1, 1
@@ -218,7 +202,22 @@ def print_all(H, K, L):
             print ('')
 
 
-sc_init()
+def MDupdate():
+    """
+    Prompt user to update metadata.
+    Shows old values; empty input keeps the old value.
+    Returns the updated metadata dictionary.
+    """
+    for key, old_value in RE.md.items():
+        if key in ['beamline_id', 'owner', 'group', 'spec_file']:
+            continue
+        else:
+            prompt = f"{key} [{old_value}]: "
+            user_input = input(prompt).strip()
+            RE.md[key] = user_input if user_input else old_value
+    return
+
+
 
 # def hkl_positions():
 # # prints the positions of the pseudomotors (H, K, L) and real motors (Tth, Th, Chi, Phi)

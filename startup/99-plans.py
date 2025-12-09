@@ -468,3 +468,233 @@ def Dia_energy_scan_plan_20251110():
         yield from br(1 + 5*hh, 1 + 5*hh, 1 - 10*hh)
         rng, steps = 25, 100
         res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, count_time=ctime)
+
+
+
+def Te_surph_energy_scan_plan_20251202():
+    E0 = -17.283
+
+    for kk in range(3):
+
+    # Positive q offsets
+        for scale, rng1, rng2, steps in [(0.1, 0, 22, 89), (0.5, 0, 22, 89)]:
+            # Initial setup
+            ca(1, 0, 4)
+            yield from br(1, 0, 4)
+            wh()
+
+            yield from bps.mv(hrmE, E0 - 10)
+            yield from set_lambda_exposure(2)
+
+            yield from bps.mv(whl, 3)
+            # chk_thresh = 0
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det)
+            # breakpoint()
+            cen = res[0]['stats'][3]
+
+            pos = 0.2 * round(cen / 0.2)
+            print(f"new energy zero = {pos}")
+            yield from bps.mv(hrmE, pos)
+            E0 = pos
+            
+            
+            yield from bps.mv(whl, 0)
+            # chk_thresh = 30
+            ctime = 180
+            yield from set_lambda_exposure(ctime)
+            ca(1, 0, 4-scale)
+            yield from br(1, 0, 4-scale)
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det)
+
+       
+def Te_surph_energy_scan_plan_20251204():
+    E0 = -17.3
+
+    for kk in range(4):
+
+    # Positive q offsets
+        for scale, rng1, rng2, steps in [(0.9, 10, 20, 41), (0.5, 9, 21, 49), (0.1, 10, 20, 41)]:
+            # Initial setup
+            ca(1, 0, 4)
+            yield from br(1, 0, 4)
+            wh()
+
+            yield from bps.mv(hrmE, E0 - 10)
+            yield from set_lambda_exposure(2)
+
+            yield from bps.mv(whl, 3)
+            # chk_thresh = 0
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det)
+            # breakpoint()
+            cen = res[0]['stats'][3]
+
+            pos = 0.2 * round(cen / 0.2)
+            print(f"new energy zero = {pos}")
+            yield from bps.mv(hrmE, pos)
+            E0 = pos
+            
+            
+            yield from bps.mv(whl, 0)
+            # chk_thresh = 30
+            ctime = 240
+            yield from set_lambda_exposure(ctime)
+            ca(1, 0, 4-scale)
+            yield from br(1, 0, 4-scale)
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det)
+
+
+def Te_surph_energy_scan_plan_20251205():
+    E0 = -17.3
+
+    for kk in range(4):
+
+    # Positive q offsets
+        for scale, rng1, rng2, steps in [(0.9, 10, 20, 41)]:
+            # Initial setup
+            ca(1, 0, 4)
+            yield from br(1, 0, 4)
+            wh()
+
+            yield from bps.mv(hrmE, E0 - 10)
+            yield from set_lambda_exposure(2)
+
+            yield from bps.mv(whl, 3)
+            # chk_thresh = 0
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det)
+            # breakpoint()
+            cen = res[0]['stats'][3]
+
+            pos = 0.2 * round(cen / 0.2)
+            print(f"new energy zero = {pos}")
+            yield from bps.mv(hrmE, pos)
+            E0 = pos
+            
+            
+            yield from bps.mv(whl, 0)
+            # chk_thresh = 30
+            ctime = 240
+            yield from set_lambda_exposure(ctime)
+            ca(1, 0, 4-scale)
+            yield from br(1, 0, 4-scale)
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det)
+
+
+def Te_surph_energy_scan_plan_20251206():
+    E0 = -17.4
+
+    for kk in range(3):
+
+    # Positive q offsets
+        for scale, rng1, rng2, steps in [(0.9, 0, 9.75, 40),(0.9, 10, 22, 49)]:
+            # Initial setup
+            ca(1, 0, 4)
+            yield from br(1, 0, 4)
+            wh()
+
+            yield from bps.mv(hrmE, E0 - 10)
+            yield from set_lambda_exposure(2)
+
+            yield from bps.mv(whl, 3)
+            # chk_thresh = 0
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det)
+            # breakpoint()
+            cen = res[0]['stats'][3]
+
+            pos = 0.2 * round(cen / 0.2)
+            print(f"new energy zero = {pos}")
+            yield from bps.mv(hrmE, pos)
+            E0 = pos
+            
+            
+            yield from bps.mv(whl, 0)
+            # chk_thresh = 30
+            ctime = 240
+            yield from set_lambda_exposure(ctime)
+            ca(1, 0, 4-scale)
+            yield from br(1, 0, 4-scale)
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det)
+
+
+
+def Te_surph_energy_scan_plan_20251207():
+    E0 = -17.52
+
+    for kk in range(3):
+
+    # Positive q offsets
+        for scale, rng1, rng2, steps in [(0.9, 10, 22, 49)]:
+            # Initial setup
+            ca(1, 0, 3)
+            yield from br(1, 0, 3)
+            wh()
+
+            yield from bps.mv(hrmE, E0 - 10)
+            yield from set_lambda_exposure(2)
+
+            yield from bps.mv(whl, 3)
+            # chk_thresh = 0
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det)
+            # breakpoint()
+            cen = res[0]['stats'][3]
+
+            pos = 0.2 * round(cen / 0.2)
+            print(f"new energy zero = {pos}")
+            yield from bps.mv(hrmE, pos)
+            E0 = pos
+            
+            
+            yield from bps.mv(whl, 0)
+            # chk_thresh = 30
+            ctime = 240
+            yield from set_lambda_exposure(ctime)
+            ca(1, 0, 4-scale)
+            yield from br(1, 0, 4-scale)
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det)
+
+
+def Te_surph_energy_scan_plan_20251208():
+    E0 = -17.59
+
+    for kk in range(6):
+
+    # Positive q offsets
+        for scale, rng1, rng2, steps in [(0.9, 10, 20, 41)]:
+            # Initial setup
+            ca(1, 0, 3)
+            yield from br(1, 0, 3)
+            wh()
+
+            yield from bps.mv(hrmE, E0 - 10)
+            yield from set_lambda_exposure(2)
+
+            yield from bps.mv(whl, 3)
+            # chk_thresh = 0
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det)
+            # breakpoint()
+            cen = res[0]['stats'][3]
+
+            pos = 0.2 * round(cen / 0.2)
+            print(f"new energy zero = {pos}")
+            yield from bps.mv(hrmE, pos)
+            E0 = pos
+            
+            
+            yield from bps.mv(whl, 0)
+            # chk_thresh = 30
+            ctime = 240
+            yield from set_lambda_exposure(ctime)
+            ca(1, 0, 4-scale)
+            yield from br(1, 0, 4-scale)
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det)
+            
+
+def test_plan():
+    yield from set_lambda_exposure(2)
+    res = yield from dscan(hrmE, -10, 10, 5, lambda_det, md={'count_time': 2})
+    print("**********************************************************************")
+    print(f"cen  = {res[0].cen}")
+    print(f"fwhm = {res[0].fwhm}")
+    print(f"com  = {res[0].com}")
+    print(f"vmax = {res[0].max}")
+    print(f"vmin = {res[0].min}")
+    print("**********************************************************************")
