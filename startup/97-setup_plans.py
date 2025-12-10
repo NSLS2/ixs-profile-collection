@@ -68,15 +68,15 @@ def plotselect(det_name, mot_name):
 
 
 #*******************************************************************************************************
-def dscan(mot, start, stop, steps, det, det_channel_picks=None, md=None):
+def dscan(mot, start, stop, steps, det, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
     myaxs.clear()
-    if det_channel_picks is None:
-        det_channel_picks = [0]
+    if det_ch is None:
+        det_ch = [0]
     md = md or {}
 
-    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
+    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
+    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
 
     subs_list.extend(stats_list)
     plan = bpp.subs_wrapper(bp.rel_scan([det], mot, start, stop, steps, md=md), subs_list)
@@ -84,31 +84,31 @@ def dscan(mot, start, stop, steps, det, det_channel_picks=None, md=None):
     yield from plan
 
     print('\n')
-    for n in range(len(det_channel_picks)):
-        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
+    for n in range(len(det_ch)):
+        peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
         print("\n")
 
     return stats_list
 
 
 #*******************************************************************************************************
-def ascan(mot, start, stop, steps, det, det_channel_picks=None, md=None):
+def ascan(mot, start, stop, steps, det, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
     myaxs.clear()
-    if det_channel_picks is None:
-        det_channel_picks = [0]
+    if det_ch is None:
+        det_ch = [0]
     md = md or {}
 
-    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
+    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
+    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
 
     subs_list.extend(stats_list)
     plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps, md=md), subs_list)
         
     yield from plan
 
-    for n in range(len(det_channel_picks)):
-        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
+    for n in range(len(det_ch)):
+        peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
         print("\n")
     
     return stats_list

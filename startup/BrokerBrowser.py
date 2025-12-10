@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import tkinter.font as tkfont
+from turtle import right
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 plt.ioff() # prevent extra standalone plot windows
@@ -28,7 +29,7 @@ class BrokerBrowser(tk.Tk):
         style.configure("Treeview.Heading", font=(default_font[0], 11, "bold"))
 
         self.title("Databroker Browser")
-        self.geometry("1400x750")
+        self.geometry("1500x700")
         self.db = db
         self.results = []
         self.current_hdr = None
@@ -44,7 +45,9 @@ class BrokerBrowser(tk.Tk):
         paned.add(middle, weight=1)
 
         right = ttk.Frame(paned, padding=10)
-        paned.add(right, weight=2)
+        right.config(width=700)
+        right.pack_propagate(False)
+        paned.add(right, weight=3)
 
         ttk.Label(left, text="Search type:").pack(anchor="w")
         self.query_type = tk.StringVar(value="metadata")
@@ -59,13 +62,18 @@ class BrokerBrowser(tk.Tk):
 
         self.tree = ttk.Treeview(
             left,
-            columns=("uid", "scan_id"),
+            columns=("uid", "scan_id", "summary"),
             show="headings",
             height=20
         )
-        for col in ("uid", "scan_id"):
+        for col in ("uid", "scan_id", "summary"):
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=160 if col == "uid" else 80)
+            if col == "uid":
+                self.tree.column(col, width=160, anchor="w")
+            elif col == "scan_id":
+                self.tree.column(col, width=80, anchor="center")
+            else:
+                self.tree.column(col, width=250, anchor="w")
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self.show_details)
 
@@ -101,7 +109,17 @@ class BrokerBrowser(tk.Tk):
         try:
             if qtype == "metadata":
                 key, value = query.split("=")
-                headers = self.db(**{key.strip(): value.strip()})
+                key = key.strip()
+                value = value.strip()
+                # Try to convert value to int or float if possible
+                try:
+                    if "." in value:
+                        value_cast = float(value)
+                    else:
+                        value_cast = int(value)
+                except ValueError:
+                    value_cast = value
+                headers = self.db(**{key: value_cast})
             elif qtype == "scan_id":
                 headers = self.db(scan_id=int(query))
             elif qtype == "uid":
@@ -112,8 +130,24 @@ class BrokerBrowser(tk.Tk):
             for hdr in headers:
                 uid = hdr.start.get("uid", "?")
                 scan_id = hdr.start.get("scan_id", "?")
+                plan_name = hdr.start.get("plan_name", "?")
+                motors = hdr.start.get("motors", [])
+                motor = motors[0] if motors else "?"
+                # Extract start/end from plan_pattern_args if available
+                plan_pattern_args = hdr.start.get("plan_pattern_args", {})
+                start_pos = end_pos = "?"
+                if isinstance(plan_pattern_args, dict):
+                    args = plan_pattern_args.get("args", [])
+                    if len(args) > 2:
+                        start_pos = args[1]
+                        end_pos = args[2]
+                num_points = hdr.start.get("num_points", "?")
+                count_time = hdr.start.get("count_time", hdr.start.get("exposure", None))
+                if count_time is None:
+                    count_time = -1
+                summary = f"{plan_name} {motor} {start_pos} {end_pos} {num_points} {count_time}"
                 self.results.append(hdr)
-                self.tree.insert("", "end", values=(uid, scan_id))
+                self.tree.insert("", "end", values=(uid, scan_id, summary))
 
         except Exception as e:
             messagebox.showerror("Error", str(e))
