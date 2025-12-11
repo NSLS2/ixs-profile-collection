@@ -296,31 +296,21 @@ def DxtalTempCalc(uid=-1):
 #*******************************************************************************************************
 def dcm_setup():
     # Set the DCM position to max intensity
-    yname = tm1.sum_all.mean_value.name
-    # ps = PeakStats(dcm.p1.user_readback.name, yname)
-    # yield from bpp.subs_wrapper(bp.rel_scan([det], dcm.p1, -80, 80, 40), ps)
-    # cen = ps.cen
-    # com = ps.com
-    # fwhm = ps.fwhm
+ 
     res = yield from dscan(dcm.p1, -80, 80, 40, tm1, det_ch=[4], md={'count_time': 1})
     fwhm = res[0].fwhm
     cen  = res[0].cen
     com  = res[0].com
     crs = res[0].crossings
-    # print("**********************************************************************")
-    # print(f"cen  = {res[0].cen}")
-    # print(f"fwhm = {res[0].fwhm}")
-    # print(f"com  = {res[0].com}")
-    # print(f"vmax = {res[0].max}")
-    # print(f"vmin = {res[0].min}")
-    # print(f"crxs = {res[0].crossings} ")
-    # print("**********************************************************************")
-    if fwhm < 50 and abs(cen - com)/ fwhm < 1 and len(crs) == 2:
-        yield from bps.mv(dcm.p1, cen)
-        print("DCM moved to center")
-    else:
-        print("Peak was not found. Motor not moved!")
 
+    if fwhm is not None and cen is not None and com is not None and crs is not None:
+        if fwhm < 50 and abs(cen - com)/ fwhm < 1 and len(crs) == 2:
+            yield from bps.mv(dcm.p1, cen)
+            print("DCM moved to center")
+        else:
+            print("Peak was not found. Motor not moved!")
+    else:
+        print("Scan did not return valid results. Motor not moved!")
 
 #*******************************************************************************************************
 def mcm_setup_prep():
