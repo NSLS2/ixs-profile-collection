@@ -700,4 +700,5 @@ def test_plan():
     print(f"com  = {res[0].com}")
     print(f"vmax = {res[0].max}")
     print(f"vmin = {res[0].min}")
+    print(f"crxs = {res[0].crossings} ")
     print("**********************************************************************")

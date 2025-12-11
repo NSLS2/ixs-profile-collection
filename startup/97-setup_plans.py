@@ -294,6 +294,35 @@ def DxtalTempCalc(uid=-1):
 
 
 #*******************************************************************************************************
+def dcm_setup():
+    # Set the DCM position to max intensity
+    yname = tm1.sum_all.mean_value.name
+    # ps = PeakStats(dcm.p1.user_readback.name, yname)
+    # yield from bpp.subs_wrapper(bp.rel_scan([det], dcm.p1, -80, 80, 40), ps)
+    # cen = ps.cen
+    # com = ps.com
+    # fwhm = ps.fwhm
+    res = yield from dscan(dcm.p1, -80, 80, 40, tm1, det_ch=[4], md={'count_time': 1})
+    fwhm = res[0].fwhm
+    cen  = res[0].cen
+    com  = res[0].com
+    crs = res[0].crossings
+    # print("**********************************************************************")
+    # print(f"cen  = {res[0].cen}")
+    # print(f"fwhm = {res[0].fwhm}")
+    # print(f"com  = {res[0].com}")
+    # print(f"vmax = {res[0].max}")
+    # print(f"vmin = {res[0].min}")
+    # print(f"crxs = {res[0].crossings} ")
+    # print("**********************************************************************")
+    if fwhm < 50 and abs(cen - com)/ fwhm < 1 and len(crs) == 2:
+        yield from bps.mv(dcm.p1, cen)
+        print("DCM moved to center")
+    else:
+        print("Peak was not found. Motor not moved!")
+
+
+#*******************************************************************************************************
 def mcm_setup_prep():
 # Prepares the URA for the MCM and Analyzer Slits setup, namely opens the Slits and lowers the analyzer
     hux = hrm2.read()['hrm2_ux']['value']
@@ -477,10 +506,12 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 #*******************************************************************************************************
 def ugap_setup():
 #   Scans the ID gap and sets it to max
-    det = tm1
+    # det = tm1
     yname = tm1.sum_all.mean_value.name
-    yield from bp.rel_scan([det], ivu22, -20, 20, 20)
-    x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
+    res = yield from dscan(ivu22, -20, 20, 20, tm1, det_ch=[4], md={'count_time': 1})
+    # x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
+    max_pos = res[0].max
+    x_pos = max_pos[0]
     yield from bps.mv(ivu22, x_pos)
     print('\n')
     print('ID gap alignment finished\n')
@@ -860,3 +891,14 @@ def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
     bec.disable_plots()
 
 #*******************************************************************************************************
+
+def Beamline_Setup_1():
+    # Performs 10-ID optics alignment down to the sample position
+
+    yield from bps.mv(crl.y, 35.17)
+    yield from sleep(200)
+    counts = tm1.sum_all.mean_value.get()
+    if counts < 1.0e-6:
+        print("Low intensity at TM1 detector. Execution terminated")
+        return
+    yield from dcm_setup()
