@@ -204,18 +204,6 @@ def GCarbon_Qscan(exp_time=2):
             yield from set_lambda_exposure(exp_time)
             yield from dscan(hrmE, -10, 10, 100, lambda_det)
 
-#            yield from hrmE_dscan(-10, 10, 100, exp_time)
-#            peak_stats = bec.peaks
-#            headers = ["com","cen","max","min","fwhm"]
-#            data = []
-#            for p in range(5):
-#                data.append(peak_stats[headers[p]]['lambda_det_stats7_total'])#
-
-#            data[2] = peak_stats[headers[2]]['lambda_det_stats7_total'][1]
-#            data[3] = peak_stats[headers[3]]['lambda_det_stats7_total'][1]
-
-#            print(tabulate([data], headers))
-
 
 #*******************************************************************************************************
 def DxtalTempCalc(uid=-1):
@@ -294,6 +282,20 @@ def DxtalTempCalc(uid=-1):
 
 
 #*******************************************************************************************************
+def ugap_setup():
+#   Scans the ID gap and sets it to max
+    # det = tm1
+    yname = tm1.sum_all.mean_value.name
+    res = yield from dscan(ivu22, -20, 20, 20, tm1, det_ch=[4], md={'count_time': 1})
+    # x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
+    max_pos = res[0].max
+    x_pos = max_pos[0]
+    yield from bps.mv(ivu22, x_pos)
+    print('\n')
+    print('ID gap alignment finished\n')
+
+
+#*******************************************************************************************************
 def dcm_setup():
     # Set the DCM position to max intensity
  
@@ -311,6 +313,7 @@ def dcm_setup():
             print("Peak was not found. Motor not moved!")
     else:
         print("Scan did not return valid results. Motor not moved!")
+
 
 #*******************************************************************************************************
 def mcm_setup_prep():
@@ -494,21 +497,7 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 
 
 #*******************************************************************************************************
-def ugap_setup():
-#   Scans the ID gap and sets it to max
-    # det = tm1
-    yname = tm1.sum_all.mean_value.name
-    res = yield from dscan(ivu22, -20, 20, 20, tm1, det_ch=[4], md={'count_time': 1})
-    # x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
-    max_pos = res[0].max
-    x_pos = max_pos[0]
-    yield from bps.mv(ivu22, x_pos)
-    print('\n')
-    print('ID gap alignment finished\n')
-
-
-#*******************************************************************************************************
-def LocalBumpSetup():
+def LocalBumpSetup(silent=False):
     """
     Adjusts the e-beam local bump, i.e. horizontal & vertical positions of the x-ray beam on the XBPM1 screen
 
@@ -559,7 +548,11 @@ def LocalBumpSetup():
     dThe = 1.e-3*dXc/6.0
     if abs(dThe) < 0.01:
         print(f"Calculated horizontal e-beam shift {1.e3*dThe:0.1f} urad")
-        input_opts = input('Do you want to put it in (yes/no): ')
+        if not silent:
+            input_opts = input('Do you want to put it in (yes/no): ')
+        else:
+            input_opts = 'yes'
+        
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.horz_plane_nudge.set(1)
@@ -585,7 +578,11 @@ def LocalBumpSetup():
     dThe = -1.e-3*dYc/5.0
     if abs(dThe) < 0.01:
         print(f"Calculated vertical e-beam shift {1.e3*dThe:0.1f} urad")
-        input_opts = input('Do you want to put it in (yes/no): ')
+        if not silent:
+            input_opts = input('Do you want to put it in (yes/no): ')
+        else:
+            input_opts = 'yes'
+        
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.vert_plane_nudge.set(1)
@@ -598,8 +595,12 @@ def LocalBumpSetup():
         else:
             print('*****************************************')
             print('Correction was canceled\n')
+
+    if not silent:
+        update_opts = input('Do you want to move the XBPM1 back (yes/no): ')
+    else:
+        update_opts = 'yes'
     
-    update_opts = input('Do you want to move the XBPM1 back (yes/no): ')
     if update_opts == 'yes':
         yield from bps.mv(bpm1_diag, pos3)
 
@@ -840,12 +841,6 @@ def hrm_setup():
 
 
 #*******************************************************************************************************
-def gap_scan():
-# scans the ID gap
-    yield from dscan(ivu22, -10, 10, 10, tm1)
-    
-
-#*******************************************************************************************************
 def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
     """
     Performs mesh scan of the analyzer D crystals: analyzer vertical position versus energy.
@@ -885,10 +880,35 @@ def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
 def Beamline_Setup_1():
     # Performs 10-ID optics alignment down to the sample position
 
+    # 1. Move CRL to bypass position and wait for a few minutes for DCM to warm up.
     yield from bps.mv(crl.y, 35.17)
     yield from sleep(200)
+    # 2. Check intensity at TM1 detector
     counts = tm1.sum_all.mean_value.get()
     if counts < 1.0e-6:
         print("Low intensity at TM1 detector. Execution terminated")
         return
+    # 3. DCM setup
     yield from dcm_setup()
+    yield from sleep(5)
+    # 4. UGAP setup
+    yield from ugap_setup()
+    yield from sleep(5)
+    # 5. Local bump setup
+    yield from LocalBumpSetup(silent=True)
+    yield from sleep(5)
+    # 6. Move CRL to the focusing position and wait for a few minutes for DCM to warm up.
+    yield from bps.mv(crl.y, 0.427)
+    yield from sleep(200)
+    # 7. DCM setup
+    yield from dcm_setup()
+    yield from sleep(5)
+    # 8. CRL setup scan. Set CRL y-position to max intensity at TM1
+    res = yield from dscan(crl.y, -0.2 0.2 20, tm1, det_ch=[4], md={'count_time': 1})
+    fmax = res[0].max
+    xmax = fmax[0]
+    yield from bps.mv(crl.y, xmax)
+    # 9. Move HRM out of the beam
+    yield from hrm_out()
+    
+    print("Beamline setup 1 is completed successfully")
