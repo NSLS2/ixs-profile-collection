@@ -1,8 +1,12 @@
-from ophyd import (EpicsMotor, PseudoSingle, PseudoPositioner,
+from ophyd import (EpicsMotor, PseudoSingle, PseudoPositioner, Device, Signal,
                    Component as Cpt)
 from ophyd.pseudopos import (pseudo_position_argument, real_position_argument)
 import numpy as np
 from scipy import interpolate
+from ophyd import SoftPositioner
+
+from utils.sixcircle import SixCircle
+import time
 
 # List of available EpicsMotor labels in this script
 # [blenergy, dcmenergy, hrmenergy, analyzercxtal]
@@ -204,5 +208,232 @@ class SamplePrime(PseudoPositioner):
         return self.PseudoPosition(xp = _xp, zp = _zp)
     
 
+def hkl_to_angles(H, K, L):
+    flag, pos = sc.ca_s(H, K, L)
+    if flag == True:
+        tth, th, chi, phi, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
+        # sc.br(H, K, L)
+        return tth, th, chi, phi
+    else:
+        return None
+    
+
+def angles_to_hkl(Tth, Th, Chi, Phi):
+    H, K, L = sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
+    return H, K, L
+
+
+# class HKLPseudo(PseudoPositioner):
+# # Defines H, K, L pseudomotors for the Six Circle diffractometer code
+#     H = Cpt(PseudoSingle)
+#     K = Cpt(PseudoSingle)
+#     L = Cpt(PseudoSingle)
+
+#     th = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+#     chi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+#     phi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+#     tth = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+
+    # th = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:Th}Mtr', labels=('scir',))
+    # chi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:ChiA}Mtr', labels=('scir',))
+    # phi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:PhiA}Mtr', labels=('scir',))
+    # tth = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:2Th}Mtr', labels=('scir',))
+
+    # def __init__(self, *, calc_to_real, real_to_calc, **kwargs):
+    #     """
+    #     calc_to_real: function (H, K, L) -> (tth, th, chi, phi)
+    #     real_to_calc: function (tth, th, chi, phi) -> (H, K, L)
+    #     """
+    #     self._calc_to_real = calc_to_real
+    #     self._real_to_calc = real_to_calc
+    #     super().__init__(**kwargs)
+    # @property
+    # def position(self):
+    #     """Return the current pseudo position (H, K, L)."""
+    #     realpos = self.real_position
+    #     h, k, l = angles_to_hkl(realpos.tth, realpos.th, realpos.chi, realpos.phi)
+    #     sc.wh_refresh()
+    #     return self.PseudoPosition(H=h, K=k, L=l)
+
+    # @pseudo_position_argument
+    # def forward(self, pseudopos):
+    #     """(H, K, L) -> (tth, th, chi, phi)"""
+    #     # print("H, K, L in pseduopos", H, K, L)
+    #     res = hkl_to_angles(pseudopos.H, pseudopos.K, pseudopos.L)
+
+    #     if res is None:
+    #         raise ValueError(f"Cannot reach (H,K,L)=({pseudopos.h},{pseudopos.k},{pseudopos.l})")
+        
+    #     catth, cath, cachi, caphi = res
+    #     return self.RealPosition(tth=catth, th=cath, chi=cachi, phi=caphi)
+    
+    # @real_position_argument
+    # def inverse(self, realpos):
+    #     """(tth, th, chi, phi) -> (H, K, L)"""
+    #     # tth, th, chi, phi = realpos.Tth, realpos.Th, realpos.Chi, realpos.Phi
+    #     # print("angles in realpos", tth, th, chi, phi)
+    #     caH, caK, caL = angles_to_hkl(realpos.Tth, realpos.Th, realpos.Chi, realpos.Phi)
+    #     return self.PseudoPosition(H=caH, K=caK, L=caL)
+
+
+class HKLPseudoV2(PseudoPositioner):
+    H = Cpt(PseudoSingle)
+    K = Cpt(PseudoSingle)
+    L = Cpt(PseudoSingle)
+
+    th = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:Th}Mtr', labels=('scir',))
+    chi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:ChiA}Mtr', labels=('scir',))
+    phi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:PhiA}Mtr', labels=('scir',))
+    tth = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:2Th}Mtr', labels=('scir',))
+
+    # th = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    # chi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    # phi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    # tth = Cpt(SoftPositioner, kind="hinted", init_pos=0)
+    
+    def __init__(self, *args, **kwargs):
+        self.sc = SixCircle()       
+        super().__init__(**kwargs)
+
+    def hkl_to_angles(self, H, K, L):
+        # Optional: reject (0,0,0) early if invalid
+        if np.allclose([H, K, L], [0, 0, 0]):
+            return None  # or raise?
+        
+        flag, pos = self.sc.ca_s(H, K, L)
+        if flag == True:
+            tth, th, chi, phi, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
+            # sc.br(H, K, L)
+            return tth, th, chi, phi
+        else:
+            return None
+
+    def angles_to_hkl(self, Tth, Th, Chi, Phi):
+        # breakpoint()
+        H, K, L = self.sc.mv(tth=Tth, th=Th, chi=Chi, phi=Phi)
+        return H, K, L
+
+    @property
+    def position(self):
+        """Return the current pseudo position (H, K, L)."""
+        realpos = self.real_position
+        h, k, l = self.angles_to_hkl(realpos.tth, realpos.th, realpos.chi, realpos.phi)
+        self.sc.wh_refresh()
+        return self.PseudoPosition(H=h, K=k, L=l)
+
+    @pseudo_position_argument
+    def forward(self, pseudopos):
+        """(H, K, L) -> (tth, th, chi, phi)"""
+        # print("H, K, L in pseduopos", H, K, L)
+        res = self.hkl_to_angles(pseudopos.H, pseudopos.K, pseudopos.L)
+        self.sc.wh_refresh()
+        if res is None:
+            raise ValueError(f"Cannot reach (H,K,L)=({pseudopos.h},{pseudopos.k},{pseudopos.l})")
+        
+        catth, cath, cachi, caphi = res
+        return self.RealPosition(tth=catth, th=cath, chi=cachi, phi=caphi)
+    
+    @real_position_argument
+    def inverse(self, realpos):
+        """(tth, th, chi, phi) -> (H, K, L)"""
+        # tth, th, chi, phi = realpos.Tth, realpos.Th, realpos.Chi, realpos.Phi
+        # print("angles in realpos", tth, th, chi, phi)
+        caH, caK, caL = self.angles_to_hkl(realpos.tth, realpos.th, realpos.chi, realpos.phi)
+        self.sc.wh_refresh()
+        return self.PseudoPosition(H=caH, K=caK, L=caL)
+    
+
+class HKLDerived(Device):
+    alpha = Cpt(Signal, value=0.0, kind='hinted')
+    beta  = Cpt(Signal, value=0.0, kind='hinted')
+    omega = Cpt(Signal, value=0.0, kind='hinted')
+    mu = Cpt(Signal, value=0.0, kind='hinted')
+    gam = Cpt(Signal, value=0.0, kind='hinted')
+    sa = Cpt(Signal, value=0.0, kind='hinted')
+    azimuth = Cpt(Signal, value=0.0, kind='hinted')
+
+    def __init__(self, hkl_pseudo, *args, **kwargs):
+        self.hkl_pseudo = hkl_pseudo
+        super().__init__(*args, **kwargs)
+
+        # Subscribe to changes in key real motors
+        # for m in [self.hkl_pseudo.tth, self.hkl_pseudo.th,
+        #           self.hkl_pseudo.chi, self.hkl_pseudo.phi]:
+        #     m.subscribe(self._on_motor_change)
+
+        # Initialize derived values
+        self._update_from_motors()
+
+    def _on_motor_change(self, *args, **kwargs):
+        """Callback when any subscribed motor position changes."""
+        self._update_from_motors()
+
+    def _update_from_motors(self):
+        """Recalculate derived parameters based on current positions."""
+        try:
+            # hkl_pseudo = getattr(self, "hkl_pseudo", None)
+            # if hkl_pseudo is None:
+            #     print("[HKLDerived] No hkl_pseudo device attached — skipping update.")
+            #     return
+
+            realpos = self.hkl_pseudo.real_position
+
+            # Extract positions safely
+            tth = getattr(realpos, "tth", None)
+            th  = getattr(realpos, "th", None)
+            chi = getattr(realpos, "chi", None)
+            phi = getattr(realpos, "phi", None)
+
+            if any(v is None for v in [tth, th, chi, phi]):
+                print("[HKLDerived] Skipping update: one or more motor positions are None.")
+                return
+
+            if any(np.isnan(v) for v in [tth, th, chi, phi]):
+                print("[HKLDerived] Skipping update: one or more motor positions are NaN.")
+                return
+
+            H, K, L = self.hkl_pseudo.angles_to_hkl(tth, th, chi, phi)
+
+            if (H is None or K is None or L is None or
+                np.isnan(H) or np.isnan(K) or np.isnan(L) or
+                np.allclose([H, K, L], [0, 0, 0])):
+                print("[HKLDerived] Skipping update: invalid or undefined HKL position.")
+                return
+
+            flag, pos = self.hkl_pseudo.sc.ca_s(H, K, L)
+            if not flag or not pos:
+                print("[HKLDerived] Skipping update: ca_s() returned invalid result.")
+                return
+
+            *_, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
+
+            self.alpha.put(caALPHA)
+            self.beta.put(caBETA)
+            self.omega.put(caOMEGA)
+            self.mu.put(caMU)
+            self.gam.put(caGAM)
+            self.sa.put(caSA)
+            self.azimuth.put(caAZIMUTH)
+
+        except Exception as ex:
+            print(f"[HKLDerived] Update failed: {ex}")
+
+    def trigger(self):
+        """Refresh before any scan baseline read."""
+        self._update_from_motors()
+        return super().trigger()
+
+
 anc_xtal = AnalyzerCXtal('', name='anc_xtal', egu=('deg', 'mm'))
 sam_prime = SamplePrime('', name='sp', egu=('mm', 'deg'))
+# hklpseudo = HKLPseudo(name='hkl', calc_to_real=hkl_to_angles, real_to_calc=angles_to_hkl)
+hklps = HKLPseudoV2(name='hkl')
+for m in [hklps.tth, hklps.th, hklps.chi, hklps.phi]:
+    try:
+        m.wait_for_connection(timeout=5)
+        m.read()  # Force PV read to populate .position
+    except Exception as ex:
+        print(f"[Startup] Warning: {m.name} not ready ({ex})")
+
+hkl_params = HKLDerived(hklps, name='hkl_params')
+#hkl_params._update_from_motors(hklps)  # initial update

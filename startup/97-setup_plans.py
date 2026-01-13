@@ -16,7 +16,7 @@ from tabulate import tabulate
 #*******************************************************************************************************
 # opens a Matplotlib figure with axes
 myfig, myaxs = plt.subplots(figsize=(8,5), num=1)
-
+plt.ion()  # enable interactive mode
 
 #*******************************************************************************************************
 def peaks_stats_print(dets_name, peak_stats):
@@ -68,41 +68,47 @@ def plotselect(det_name, mot_name):
 
 
 #*******************************************************************************************************
-def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
+def dscan(mot, start, stop, steps, det, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
     myaxs.clear()
-    
-    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
+    if det_ch is None:
+        det_ch = [0]
+    md = md or {}
+
+    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
+    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
 
     subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.rel_scan([det], mot, start, stop, steps), subs_list)
+    plan = bpp.subs_wrapper(bp.rel_scan([det], mot, start, stop, steps, md=md), subs_list)
         
     yield from plan
 
     print('\n')
-    for n in range(len(det_channel_picks)):
-        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
+    for n in range(len(det_ch)):
+        peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
         print("\n")
 
     return stats_list
 
 
 #*******************************************************************************************************
-def ascan(mot, start, stop, steps, det, det_channel_picks=[0]):
+def ascan(mot, start, stop, steps, det, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
     myaxs.clear()
-    
-    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
+    if det_ch is None:
+        det_ch = [0]
+    md = md or {}
+
+    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
+    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
 
     subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps), subs_list)
+    plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps, md=md), subs_list)
         
     yield from plan
 
-    for n in range(len(det_channel_picks)):
-        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
+    for n in range(len(det_ch)):
+        peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
         print("\n")
     
     return stats_list
@@ -137,6 +143,10 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
     myaxs.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
     myaxs.plot(table[x], gauss.values, label=f"gaussian fit {channel}")
     myaxs.legend()
+
+    myaxs.figure.canvas.draw_idle()
+    myaxs.figure.canvas.flush_events()
+
     return lf.result.values
 
 
@@ -193,18 +203,6 @@ def GCarbon_Qscan(exp_time=2):
             yield from bps.mv(spec.tth, th)
             yield from set_lambda_exposure(exp_time)
             yield from dscan(hrmE, -10, 10, 100, lambda_det)
-
-#            yield from hrmE_dscan(-10, 10, 100, exp_time)
-#            peak_stats = bec.peaks
-#            headers = ["com","cen","max","min","fwhm"]
-#            data = []
-#            for p in range(5):
-#                data.append(peak_stats[headers[p]]['lambda_det_stats7_total'])#
-
-#            data[2] = peak_stats[headers[2]]['lambda_det_stats7_total'][1]
-#            data[3] = peak_stats[headers[3]]['lambda_det_stats7_total'][1]
-
-#            print(tabulate([data], headers))
 
 
 #*******************************************************************************************************
@@ -281,6 +279,40 @@ def DxtalTempCalc(uid=-1):
         print('\n')
         print('Update is canceled\n')
 #    return {'dEn':dE, 'dTem':dTe, 'dThe':dTh, 'DTem':DTe}
+
+
+#*******************************************************************************************************
+def ugap_setup():
+#   Scans the ID gap and sets it to max
+    # det = tm1
+    yname = tm1.sum_all.mean_value.name
+    res = yield from dscan(ivu22, -20, 20, 20, tm1, det_ch=[4], md={'count_time': 1})
+    # x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
+    max_pos = res[0].max
+    x_pos = max_pos[0]
+    yield from bps.mv(ivu22, x_pos)
+    print('\n')
+    print('ID gap alignment finished\n')
+
+
+#*******************************************************************************************************
+def dcm_setup():
+    # Set the DCM position to max intensity
+ 
+    res = yield from dscan(dcm.p1, -80, 80, 40, tm1, det_ch=[4], md={'count_time': 1})
+    fwhm = res[0].fwhm
+    cen  = res[0].cen
+    com  = res[0].com
+    crs = res[0].crossings
+
+    if fwhm is not None and cen is not None and com is not None and crs is not None:
+        if fwhm < 50 and abs(cen - com)/ fwhm < 1 and len(crs) == 2:
+            yield from bps.mv(dcm.p1, cen)
+            print("DCM moved to center")
+        else:
+            print("Peak was not found. Motor not moved!")
+    else:
+        print("Scan did not return valid results. Motor not moved!")
 
 
 #*******************************************************************************************************
@@ -465,19 +497,7 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 
 
 #*******************************************************************************************************
-def ugap_setup():
-#   Scans the ID gap and sets it to max
-    det = tm1
-    yname = tm1.sum_all.mean_value.name
-    yield from bp.rel_scan([det], ivu22, -20, 20, 20)
-    x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
-    yield from bps.mv(ivu22, x_pos)
-    print('\n')
-    print('ID gap alignment finished\n')
-
-
-#*******************************************************************************************************
-def LocalBumpSetup():
+def LocalBumpSetup(silent=False):
     """
     Adjusts the e-beam local bump, i.e. horizontal & vertical positions of the x-ray beam on the XBPM1 screen
 
@@ -528,7 +548,11 @@ def LocalBumpSetup():
     dThe = 1.e-3*dXc/6.0
     if abs(dThe) < 0.01:
         print(f"Calculated horizontal e-beam shift {1.e3*dThe:0.1f} urad")
-        input_opts = input('Do you want to put it in (yes/no): ')
+        if not silent:
+            input_opts = input('Do you want to put it in (yes/no): ')
+        else:
+            input_opts = 'yes'
+        
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.horz_plane_nudge.set(1)
@@ -554,7 +578,11 @@ def LocalBumpSetup():
     dThe = -1.e-3*dYc/5.0
     if abs(dThe) < 0.01:
         print(f"Calculated vertical e-beam shift {1.e3*dThe:0.1f} urad")
-        input_opts = input('Do you want to put it in (yes/no): ')
+        if not silent:
+            input_opts = input('Do you want to put it in (yes/no): ')
+        else:
+            input_opts = 'yes'
+        
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.vert_plane_nudge.set(1)
@@ -567,8 +595,12 @@ def LocalBumpSetup():
         else:
             print('*****************************************')
             print('Correction was canceled\n')
+
+    if not silent:
+        update_opts = input('Do you want to move the XBPM1 back (yes/no): ')
+    else:
+        update_opts = 'yes'
     
-    update_opts = input('Do you want to move the XBPM1 back (yes/no): ')
     if update_opts == 'yes':
         yield from bps.mv(bpm1_diag, pos3)
 
@@ -809,12 +841,6 @@ def hrm_setup():
 
 
 #*******************************************************************************************************
-def gap_scan():
-# scans the ID gap
-    yield from dscan(ivu22, -10, 10, 10, tm1)
-    
-
-#*******************************************************************************************************
 def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
     """
     Performs mesh scan of the analyzer D crystals: analyzer vertical position versus energy.
@@ -850,3 +876,39 @@ def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
     bec.disable_plots()
 
 #*******************************************************************************************************
+
+def Beamline_Setup_1():
+    # Performs 10-ID optics alignment down to the sample position
+
+    # 1. Move CRL to bypass position and wait for a few minutes for DCM to warm up.
+    yield from bps.mv(crl.y, 35.17)
+    yield from sleep(200)
+    # 2. Check intensity at TM1 detector
+    counts = tm1.sum_all.mean_value.get()
+    if counts < 1.0e-6:
+        print("Low intensity at TM1 detector. Execution terminated")
+        return
+    # 3. DCM setup
+    yield from dcm_setup()
+    yield from sleep(5)
+    # 4. UGAP setup
+    yield from ugap_setup()
+    yield from sleep(5)
+    # 5. Local bump setup
+    yield from LocalBumpSetup(silent=True)
+    yield from sleep(5)
+    # 6. Move CRL to the focusing position and wait for a few minutes for DCM to warm up.
+    yield from bps.mv(crl.y, 0.427)
+    yield from sleep(200)
+    # 7. DCM setup
+    yield from dcm_setup()
+    yield from sleep(5)
+    # 8. CRL setup scan. Set CRL y-position to max intensity at TM1
+    res = yield from dscan(crl.y, -0.2 0.2 20, tm1, det_ch=[4], md={'count_time': 1})
+    fmax = res[0].max
+    xmax = fmax[0]
+    yield from bps.mv(crl.y, xmax)
+    # 9. Move HRM out of the beam
+    yield from hrm_out()
+    
+    print("Beamline setup 1 is completed successfully")

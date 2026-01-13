@@ -22,9 +22,9 @@ from os import path
 print ('')
 print ('RSC Materials Dynamics Laboratory Six Circle Code by Wenyang Zhao and Alfred Q.R. Baron')
 print ('')
-print ('Suggest:  import sixcircle; from sixcircle import *')
-print ('For IXS users at SPring-8:  from sixcircle_rqd import *')
-print ('')
+# print ('Suggest:  import sixcircle; from sixcircle import *')
+# print ('For IXS users at SPring-8:  from sixcircle_rqd import *')
+# print ('')
 
 # Module of six-circle calculation
 from . import scbasic
@@ -34,7 +34,7 @@ class SixCircle():
     
     def __init__(self):
         self.runquiet = False
-        self.__doc__()
+        # self.__doc__()
         
         self.ini()
 
@@ -96,7 +96,8 @@ class SixCircle():
         # Output precision, default PRE=3, (PRE+2) for wavelength
         self.PRE = 3
         # Flag of using wh() after mv() or br(), default False
-        self.FLAG_WH = True
+        # self.FLAG_WH = True
+        self.FLAG_WH = False
         # Load default configuration file at startup
         if path.isfile('/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/conf/sixcircle_last_UB') :
             self.load('/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/conf/sixcircle_last_UB')
@@ -723,6 +724,7 @@ class SixCircle():
         self.L = hb[2][0]
         # When azimuth reference vector is surface normal, ALPHA and BETA are incident and exit angles
         self.AZIMUTH, self.ALPHA, self.BETA = scbasic.CheckPsiAlphainBetaout(self.M_U,self.M_B,az,self.TTH/2,self.OMEGA,self.CHI,self.PHI,self.MU,self.GAM)
+        return self.H, self.K, self.L
 
     # Show current positions
     def wh(self):
@@ -793,9 +795,10 @@ class SixCircle():
         if 'gam' in args.keys():
             self.GAM = args['gam']
         # Get (H, K, L, SA, OMEGA, ALPHA, BETA, AZIMUTH, ABSQ) at new positions
-        self.wh_refresh()
+        H, K, L = self.wh_refresh()
         if self.FLAG_WH == True:
             self.wh()
+        return H, K, L
 
     # Set limits of positions
     # Usage:  setlm()  or  setlm(ltth=?,utth=?,lth=?,uth=?,lchi=?,uchi=?,lphi=?,uphi=?,lmu=?,umu=?,lgam=?,ugam=?,lalpha=?,ualpha=?,lbeta=?,ubeta=?)
@@ -982,10 +985,12 @@ class SixCircle():
             print (posfmt.format(*posprt))
             print ('')
             print ('Command (sixcircle):  ', end='')
-            print ('mv (tth={0:.{6}f}, th={1:.{6}f}, chi={2:.{6}f}, phi={3:.{6}f}, mu={4:.{6}f}, gam={5:.{6}f})'.format(*posprt,self.PRE))
-            print ('Command (BL43LXU):    ', end='')
-            print ('mv tth {0:.{6}f} th {1:.{6}f} chi {2:.{6}f} phi {3:.{6}f}'.format(*posprt,self.PRE))
+            print ('mv(tth={0:.{6}f}, th={1:.{6}f}, chi={2:.{6}f}, phi={3:.{6}f}, mu={4:.{6}f}, gam={5:.{6}f})'.format(*posprt,self.PRE))
+            # print ('Command (BL43LXU):    ', end='')
+            # print ('mv tth {0:.{6}f} th {1:.{6}f} chi {2:.{6}f} phi {3:.{6}f}'.format(*posprt,self.PRE))
             print ('')
+            # return 
+        return caTTH,caTH,caCHI,caPHI
     
     # Move to H, K, L    Using first set of positions from ca_s()
     # Usage: br(H,K,L)
