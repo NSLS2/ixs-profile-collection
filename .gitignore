@@ -79,4 +79,6 @@ db
 
 .vscode/
 
-.directory/
+.directory/# pixi environments
+.pixi/*
+!.pixi/config.toml
