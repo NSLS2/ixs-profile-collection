@@ -879,36 +879,105 @@ def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
 
 def Beamline_Setup_1():
     # Performs 10-ID optics alignment down to the sample position
-
+    #
     # 1. Move CRL to bypass position and wait for a few minutes for DCM to warm up.
-    yield from bps.mv(crl.y, 35.17)
-    yield from sleep(200)
+    #
+    print("Moving CRL out of the beam")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from bps.mv(crl.y, 35.17)
+        yield from sleep(200)
+        print("CRL is out of the beam")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
     # 2. Check intensity at TM1 detector
+    #
     counts = tm1.sum_all.mean_value.get()
     if counts < 1.0e-6:
         print("Low intensity at TM1 detector. Execution terminated")
         return
+    #
     # 3. DCM setup
-    yield from dcm_setup()
-    yield from sleep(5)
+    #
+    print("DCM setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from dcm_setup()
+        yield from sleep(5)
+        print("DCM setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
     # 4. UGAP setup
-    yield from ugap_setup()
-    yield from sleep(5)
+    #
+    print("Undulator gap setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from ugap_setup()
+        yield from sleep(5)
+        print("Undulator gap setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
     # 5. Local bump setup
-    yield from LocalBumpSetup(silent=True)
-    yield from sleep(5)
+    #
+    print("Local bump setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from LocalBumpSetup(silent=True)
+        yield from sleep(5)
+        print("Local bump setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
     # 6. Move CRL to the focusing position and wait for a few minutes for DCM to warm up.
-    yield from bps.mv(crl.y, 0.427)
-    yield from sleep(200)
+    #
+    print("Moving CRL into the beam")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from bps.mv(crl.y, 0.427)
+        yield from sleep(200)
+        print("CRL is in the beam")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
     # 7. DCM setup
-    yield from dcm_setup()
-    yield from sleep(5)
+    #
+    print("DCM setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from dcm_setup()
+        yield from sleep(5)
+        print("DCM setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+        #
     # 8. CRL setup scan. Set CRL y-position to max intensity at TM1
-    res = yield from dscan(crl.y, -0.2 0.2 20, tm1, det_ch=[4], md={'count_time': 1})
-    fmax = res[0].max
-    xmax = fmax[0]
-    yield from bps.mv(crl.y, xmax)
+    #
+    print("CRL setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, det_ch=[4], md={'count_time': 1})
+        fmax = res[0].max
+        xmax = fmax[0]
+        yield from bps.mv(crl.y, xmax)
+        print("CRL setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
     # 9. Move HRM out of the beam
-    yield from hrm_out()
+    #
+    print("Moving HRM out of the beam")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from hrm_out()
     
     print("Beamline setup 1 is completed successfully")
