@@ -160,63 +160,14 @@ def Lipid_Qscan(Qq=None, Ncycles=1, md=None):
                 yield from bps.mv(sample_stage.sy, max_pos)
                 print(f"Sample stage SY is set to {sample_stage.sy.read()['s_sy']['value']}\n")
 
-#        yield from bps.mv(anapd, 3, spec.tth, 1)
-#        yield from bps.mv(sclr.channels.chan22.preset_time, 5)
-#        yield from bp.scan([c22], spec.tth, 1, 21, 101, md=md)
-
-def Lipid_Qscan_wBC():
-    # Lipid_Qscan with beam check
-    yield from bpp.suspend_wrapper(Lipid_Qscan(), susp)
-
-
-def Peak_Test(det, mot, det_channel_picks=[]):
-    # yield from bp.rel_scan([det1], ixs4c.omega, -5, 5, 5)
-    # plan = bpp.subs_wrapper(
-    #      bp.rel_scan([det1], ixs4c.omega, -5, 5, 5), 
-    #      LivePlot(det1.hints['fields'][0], ixs4c.omega.name)
-    #         )
-#    if not plt.fignum_exists(1):
-#        plt.subplots(figsize=(8,5), num=1)
-#    else:
-    plt.cla()
-    
-    if len(det_channel_picks) == 0:
-#        plan = bp.rel_scan([det], ixs4c.omega, -5, 5, 5)
-#        subs_list = [plotselect(det.hints['fields'], mot.name)]
-#        stats_list = [PeakStats(mot.name, det.hints['fields'])]
-        subs_list = [LivePlot(det.hints['fields'][0], x=mot.name, marker='*', markersize=10, ax=myaxs)]
-        stats_list = [PeakStats(mot.name, det.hints['fields'][0])]
-    else:
-#        local_peaks = []
-#        for det in dets:
-#        subs_list = [LivePlot(det.hints['fields'][det_channel], mot.name, ax=plt.gca()) for det_channel in  det_channel_picks]
-        subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-        stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
-
-    subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(
-             bp.rel_scan([det], ixs4c.omega, -5, 5, 5), subs_list)
-        
-    yield from plan
-    if len(det_channel_picks) > 0:
-        for n in range(len(det_channel_picks)):
-            peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
-            print("\n")
-
-#    print(stats_list)
-#     local_peaks = yield from align_with_fit([det1], ixs4c.omega, -5, 5, 5, LivePlot())
-#    return stats_list
-
 
 def Dia_scan(exp_time=60):
     # Test plan for Diamond
     # yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
     # yield from bps.mv(anapd, 25, whl, 0)
-#    myplt = plotselect('lambda_det_stats7_total', hrmE.name)
+
     myaxs.cla()
 
-    # th = qq2th(q)
-    # yield from bps.mv(spec.tth, th)
     yield from set_lambda_exposure(exp_time)
     yield from dscan(hrmE, -14, 14, 56, lambda_det, count_time=exp_time)
 

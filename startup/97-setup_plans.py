@@ -63,8 +63,23 @@ def peaks_stats_print(dets_name, peak_stats):
 #*******************************************************************************************************
 def plotselect(det_name, mot_name):
 # creates a LivePlot object with given paramaters
-    myplt = LivePlot(det_name, x=mot_name, marker='o', markersize=6, ax=myaxs)
+    print(mot_name)
+    myplt = LivePlot(det_name, x=mot_name, marker='o', markersize=6, ax=myaxs, stream_name="primary")
     return myplt
+
+
+#*******************************************************************************************************
+# def _x_field(mot):
+#     # Prefer mot.name (what you usually want on x-axis)
+#     if hasattr(mot, "name") and mot.name:
+#         return mot.name
+
+#     for attr in ("user_readback", "readback", "rbv", "position"):
+#         sig = getattr(mot, attr, None)
+#         if sig is not None and hasattr(sig, "name"):
+#             return sig.name
+#     # Fallback: what you had before
+#     return str(mot)
 
 
 #*******************************************************************************************************
@@ -74,6 +89,8 @@ def dscan(mot, start, stop, steps, det, det_ch=None, md=None):
     if det_ch is None:
         det_ch = [0]
     md = md or {}
+
+    # x_name = _x_field(mot)
 
     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
@@ -99,6 +116,8 @@ def ascan(mot, start, stop, steps, det, det_ch=None, md=None):
         det_ch = [0]
     md = md or {}
 
+    # x_name = _x_field(mot)
+
     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
 
@@ -116,7 +135,10 @@ def ascan(mot, start, stop, steps, det, det_ch=None, md=None):
 
 #*******************************************************************************************************
 def gaussian(x, A, sigma, x0):
-    return A*np.exp(-(x - x0)**2/(2 * sigma**2))
+    exponent = -(x - x0)**2/(2 * sigma**2)
+    # Clip exponent to prevent overflow; exp(-745) ≈ 0, exp(709) ≈ max float
+    exponent = np.clip(exponent, -745, 0)
+    return A*np.exp(exponent)
 
 
 #*******************************************************************************************************

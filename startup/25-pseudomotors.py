@@ -223,59 +223,6 @@ def angles_to_hkl(Tth, Th, Chi, Phi):
     return H, K, L
 
 
-# class HKLPseudo(PseudoPositioner):
-# # Defines H, K, L pseudomotors for the Six Circle diffractometer code
-#     H = Cpt(PseudoSingle)
-#     K = Cpt(PseudoSingle)
-#     L = Cpt(PseudoSingle)
-
-#     th = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-#     chi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-#     phi = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-#     tth = Cpt(SoftPositioner, kind="hinted", init_pos=0)
-
-    # th = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:Th}Mtr', labels=('scir',))
-    # chi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:ChiA}Mtr', labels=('scir',))
-    # phi = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:PhiA}Mtr', labels=('scir',))
-    # tth = Cpt(EpicsMotor, 'XF:10IDD-OP{Spec:1-Ax:2Th}Mtr', labels=('scir',))
-
-    # def __init__(self, *, calc_to_real, real_to_calc, **kwargs):
-    #     """
-    #     calc_to_real: function (H, K, L) -> (tth, th, chi, phi)
-    #     real_to_calc: function (tth, th, chi, phi) -> (H, K, L)
-    #     """
-    #     self._calc_to_real = calc_to_real
-    #     self._real_to_calc = real_to_calc
-    #     super().__init__(**kwargs)
-    # @property
-    # def position(self):
-    #     """Return the current pseudo position (H, K, L)."""
-    #     realpos = self.real_position
-    #     h, k, l = angles_to_hkl(realpos.tth, realpos.th, realpos.chi, realpos.phi)
-    #     sc.wh_refresh()
-    #     return self.PseudoPosition(H=h, K=k, L=l)
-
-    # @pseudo_position_argument
-    # def forward(self, pseudopos):
-    #     """(H, K, L) -> (tth, th, chi, phi)"""
-    #     # print("H, K, L in pseduopos", H, K, L)
-    #     res = hkl_to_angles(pseudopos.H, pseudopos.K, pseudopos.L)
-
-    #     if res is None:
-    #         raise ValueError(f"Cannot reach (H,K,L)=({pseudopos.h},{pseudopos.k},{pseudopos.l})")
-        
-    #     catth, cath, cachi, caphi = res
-    #     return self.RealPosition(tth=catth, th=cath, chi=cachi, phi=caphi)
-    
-    # @real_position_argument
-    # def inverse(self, realpos):
-    #     """(tth, th, chi, phi) -> (H, K, L)"""
-    #     # tth, th, chi, phi = realpos.Tth, realpos.Th, realpos.Chi, realpos.Phi
-    #     # print("angles in realpos", tth, th, chi, phi)
-    #     caH, caK, caL = angles_to_hkl(realpos.Tth, realpos.Th, realpos.Chi, realpos.Phi)
-    #     return self.PseudoPosition(H=caH, K=caK, L=caL)
-
-
 class HKLPseudoV2(PseudoPositioner):
     H = Cpt(PseudoSingle)
     K = Cpt(PseudoSingle)
