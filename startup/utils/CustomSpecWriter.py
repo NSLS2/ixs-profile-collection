@@ -72,6 +72,53 @@ def _fmt(x):
         return f"{float(x):.12g}"
     except Exception:
         return str(x)
+    
+import numbers
+
+def _read_scalar(obj):
+    # raw numbers (float, int, numpy scalar, etc.)
+    if isinstance(obj, numbers.Number):
+        return float(obj)
+
+    # callable
+    if callable(obj):
+        return obj()
+
+    # ophyd-style get()
+    get_fn = getattr(obj, "get", None)
+    if get_fn is not None:
+        try:
+            val = get_fn()
+            if hasattr(val, "readback"):
+                return float(val.readback)
+            return float(val)
+        except Exception:
+            pass
+
+    # ophyd-style read()
+    read_fn = getattr(obj, "read", None)
+    if read_fn is not None:
+        try:
+            d = read_fn()
+            if isinstance(d, dict) and d:
+                v = next(iter(d.values()))["value"]
+                return float(v)
+        except Exception:
+            pass
+
+    return None
+
+def _write_G0_line(fh, g0_items):
+    """
+    Write one SPEC #G0 line from a fixed ordered list of 11 scalars.
+    g0_items: list of ophyd Signals/Positioners or callables returning scalars.
+    """
+    vals = []
+    for it in g0_items:
+        v = _read_scalar(it)  # use the same helper you already have (callable/get/read)
+        vals.append(v)
+    fh.write("#G0 " + " ".join(_fmt(v) for v in vals) + "\n")
+
 
 def _safe_get_position(obj):
     """
@@ -106,6 +153,7 @@ class CustomSpecWriter(CallbackBase):
         include_md_keys=None,
         x_field_resolver=None,
         data_field_order=None,
+        g0_items=None,
         flush=True,
     ):
         """
@@ -125,6 +173,7 @@ class CustomSpecWriter(CallbackBase):
         self.x_field_resolver = x_field_resolver
         self.data_field_order = data_field_order
         self.flush = bool(flush)
+        self.g0_items = list(g0_items) if g0_items is not None else []
 
         self._fh = None
         self._file_header_written = False
@@ -191,6 +240,8 @@ class CustomSpecWriter(CallbackBase):
         ct = doc.get("count_time", None)
         if ct is not None:
             self._fh.write(f"#T {_fmt(ct)}  (Seconds)\n")
+        if self.g0_items:
+            _write_G0_line(self._fh, self.g0_items)
         self._fh.write(f"#C {to_spec_time(doc.get('time', time.time()))}.  uid = {doc.get('uid', '')}\n")
 
         # Selected #MD lines (curated, not everything)

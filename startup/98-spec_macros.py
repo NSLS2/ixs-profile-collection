@@ -86,3 +86,21 @@ def hrmE_ascan(start, stop, steps, exp_time, md=None):
         yield from bp.scan([lambda_det], hrmE, start, stop, steps, md=md)
     )
 
+#*******************************************************************************************************
+from ophyd.sim import SynAxis, SynGauss
+
+# Simulated motor (positioner)
+sym_mot = SynAxis(name="sym_mot")
+
+# Simulated detector with Gaussian response vs motor position
+#    I(m) = Imax * exp(-(m - center)^2 / (2*sigma^2)) + noise
+sym_det = SynGauss(
+    name="sym_det",
+    motor=sym_mot,
+    motor_field="sym_mot",   # must match key in sym_mot.read()
+    center=0.0,
+    Imax=1e5,
+    sigma=0.2,
+    noise="poisson",
+    random_state=0,
+)

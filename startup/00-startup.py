@@ -81,28 +81,56 @@ def relabel_motors():
 # ## Live specfile exporting
 import time
 from event_model import RunRouter
-from suitcase.specfile import Serializer
+# from suitcase.specfile import Serializer
+from utils.CustomSpecWriter import CustomSpecWriter
 
+# def spec_factory(name, doc):
+#     if not spec_factory.enabled:
+#         return [], []
+#     directory = "/nsls2/data/ixs/legacy/specfiles/"
 
-def spec_factory(name, doc):
-    if not spec_factory.enabled:
+#     spec_cb = Serializer(directory, file_prefix=spec_factory.prefix, flush=True)
+#     return [spec_cb], []
+
+def my_spec_factory(name, doc):
+    if name != "start" or not my_spec_factory.enabled:
         return [], []
-    directory = "/nsls2/data/ixs/legacy/specfiles/"
 
-    spec_cb = Serializer(directory, file_prefix=spec_factory.prefix, flush=True)
-    return [spec_cb], []
+    directory = getattr(my_spec_factory, "directory", "/nsls2/data/ixs/legacy/specfiles/")
+    prefix = getattr(my_spec_factory, "prefix", "spec_test")
+    filepath = os.path.join(directory, f"{prefix}.dat")
+
+    cb = CustomSpecWriter(
+        filepath=filepath,
+        motor_groups=motor_groups,
+        motors_per_line=8,  # or 4 if you want #O0/#O1 splitting
+        include_md_keys={"uid", "detectors", "motors", "num_points", "num_intervals", "plan_pattern", "plan_pattern_args"},
+        g0_items=g0_items,
+        # Optional: force x field to match your scanned axis naming conventions
+        # x_field_resolver=...,
+        # data_field_order=...,
+        flush=True,
+    )
+    return [cb], []
 
 
-spec_factory.enabled = True
+# spec_factory.enabled = True
+my_spec_factory.enabled = True # Set to False to disable spec file writing without removing the callback
+
 # Check if the 'spec_file' key exists and is not empty
 if RE.md.get('spec_file'):
     config_file = RE.md['spec_file']
     directory, prefix = os.path.split(config_file)
     prefix = os.path.splitext(prefix)[0]  # remove .spec if present
-    spec_factory.directory = directory
-    spec_factory.prefix = prefix
+    my_spec_factory.directory = directory
+    my_spec_factory.prefix = prefix
+    # spec_factory.directory = directory
+    # spec_factory.prefix = prefix
 else:
-    spec_factory.prefix = "spec_test"
+    # spec_factory.prefix = "spec_test"
+    my_spec_factory.prefix = "spec_test"
 
-spec_router = RunRouter([spec_factory])
+# spec_router = RunRouter([spec_factory])
+# RE.subscribe(spec_router)
+spec_router = RunRouter([my_spec_factory])
 RE.subscribe(spec_router)

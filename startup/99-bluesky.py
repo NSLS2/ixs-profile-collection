@@ -128,8 +128,8 @@ def newfile():
    """
     while True:
         print("\n--- Current File Settings ---")
-        print(f"Directory: {spec_factory.directory}")
-        print(f"File name: {spec_factory.prefix}")
+        print(f"Directory: {my_spec_factory.directory}")
+        print(f"File name: {my_spec_factory.prefix}")
         print("------------------------------")
         print("Options:")
         print("1. Change directory path")
@@ -141,20 +141,20 @@ def newfile():
         if choice == "1":
             new_path = input("Enter new directory path: ").strip()
             if new_path:
-                spec_factory.directory = new_path
-                print(f"Directory updated to: {spec_factory.directory}")
+                my_spec_factory.directory = new_path
+                print(f"Directory updated to: {my_spec_factory.directory}")
         elif choice == "2":
             new_name = input("Enter new file name: ").strip()
             if new_name:
-                spec_factory.prefix = new_name
-                print(f"File name updated to: {spec_factory.prefix}")
+                my_spec_factory.prefix = new_name
+                print(f"File name updated to: {my_spec_factory.prefix}")
         elif choice == "3":
             print("Exiting file settings manager.")
             break
         else:
             print("Invalid input. Please enter 1, 2, or 3.")
         
-        RE.md['spec_file'] = os.path.join(spec_factory.directory, spec_factory.prefix + ".spec")
+        RE.md['spec_file'] = os.path.join(my_spec_factory.directory, my_spec_factory.prefix + ".spec")
 
     # return filepath, filename
 
