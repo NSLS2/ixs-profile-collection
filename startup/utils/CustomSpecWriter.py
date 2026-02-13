@@ -245,7 +245,14 @@ class CustomSpecWriter(CallbackBase):
         self._fh.write(f"#C {to_spec_time(doc.get('time', time.time()))}.  uid = {doc.get('uid', '')}\n")
 
         # Selected #MD lines (curated, not everything)
+        _MD_EXCLUDE = {
+            "plan_pattern",
+            "plan_pattern_args",
+        }
+
         for k in sorted(self.include_md_keys):
+            if k in _MD_EXCLUDE:
+                continue
             if k in doc:
                 self._fh.write(f"#MD {k} = {doc[k]}\n")
 
