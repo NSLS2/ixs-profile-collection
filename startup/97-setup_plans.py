@@ -224,7 +224,7 @@ def GCarbon_Qscan(exp_time=2):
             th = qq2th(q)
             yield from bps.mv(spec.tth, th)
             yield from set_lambda_exposure(exp_time)
-            yield from dscan(hrmE, -10, 10, 100, lambda_det)
+            yield from dscan(hrmE, -10, 10, 100, lambda_det, md={"count_time": exp_time})
 
 
 #*******************************************************************************************************
@@ -390,7 +390,7 @@ def mcm_setup(s1=0, s2=0):
     if aret[1] > 0:
         return
     if not s1 == 0:
-        yield from dscan(mcm.x, -0.2, 0.2, 40, det2)
+        yield from dscan(mcm.x, -0.2, 0.2, 40, det2, md={"count_time": 1})
         x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
         xmax = x_pos[0]
         dxmax = MCM_XPOS - xmax
