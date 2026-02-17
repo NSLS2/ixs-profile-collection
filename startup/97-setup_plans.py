@@ -71,7 +71,9 @@ def plotselect(det_name, mot_name):
 #*******************************************************************************************************
 def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
-    myaxs.clear()
+    myaxs.cla()
+    myfig.canvas.draw_idle()
+
     if det_ch is None:
         det_ch = [0]
     md = md or {}
@@ -102,7 +104,9 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
 #*******************************************************************************************************
 def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
-    myaxs.clear()
+    myaxs.cla()
+    myfig.canvas.draw_idle()
+    
     if det_ch is None:
         det_ch = [0]
     md = md or {}
