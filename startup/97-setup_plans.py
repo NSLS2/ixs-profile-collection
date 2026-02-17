@@ -69,28 +69,19 @@ def plotselect(det_name, mot_name):
 
 
 #*******************************************************************************************************
-# def _x_field(mot):
-#     # Prefer mot.name (what you usually want on x-axis)
-#     if hasattr(mot, "name") and mot.name:
-#         return mot.name
-
-#     for attr in ("user_readback", "readback", "rbv", "position"):
-#         sig = getattr(mot, attr, None)
-#         if sig is not None and hasattr(sig, "name"):
-#             return sig.name
-#     # Fallback: what you had before
-#     return str(mot)
-
-
-#*******************************************************************************************************
-def dscan(mot, start, stop, steps, det, det_ch=None, md=None):
+def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
     myaxs.clear()
     if det_ch is None:
         det_ch = [0]
     md = md or {}
 
-    # x_name = _x_field(mot)
+    md["count_time"] = ct
+
+    # apply exposure if detector is lambda_det
+    if getattr(det, "name", None) == "lambda_det":
+        yield from set_lambda_exposure(ct)
+
 
     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
@@ -109,14 +100,18 @@ def dscan(mot, start, stop, steps, det, det_ch=None, md=None):
 
 
 #*******************************************************************************************************
-def ascan(mot, start, stop, steps, det, det_ch=None, md=None):
+def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
     myaxs.clear()
     if det_ch is None:
         det_ch = [0]
     md = md or {}
 
-    # x_name = _x_field(mot)
+    md["count_time"] = ct
+
+    # apply exposure if detector is lambda_det
+    if getattr(det, "name", None) == "lambda_det":
+        yield from set_lambda_exposure(ct)
 
     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
@@ -223,8 +218,8 @@ def GCarbon_Qscan(exp_time=2):
         for q in Qq:
             th = qq2th(q)
             yield from bps.mv(spec.tth, th)
-            yield from set_lambda_exposure(exp_time)
-            yield from dscan(hrmE, -10, 10, 100, lambda_det, md={"count_time": exp_time})
+            # yield from set_lambda_exposure(exp_time)
+            yield from dscan(hrmE, -10, 10, 100, lambda_det, exp_time)
 
 
 #*******************************************************************************************************
@@ -308,7 +303,7 @@ def ugap_setup():
 #   Scans the ID gap and sets it to max
     # det = tm1
     yname = tm1.sum_all.mean_value.name
-    res = yield from dscan(ivu22, -20, 20, 20, tm1, det_ch=[4], md={'count_time': 1})
+    res = yield from dscan(ivu22, -20, 20, 20, tm1, 1, det_ch=[4])
     # x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
     max_pos = res[0].max
     x_pos = max_pos[0]
@@ -321,7 +316,7 @@ def ugap_setup():
 def dcm_setup():
     # Set the DCM position to max intensity
  
-    res = yield from dscan(dcm.p1, -80, 80, 40, tm1, det_ch=[4], md={'count_time': 1})
+    res = yield from dscan(dcm.p1, -80, 80, 40, tm1, 1, det_ch=[4])
     fwhm = res[0].fwhm
     cen  = res[0].cen
     com  = res[0].com
@@ -390,7 +385,7 @@ def mcm_setup(s1=0, s2=0):
     if aret[1] > 0:
         return
     if not s1 == 0:
-        yield from dscan(mcm.x, -0.2, 0.2, 40, det2, md={"count_time": 1})
+        yield from dscan(mcm.x, -0.2, 0.2, 40, det2, 1)
         x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
         xmax = x_pos[0]
         dxmax = MCM_XPOS - xmax
@@ -775,8 +770,9 @@ def ccr_setup(s1=0, s2=0, s3=0):
 def wcr_setup():
 #   Performs W crystal alignment
     yield from bps.mv(anpd, -90, whl, 7, analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
-    yield from set_lambda_exposure(1)
-    yield from bp.rel_scan([lambda_det], analyzer.wfth, -20, 20, 41)
+    # yield from set_lambda_exposure(1)
+    # yield from bp.rel_scan([lambda_det], analyzer.wfth, -20, 20, 41)
+    yield from dscan(analyzer.wfth, -20, 20, 41, lambda_det, 1)
     x_pos = calculate_max_value(x="analyzer.wfth", sampling=100)
     yield from bps.mvr(analyzer.wfth, -20)
     yield from bps.mv(analyzer.wfth, x_pos)
@@ -986,7 +982,7 @@ def Beamline_Setup_1():
     print("CRL setup")
     cont_opts = input('Do you want to proceed (yes): ')
     if cont_opts == "" or cont_opts == "yes":
-        res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, det_ch=[4], md={'count_time': 1})
+        res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, 1, det_ch=[4])
         fmax = res[0].max
         xmax = fmax[0]
         yield from bps.mv(crl.y, xmax)

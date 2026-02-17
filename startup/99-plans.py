@@ -44,9 +44,6 @@ def align_with_fit(dets, mtr, start, stop, gaps, mode='rel', md=None):
     yield from plan
     return local_peaks
 
-#def set_lambda_exposure(exposure):
-#    det = lambda_det
-#    yield from bps.mv(det.cam.acquire_time, exposure, det.cam.acquire_period, exposure)
 
 def check_zero(dets=[lambda_det], start=-20, stop=20, gaps=200, exp_time=1, md=None):
     # Performs relative scan of the HRM energy at tth = 0 and positions it to the peak center
@@ -167,9 +164,8 @@ def Dia_scan(exp_time=60):
     # yield from bps.mv(anapd, 25, whl, 0)
 
     myaxs.cla()
-
-    yield from set_lambda_exposure(exp_time)
-    yield from dscan(hrmE, -14, 14, 56, lambda_det, md={"count_time": exp_time})
+    # yield from set_lambda_exposure(exp_time)
+    yield from dscan(hrmE, -14, 14, 56, lambda_det, exp_time)
 
 from bluesky import plan_stubs as bps
 from bluesky import plans as bp
@@ -185,11 +181,10 @@ def Dia_energy_scan_plan():
         wh()
 
         yield from bps.mv(hrmE, E0 - 10)
-        yield from set_lambda_exposure(2)
-
+        # yield from set_lambda_exposure(2)
         yield from bps.mv(whl, 5)
         # chk_thresh = 0
-        res = yield from dscan(hrmE, 0, 20, 100, lambda_det, md={"count_time": 2})
+        res = yield from dscan(hrmE, 0, 20, 100, lambda_det, 2)
         # breakpoint()
         cen = res[0]['stats'][3]
 
@@ -203,10 +198,10 @@ def Dia_energy_scan_plan():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 60
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(scale, scale, scale)
             yield from br(scale, scale, scale)
-            res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, count_time=ctime)
+            res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
         # Recalibrate energy zero
         ca(1, 1, 1)
@@ -214,11 +209,11 @@ def Dia_energy_scan_plan():
         wh()
 
         yield from bps.mv(hrmE, E0 - 10)
-        yield from set_lambda_exposure(2)
+        # yield from set_lambda_exposure(2)
 
         yield from bps.mv(whl, 5)
         # chk_thresh = 0
-        res = yield from dscan(hrmE, 0, 20, 100, lambda_det, md={"count_time": 2})
+        res = yield from dscan(hrmE, 0, 20, 100, lambda_det, 2)
         cen = res[0]['stats'][3]
 
         pos = 0.2 * round(cen / 0.2)
@@ -231,10 +226,10 @@ def Dia_energy_scan_plan():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 60
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(scale, scale, scale)
             yield from br(scale, scale, scale)
-            res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+            res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
 
 def Dia_TA_scan_plan():
@@ -248,12 +243,12 @@ def Dia_TA_scan_plan():
 
         # Move to initial energy
         yield from bps.mv(hrmE, E0 - 10)
-        yield from set_lambda_exposure(2)
+        # yield from set_lambda_exposure(2)
         yield from bps.mv(whl, 5)
 
         # First dscan
         rng, steps = 20, 100
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": 2})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, 2)
         cen = res[0]['stats'][3]  # replaced CEN with parsed result
         pos = 0.2 * round(cen / 0.2)
         print(f"new energy zero = {pos}")
@@ -265,11 +260,11 @@ def Dia_TA_scan_plan():
         # 1st detailed scan set
         yield from bps.mv(whl, 0)
         ctime = 60
-        yield from set_lambda_exposure(ctime)
+        # yield from set_lambda_exposure(ctime)
         ca(1 - 2*hh, 1 + 2*hh, 1)
         yield from br(1 - 2*hh, 1 + 2*hh, 1)
         rng, steps = 10, 40
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
         # 2nd detailed scan set
         # ctime = 60
@@ -277,7 +272,7 @@ def Dia_TA_scan_plan():
         ca(1 - 3*hh, 1 + 3*hh, 1)
         yield from br(1 - 3*hh, 1 + 3*hh, 1)
         rng, steps = 15, 60
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
         # 3rd detailed scan set
         # ctime = 60
@@ -285,7 +280,7 @@ def Dia_TA_scan_plan():
         ca(1 - 4*hh, 1 + 4*hh, 1)
         yield from br(1 - 4*hh, 1 + 4*hh, 1)
         rng, steps = 20, 80
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
         # 4th detailed scan set
         # ctime = 60
@@ -293,7 +288,7 @@ def Dia_TA_scan_plan():
         ca(1 - 5*hh, 1 + 5*hh, 1)
         yield from br(1 - 5*hh, 1 + 5*hh, 1)
         rng, steps = 25, 100
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
 
 def Dia_energy_scan_plan_20251110():
@@ -306,11 +301,11 @@ def Dia_energy_scan_plan_20251110():
         wh()
 
         yield from bps.mv(hrmE, E0 - 10)
-        yield from set_lambda_exposure(2)
+        # yield from set_lambda_exposure(2)
 
         yield from bps.mv(whl, 5)
         # chk_thresh = 0
-        res = yield from dscan(hrmE, 0, 20, 100, lambda_det, md={"count_time": 2})
+        res = yield from dscan(hrmE, 0, 20, 100, lambda_det, 2)
         # breakpoint()
         cen = res[0]['stats'][3]
 
@@ -324,10 +319,10 @@ def Dia_energy_scan_plan_20251110():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 60
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(scale, scale, scale)
             yield from br(scale, scale, scale)
-            res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+            res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
         # Recalibrate energy zero
         ca(1, 1, 1)
@@ -335,11 +330,11 @@ def Dia_energy_scan_plan_20251110():
         wh()
 
         yield from bps.mv(hrmE, E0 - 10)
-        yield from set_lambda_exposure(2)
+        # yield from set_lambda_exposure(2)
 
         yield from bps.mv(whl, 5)
         # chk_thresh = 0
-        res = yield from dscan(hrmE, 0, 20, 100, lambda_det, count_time=2)
+        res = yield from dscan(hrmE, 0, 20, 100, lambda_det, 2)
         cen = res[0]['stats'][3]
 
         pos = 0.2 * round(cen / 0.2)
@@ -352,10 +347,10 @@ def Dia_energy_scan_plan_20251110():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 60
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(scale, scale, scale)
             yield from br(scale, scale, scale)
-            res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+            res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
 
     for kk in range(1):
@@ -365,12 +360,12 @@ def Dia_energy_scan_plan_20251110():
 
         # Move to initial energy
         yield from bps.mv(hrmE, E0 - 10)
-        yield from set_lambda_exposure(2)
+        # yield from set_lambda_exposure(2)
         yield from bps.mv(whl, 5)
 
         # First dscan
         rng, steps = 20, 100
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": 2})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, 2)
         cen = res[0]['stats'][3]  # replaced CEN with parsed result
         pos = 0.2 * round(cen / 0.2)
         print(f"new energy zero = {pos}")
@@ -382,11 +377,11 @@ def Dia_energy_scan_plan_20251110():
         # 1st detailed scan set
         yield from bps.mv(whl, 0)
         ctime = 60
-        yield from set_lambda_exposure(ctime)
+        # yield from set_lambda_exposure(ctime)
         ca(1 + hh, 1 + hh, 1 - 2*hh)
         yield from br(1 + hh, 1 + hh, 1 - 2*hh)
         rng, steps = 5, 20
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
         # 2nd detailed scan set
         # ctime = 60
@@ -394,7 +389,7 @@ def Dia_energy_scan_plan_20251110():
         ca(1 + 2*hh, 1 + 2*hh, 1 - 4*hh)
         yield from br(1 + 2*hh, 1 + 2*hh, 1 - 4*hh)
         rng, steps = 10, 40
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
         # 3rd detailed scan set
         # ctime = 60
@@ -402,7 +397,7 @@ def Dia_energy_scan_plan_20251110():
         ca(1 + 3*hh, 1 + 3*hh, 1 - 6*hh)
         yield from br(1 + 3*hh, 1 + 3*hh, 1 - 6*hh)
         rng, steps = 15, 60
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
         # 4th detailed scan set
         # ctime = 60
@@ -410,7 +405,7 @@ def Dia_energy_scan_plan_20251110():
         ca(1 + 4*hh, 1 + 4*hh, 1 - 8*hh)
         yield from br(1 + 4*hh, 1 + 4*hh, 1 - 8*hh)
         rng, steps = 20, 80
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
           # 5th detailed scan set
         # ctime = 60
@@ -418,7 +413,7 @@ def Dia_energy_scan_plan_20251110():
         ca(1 + 5*hh, 1 + 5*hh, 1 - 10*hh)
         yield from br(1 + 5*hh, 1 + 5*hh, 1 - 10*hh)
         rng, steps = 25, 100
-        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, md={"count_time": ctime})
+        res = yield from dscan(hrmE, -rng, rng, steps, lambda_det, ctime)
 
 
 
@@ -435,11 +430,11 @@ def Te_surph_energy_scan_plan_20251202():
             wh()
 
             yield from bps.mv(hrmE, E0 - 10)
-            yield from set_lambda_exposure(2)
+            # yield from set_lambda_exposure(2)
 
             yield from bps.mv(whl, 3)
             # chk_thresh = 0
-            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, md={"count_time": 2})
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, 2)
             # breakpoint()
             cen = res[0]['stats'][3]
 
@@ -452,10 +447,10 @@ def Te_surph_energy_scan_plan_20251202():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 180
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(1, 0, 4-scale)
             yield from br(1, 0, 4-scale)
-            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, md={"count_time": ctime})
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, ctime)
 
        
 def Te_surph_energy_scan_plan_20251204():
@@ -471,11 +466,11 @@ def Te_surph_energy_scan_plan_20251204():
             wh()
 
             yield from bps.mv(hrmE, E0 - 10)
-            yield from set_lambda_exposure(2)
+            # yield from set_lambda_exposure(2)
 
             yield from bps.mv(whl, 3)
             # chk_thresh = 0
-            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, md={"count_time": 2})
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, 2)
             # breakpoint()
             cen = res[0]['stats'][3]
 
@@ -488,10 +483,10 @@ def Te_surph_energy_scan_plan_20251204():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 240
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(1, 0, 4-scale)
             yield from br(1, 0, 4-scale)
-            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, md={"count_time": ctime})
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, ctime)
 
 
 def Te_surph_energy_scan_plan_20251205():
@@ -507,11 +502,11 @@ def Te_surph_energy_scan_plan_20251205():
             wh()
 
             yield from bps.mv(hrmE, E0 - 10)
-            yield from set_lambda_exposure(2)
+            # yield from set_lambda_exposure(2)
 
             yield from bps.mv(whl, 3)
             # chk_thresh = 0
-            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, md={"count_time": 2})
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, 2)
             # breakpoint()
             cen = res[0]['stats'][3]
 
@@ -524,10 +519,10 @@ def Te_surph_energy_scan_plan_20251205():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 240
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(1, 0, 4-scale)
             yield from br(1, 0, 4-scale)
-            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, md={"count_time": ctime})
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, ctime)
 
 
 def Te_surph_energy_scan_plan_20251206():
@@ -543,11 +538,11 @@ def Te_surph_energy_scan_plan_20251206():
             wh()
 
             yield from bps.mv(hrmE, E0 - 10)
-            yield from set_lambda_exposure(2)
+            # yield from set_lambda_exposure(2)
 
             yield from bps.mv(whl, 3)
             # chk_thresh = 0
-            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, md={"count_time": 2})
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, 2)
             # breakpoint()
             cen = res[0]['stats'][3]
 
@@ -560,10 +555,10 @@ def Te_surph_energy_scan_plan_20251206():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 240
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(1, 0, 4-scale)
             yield from br(1, 0, 4-scale)
-            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, md={"count_time": ctime})
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, ctime)
 
 
 
@@ -580,11 +575,11 @@ def Te_surph_energy_scan_plan_20251207():
             wh()
 
             yield from bps.mv(hrmE, E0 - 10)
-            yield from set_lambda_exposure(2)
+            # yield from set_lambda_exposure(2)
 
             yield from bps.mv(whl, 3)
             # chk_thresh = 0
-            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, md={"count_time": 2})
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, 2)
             # breakpoint()
             cen = res[0]['stats'][3]
 
@@ -597,10 +592,10 @@ def Te_surph_energy_scan_plan_20251207():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 240
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(1, 0, 4-scale)
             yield from br(1, 0, 4-scale)
-            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, md={"count_time": ctime})
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, ctime)
 
 
 def Te_surph_energy_scan_plan_20251208():
@@ -616,11 +611,11 @@ def Te_surph_energy_scan_plan_20251208():
             wh()
 
             yield from bps.mv(hrmE, E0 - 10)
-            yield from set_lambda_exposure(2)
+            # yield from set_lambda_exposure(2)
 
             yield from bps.mv(whl, 3)
             # chk_thresh = 0
-            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, md={"count_time": 2})
+            res = yield from dscan(hrmE, 0, 20, 101, lambda_det, 2)
             # breakpoint()
             cen = res[0]['stats'][3]
 
@@ -633,17 +628,17 @@ def Te_surph_energy_scan_plan_20251208():
             yield from bps.mv(whl, 0)
             # chk_thresh = 30
             ctime = 240
-            yield from set_lambda_exposure(ctime)
+            # yield from set_lambda_exposure(ctime)
             ca(1, 0, 4-scale)
             yield from br(1, 0, 4-scale)
-            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, md={"count_time": ctime})
+            yield from dscan(hrmE, rng1, rng2, steps, lambda_det, ctime)
             
 
 def test_plan():
     # yield from set_lambda_exposure(2)
     # res = yield from dscan(hrmE, -10, 10, 5, lambda_det, md={'count_time': 2})
     yield from bps.mv(analyzer_slits.top, 0.)
-    res = yield from dscan(analyzer_slits.top, -0.5, 0.5, 5, det2, det_ch=[0], md={'count_time': 1})
+    res = yield from dscan(analyzer_slits.top, -0.5, 0.5, 5, det2, 1, det_ch=[0])
     yield from bps.mv(analyzer_slits.top, 1.)
     print("**********************************************************************")
     print(f"cen  = {res[0].cen}")

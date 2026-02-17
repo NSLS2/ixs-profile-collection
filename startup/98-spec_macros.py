@@ -52,13 +52,9 @@ def hrmE_dscan(start, stop, steps, exp_time, md=None):
     """
 
     md = md or {}
-    md['count_time'] = exp_time
-
-    yield from set_lambda_exposure(exp_time)
-    return (
-#        yield from dscan(hrmE, start, stop, steps, [lambda_det], det_channel=[6])
-        yield from bp.rel_scan([lambda_det], hrmE, start, stop, steps, md=md)
-    )
+    # md['count_time'] = exp_time
+    # yield from set_lambda_exposure(exp_time)
+    yield from dscan(hrmE, start, stop, steps, lambda_det, exp_time, md=md)
 
 
 #*******************************************************************************************************
@@ -79,12 +75,9 @@ def hrmE_ascan(start, stop, steps, exp_time, md=None):
     """
 
     md = md or {}
-    md['count_time'] = exp_time
-
-    yield from set_lambda_exposure(exp_time)
-    return (
-        yield from bp.scan([lambda_det], hrmE, start, stop, steps, md=md)
-    )
+    # md['count_time'] = exp_time
+    # yield from set_lambda_exposure(exp_time)
+    yield from dscan(hrmE, start, stop, steps, lambda_det, exp_time, md=md)
 
 #*******************************************************************************************************
 from ophyd.sim import SynAxis, SynGauss
