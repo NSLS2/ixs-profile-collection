@@ -17,6 +17,8 @@ from tabulate import tabulate
 # opens a Matplotlib figure with axes
 myfig, myaxs = plt.subplots(figsize=(8,5), num=1)
 plt.ion()  # enable interactive mode
+myfig.show()
+
 
 #*******************************************************************************************************
 def peaks_stats_print(dets_name, peak_stats):
@@ -106,7 +108,7 @@ def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
     myaxs.cla()
     myfig.canvas.draw_idle()
-    
+
     if det_ch is None:
         det_ch = [0]
     md = md or {}
