@@ -4,6 +4,7 @@ import socket
 import getpass
 from datetime import datetime
 from bluesky.callbacks.core import CallbackBase
+import numbers
 
 SPEC_TIME_FORMAT = "%a %b %d %H:%M:%S %Y"
 
@@ -120,21 +121,99 @@ def _write_G0_line(fh, g0_items):
     fh.write("#G0 " + " ".join(_fmt(v) for v in vals) + "\n")
 
 
+def _unwrap_to_float(val):
+    # raw numbers
+    if isinstance(val, numbers.Number):
+        return float(val)
+
+    # PseudoSingleTuple(readback=..., setpoint=...)
+    if hasattr(val, "readback"):
+        try:
+            return float(val.readback)
+        except Exception:
+            pass
+
+    # Common ophyd namedtuples: user_readback, readback, setpoint, etc.
+    for attr in ("user_readback", "readback", "position", "value"):
+        if hasattr(val, attr):
+            try:
+                return float(getattr(val, attr))
+            except Exception:
+                pass
+
+    # PseudoPositioner namedtuple with field "energy" (BLEnergyTuple, DCMEnergyTuple, HRMEnergyTuple)
+    if hasattr(val, "energy"):
+        e = getattr(val, "energy")
+        # energy is often PseudoSingleTuple -> use readback
+        if hasattr(e, "readback"):
+            try:
+                return float(e.readback)
+            except Exception:
+                pass
+        try:
+            return float(e)
+        except Exception:
+            pass
+
+    return None
+
+
 def _safe_get_position(obj):
     """
-    Try common ophyd conventions to get a scalar position for header #P lines.
+    Return one scalar position for #P lines, even for PseudoPositioners.
     """
+    # obj itself might be a number
+    v = _unwrap_to_float(obj)
+    if v is not None:
+        return v
+
+    # Prefer typical motor readbacks
     for attr in ("user_readback", "readback", "position"):
         sig = getattr(obj, attr, None)
         if sig is not None:
             try:
-                return sig.get()
+                v = sig.get()
+                u = _unwrap_to_float(v)
+                if u is not None:
+                    return u
             except Exception:
                 pass
+
+    # Try get()
+    get_fn = getattr(obj, "get", None)
+    if get_fn is not None:
+        try:
+            v = get_fn()
+            u = _unwrap_to_float(v)
+            if u is not None:
+                return u
+        except Exception:
+            pass
+
+    # Try position property
     try:
-        return obj.get()
+        v = getattr(obj, "position")
+        u = _unwrap_to_float(v)
+        if u is not None:
+            return u
     except Exception:
-        return None
+        pass
+
+    # Last resort: try read()
+    read_fn = getattr(obj, "read", None)
+    if read_fn is not None:
+        try:
+            d = read_fn()
+            if isinstance(d, dict) and d:
+                v = next(iter(d.values()))["value"]
+                u = _unwrap_to_float(v)
+                if u is not None:
+                    return u
+        except Exception:
+            pass
+
+    return None
+
 
 class CustomSpecWriter(CallbackBase):
     """

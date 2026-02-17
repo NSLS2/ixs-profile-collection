@@ -6,6 +6,9 @@ sd.baseline.append(hkl_params)
 motor_groups = [
         ("spec", [spec.tth, spec.th, spec.chi, spec.phi]),
         ("sample_stage", [sample_stage.sx, sample_stage.sy, sample_stage.sz]),
+        ("sample_prime", [sam_prime.xp, sam_prime.zp]),
+        ("undulator", [ivu22]),
+        ("energy", [blE.energy, dcmE.energy, hrmE.energy]),
     ]
 
 g0_items = [
