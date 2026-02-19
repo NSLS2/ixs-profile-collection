@@ -65,7 +65,7 @@ def peaks_stats_print(dets_name, peak_stats):
 #*******************************************************************************************************
 def plotselect(det_name, mot_name):
 # creates a LivePlot object with given paramaters
-    print(mot_name)
+    # print(mot_name)
     myplt = LivePlot(det_name, x=mot_name, marker='o', markersize=6, ax=myaxs, stream_name="primary")
     return myplt
 

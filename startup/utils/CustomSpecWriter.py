@@ -110,15 +110,9 @@ def _read_scalar(obj):
     return None
 
 def _write_G0_line(fh, g0_items):
-    """
-    Write one SPEC #G0 line from a fixed ordered list of 11 scalars.
-    g0_items: list of ophyd Signals/Positioners or callables returning scalars.
-    """
-    vals = []
-    for it in g0_items:
-        v = _read_scalar(it)  # use the same helper you already have (callable/get/read)
-        vals.append(v)
+    vals = [_read_scalar(it) for it in g0_items]
     fh.write("#G0 " + " ".join(_fmt(v) for v in vals) + "\n")
+    return vals
 
 
 def _unwrap_to_float(val):
