@@ -81,6 +81,7 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     md = md or {}
 
     md["count_time"] = ct
+    dets = [det, det134, sclr.channels.chan13, sr_curr]
 
     # apply exposure if detector is lambda_det
     if getattr(det, "name", None) == "lambda_det":
@@ -91,7 +92,7 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
 
     subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.rel_scan([det], mot, start, stop, steps, md=md), subs_list)
+    plan = bpp.subs_wrapper(bp.rel_scan(dets, mot, start, stop, steps, md=md), subs_list)
         
     yield from plan
 
@@ -114,6 +115,7 @@ def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     md = md or {}
 
     md["count_time"] = ct
+    dets = [det, det134, sclr.channels.chan13, sr_curr]
 
     # apply exposure if detector is lambda_det
     if getattr(det, "name", None) == "lambda_det":
@@ -123,7 +125,7 @@ def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
 
     subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps, md=md), subs_list)
+    plan = bpp.subs_wrapper(bp.scan(dets, mot, start, stop, steps, md=md), subs_list)
         
     yield from plan
 
