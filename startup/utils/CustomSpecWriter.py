@@ -319,9 +319,11 @@ class CustomSpecWriter(CallbackBase):
         ct = doc.get("count_time", None)
         if ct is not None:
             self._fh.write(f"#T {_fmt(ct)}  (Seconds)\n")
+        # write #G0 and #Q (optional)
         if self.g0_items:
-            _write_G0_line(self._fh, self.g0_items)
-        self._fh.write(f"#C {to_spec_time(doc.get('time', time.time()))}.  uid = {doc.get('uid', '')}\n")
+            gvals = _write_G0_line(self._fh, self.g0_items)
+            if len(gvals) >= 3:
+                self._fh.write("#Q " + " ".join(_fmt(v) for v in gvals[:3]) + "\n")
 
         # Selected #MD lines (curated, not everything)
         _MD_EXCLUDE = {
@@ -377,6 +379,9 @@ class CustomSpecWriter(CallbackBase):
                     if k == x:
                         continue
                     if v.get("shape"):
+                        continue
+                    # Exclude setpoints
+                    if k.endswith("_user_setpoint") or k.endswith("_setpoint"):
                         continue
                     out.append(k)
                 return out
