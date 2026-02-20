@@ -106,6 +106,8 @@ def my_spec_factory(name, doc):
         motors_per_line=8,  # or 4 if you want #O0/#O1 splitting
         include_md_keys={"uid", "detectors", "motors", "num_points", "num_intervals", "plan_pattern", "plan_pattern_args"},
         g0_items=g0_items,
+        g1_items=g1_items,
+        q_items=q_items,
         # Optional: force x field to match your scanned axis naming conventions
         # x_field_resolver=...,
         # data_field_order=...,

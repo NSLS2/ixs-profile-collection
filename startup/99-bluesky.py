@@ -154,7 +154,7 @@ def newfile():
         else:
             print("Invalid input. Please enter 1, 2, or 3.")
         
-        RE.md['spec_file'] = os.path.join(my_spec_factory.directory, my_spec_factory.prefix + ".spec")
+        RE.md['spec_file'] = os.path.join(my_spec_factory.directory, my_spec_factory.prefix + ".dat")
 
     # return filepath, filename
 

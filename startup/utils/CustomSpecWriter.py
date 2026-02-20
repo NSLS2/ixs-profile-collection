@@ -109,11 +109,10 @@ def _read_scalar(obj):
 
     return None
 
-def _write_G0_line(fh, g0_items):
-    vals = [_read_scalar(it) for it in g0_items]
-    fh.write("#G0 " + " ".join(_fmt(v) for v in vals) + "\n")
+def _write_G_line(fh, tag, items):
+    vals = [_read_scalar(it) for it in items]
+    fh.write(f"{tag} " + " ".join(_fmt(v) for v in vals) + "\n")
     return vals
-
 
 def _unwrap_to_float(val):
     # raw numbers
@@ -227,6 +226,8 @@ class CustomSpecWriter(CallbackBase):
         x_field_resolver=None,
         data_field_order=None,
         g0_items=None,
+        g1_items=None,
+        q_items=None,
         flush=True,
     ):
         """
@@ -247,6 +248,8 @@ class CustomSpecWriter(CallbackBase):
         self.data_field_order = data_field_order
         self.flush = bool(flush)
         self.g0_items = list(g0_items) if g0_items is not None else []
+        self.g1_items = list(g1_items) if g1_items is not None else []
+        self.q_items = list(q_items) if q_items is not None else []
 
         self._fh = None
         self._file_header_written = False
@@ -313,12 +316,20 @@ class CustomSpecWriter(CallbackBase):
         ct = doc.get("count_time", None)
         if ct is not None:
             self._fh.write(f"#T {_fmt(ct)}  (Seconds)\n")
-        # write #G0 and #Q (optional)
+ 
+        # #G0 (without HKL)
         if self.g0_items:
-            gvals = _write_G0_line(self._fh, self.g0_items)
-            if len(gvals) >= 3:
-                self._fh.write("#Q " + " ".join(_fmt(v) for v in gvals[:3]) + "\n")
+            _write_G_line(self._fh, "#G0", self.g0_items)
 
+        # #G1 right after #G0
+        if self.g1_items:
+            _write_G_line(self._fh, "#G1", self.g1_items)
+
+        # #Q last (HKL only)
+        if self.q_items:
+            qvals = [_read_scalar(it) for it in self.q_items]
+            self._fh.write("#Q " + " ".join(_fmt(v) for v in qvals[:3]) + "\n")
+        
         # Selected #MD lines (curated, not everything)
         _MD_EXCLUDE = {
             "plan_pattern",
