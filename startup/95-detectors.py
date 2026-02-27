@@ -47,3 +47,9 @@ det134.read_attrs = [
 ]
 # same port as det1 (j=0 → AH171)
 det134.conf.port_name.put('AH171')
+
+det21 = NSLS_EM('XF10ID-BI:AH172:', name='det21')
+det21.configuration_attrs = ['integration_time', 'averaging_time']
+det21.read_attrs = ['current1.mean_value']
+# same port as det1 (j=0 → AH172)
+det21.conf.port_name.put('AH172')
