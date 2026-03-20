@@ -10,15 +10,45 @@ from bluesky.callbacks.mpl_plotting import LiveGrid
 from bluesky.suspenders import SuspendFloor
 from ophyd import EpicsSignal
 from tabulate import tabulate
+import re
 
 #from utils.sixcircle_1p53.sixcircle import *
 
 #*******************************************************************************************************
 # opens a Matplotlib figure with axes
-myfig, myaxs = plt.subplots(figsize=(8,5), num=1)
 # plt.ion()  # enable interactive mode
-# myfig.show()
+myfig, myaxs = plt.subplots(figsize=(8,5), num="Live Scan", clear=False)
+myfig.canvas.manager.set_window_title("Live Scan")
+myfig.show()
+myfig.canvas.draw_idle()
+myfig.canvas.flush_events()
 
+#*******************************************************************************************************
+def short_label(field):
+    """
+    Convert long ophyd/bluesky field names into short legend mnemonics.
+
+    Examples
+    --------
+    det2_current2_mean_value -> det2.2
+    det3_current7_mean_value -> det3.7
+    lambda_det_stats7_total  -> lambda.7
+    lambda_det_stats3_total  -> lambda.3
+    """
+    # Generic current-channel detector pattern
+    m = re.fullmatch(r"(det\d+)_current(\d+)_mean_value", field)
+    if m:
+        det, ch = m.groups()
+        return f"{det}.{ch}"
+
+    # Lambda stats pattern
+    m = re.fullmatch(r"lambda_det_stats(\d+)_total", field)
+    if m:
+        ch = m.group(1)
+        return f"lambda.{ch}"
+
+    # Fallback: return original field name unchanged
+    return field
 
 #*******************************************************************************************************
 def peaks_stats_print(dets_name, peak_stats):

@@ -38,6 +38,9 @@ nslsii.configure_base(
 from bluesky.callbacks.broker import verify_files_saved
 from bluesky.utils import PersistentDict
 
+from bluesky.callbacks.mpl_plotting import initialize_qt_teleporter
+initialize_qt_teleporter()
+
 # RE.subscribe(post_run(verify_files_saved), 'stop')
 
 
@@ -84,6 +87,7 @@ import time
 from event_model import RunRouter
 # from suitcase.specfile import Serializer
 from utils.CustomSpecWriter import CustomSpecWriter
+from utils.CustomLivePlot import *
 
 # def spec_factory(name, doc):
 #     if not spec_factory.enabled:
