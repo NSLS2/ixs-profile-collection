@@ -16,8 +16,8 @@ from tabulate import tabulate
 #*******************************************************************************************************
 # opens a Matplotlib figure with axes
 myfig, myaxs = plt.subplots(figsize=(8,5), num=1)
-plt.ion()  # enable interactive mode
-myfig.show()
+# plt.ion()  # enable interactive mode
+# myfig.show()
 
 
 #*******************************************************************************************************
@@ -82,6 +82,7 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
 
     md["count_time"] = ct
     dets = [det, det134, sclr.channels.chan13, sr_curr]
+    # dets = [det]
 
     # apply exposure if detector is lambda_det
     if getattr(det, "name", None) == "lambda_det":
@@ -107,8 +108,8 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
 #*******************************************************************************************************
 def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
 # performs relative scan of a detector DET channel 
-    myaxs.cla()
-    myfig.canvas.draw_idle()
+    myaxs.clear()
+    # myfig.canvas.draw_idle()
 
     if det_ch is None:
         det_ch = [0]

@@ -52,6 +52,7 @@ from bluesky.utils import PersistentDict
 
 bec.disable_plots()
 # bec.enable_plots()
+plt.ion()  # enable interactive mode for matplotlib
 
 # New figure title so no overplot.
 def relabel_fig(fig, new_label):
