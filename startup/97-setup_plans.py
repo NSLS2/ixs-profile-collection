@@ -93,24 +93,188 @@ def peaks_stats_print(dets_name, peak_stats):
 
 
 #*******************************************************************************************************
-def plotselect(det_name, mot_name):
-# creates a LivePlot object with given paramaters
-    # print(mot_name)
-    myplt = LivePlot(det_name, x=mot_name, marker='o', markersize=6, ax=myaxs, stream_name="primary")
-    return myplt
+# def plotselect(det_name, mot_name):
+# # creates a LivePlot object with given paramaters
+#     # print(mot_name)
+#     myplt = LivePlot(det_name, x=mot_name, marker='o', markersize=6, ax=myaxs, stream_name="primary")
+#     return myplt
 
+#*******************************************************************************************************
+# def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
+# # performs relative scan of a detector DET channel 
+#     myaxs.cla()
+#     myfig.canvas.draw_idle()
+
+#     if det_ch is None:
+#         det_ch = [0]
+#     md = md or {}
+
+#     md["count_time"] = ct
+#     dets = [det, det134, sclr.channels.chan13, sr_curr]
+#     # dets = [det]
+
+#     # apply exposure if detector is lambda_det
+#     if getattr(det, "name", None) == "lambda_det":
+#         yield from set_lambda_exposure(ct)
+
+
+#     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
+#     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
+
+#     subs_list.extend(stats_list)
+#     plan = bpp.subs_wrapper(bp.rel_scan(dets, mot, start, stop, steps, md=md), subs_list)
+        
+#     yield from plan
+
+#     print('\n')
+#     for n in range(len(det_ch)):
+#         peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
+#         print("\n")
+
+#     return stats_list
 
 #*******************************************************************************************************
 def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
-# performs relative scan of a detector DET channel 
-    myaxs.cla()
-    myfig.canvas.draw_idle()
+    """
+    Relative scan with live plotting and peak statistics.
+
+    Parameters
+    ----------
+    mot : OphydObj
+        Scanned motor.
+    start, stop : float
+        Relative scan limits.
+    steps : int
+        Number of points.
+    det : OphydObj
+        Main detector to plot.
+    ct : float
+        Count/exposure time.
+    det_ch : list[int] or None
+        Detector channels to plot.
+        If None:
+          - lambda_det -> default lambda_det_stats7_total
+          - other detectors -> default channel 0
+    md : dict or None
+        Extra metadata.
+    """
+    md = md or {}
+    md["count_time"] = ct
 
     if det_ch is None:
         det_ch = [0]
-    md = md or {}
 
+    dets = [det, det134, sclr.channels.chan13, sr_curr]
+
+    # apply exposure if detector is lambda_det
+    if getattr(det, "name", None) == "lambda_det":
+        yield from set_lambda_exposure(ct)
+
+    # resolve actual event-data field names to plot/stat
+    y_fields = select_detector_fields(det, det_ch)
+
+    # compact legend labels
+    legend_keys = {f: short_label(f) for f in y_fields}
+
+    # one live plot callback for all selected fields
+    liveplot_cb = CustomLivePlot(
+        y_fields=y_fields,
+        x=mot.name,
+        ax=myaxs,
+        legend_keys=legend_keys,
+        clear_on_start=True,
+        show_stats=True,
+        update_every=1,
+        title=f"{det.name} vs {mot.name}",
+    )
+
+    # one PeakStats per plotted field
+    stats_list = [PeakStats(mot.name, field) for field in y_fields]
+
+    subs_list = [liveplot_cb]
+    subs_list.extend(stats_list)
+
+    plan = bpp.subs_wrapper(
+        bp.rel_scan(dets, mot, start, stop, steps, md=md),
+        subs_list,
+    )
+
+    yield from plan
+
+    print("\n")
+    for field, stats in zip(y_fields, stats_list):
+        peaks_stats_print(field, stats)
+        print("\n")
+
+    return stats_list
+
+#*******************************************************************************************************
+# def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
+# # performs relative scan of a detector DET channel 
+#     myaxs.clear()
+#     # myfig.canvas.draw_idle()
+
+#     if det_ch is None:
+#         det_ch = [0]
+#     md = md or {}
+
+#     md["count_time"] = ct
+#     dets = [det, det134, sclr.channels.chan13, sr_curr]
+
+#     # apply exposure if detector is lambda_det
+#     if getattr(det, "name", None) == "lambda_det":
+#         yield from set_lambda_exposure(ct)
+
+#     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
+#     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
+
+#     subs_list.extend(stats_list)
+#     plan = bpp.subs_wrapper(bp.scan(dets, mot, start, stop, steps, md=md), subs_list)
+        
+#     yield from plan
+
+#     for n in range(len(det_ch)):
+#         peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
+#         print("\n")
+    
+#     return stats_list
+
+import bluesky.plans as bp
+import bluesky.preprocessors as bpp
+from bluesky.callbacks.fitting import PeakStats
+
+
+#*******************************************************************************************************
+def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
+    """
+    Absolute scan with live plotting and peak statistics.
+
+    Parameters
+    ----------
+    mot : OphydObj
+        Scanned motor.
+    start, stop : float
+        Absolute scan limits.
+    steps : int
+        Number of points.
+    det : OphydObj
+        Main detector to plot.
+    ct : float
+        Count/exposure time.
+    det_ch : int, list[int], or None
+        Detector channels to plot.
+        If None:
+          - lambda_det -> default lambda_det_stats7_total
+          - other detectors -> default channel 0
+    md : dict or None
+        Extra metadata.
+    """
+    md = md or {}
     md["count_time"] = ct
+
+    if det_ch is None:
+        det_ch = [0]
+
     dets = [det, det134, sclr.channels.chan13, sr_curr]
     # dets = [det]
 
@@ -118,54 +282,45 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     if getattr(det, "name", None) == "lambda_det":
         yield from set_lambda_exposure(ct)
 
+    # resolve actual event-data field names to plot/stat
+    y_fields = select_detector_fields(det, det_ch)
+    if not y_fields:
+        raise RuntimeError(f"No plot fields resolved for detector {det.name}")
 
-    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
-    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
+    # compact legend labels
+    legend_keys = {f: short_label(f) for f in y_fields}
 
+    # one live plot callback for all selected fields
+    liveplot_cb = CustomLivePlot(
+        y_fields=y_fields,
+        x=mot.name,
+        ax=myaxs,
+        legend_keys=legend_keys,
+        clear_on_start=True,
+        show_stats=True,
+        update_every=1,
+        title=f"{det.name} vs {mot.name}",
+    )
+
+    # one PeakStats per plotted field
+    stats_list = [PeakStats(mot.name, field) for field in y_fields]
+
+    subs_list = [liveplot_cb]
     subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.rel_scan(dets, mot, start, stop, steps, md=md), subs_list)
-        
+
+    plan = bpp.subs_wrapper(
+        bp.scan(dets, mot, start, stop, steps, md=md),
+        subs_list,
+    )
+
     yield from plan
 
-    print('\n')
-    for n in range(len(det_ch)):
-        peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
+    print("\n")
+    for field, stats in zip(y_fields, stats_list):
+        peaks_stats_print(field, stats)
         print("\n")
 
     return stats_list
-
-
-#*******************************************************************************************************
-def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
-# performs relative scan of a detector DET channel 
-    myaxs.clear()
-    # myfig.canvas.draw_idle()
-
-    if det_ch is None:
-        det_ch = [0]
-    md = md or {}
-
-    md["count_time"] = ct
-    dets = [det, det134, sclr.channels.chan13, sr_curr]
-
-    # apply exposure if detector is lambda_det
-    if getattr(det, "name", None) == "lambda_det":
-        yield from set_lambda_exposure(ct)
-
-    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
-    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
-
-    subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.scan(dets, mot, start, stop, steps, md=md), subs_list)
-        
-    yield from plan
-
-    for n in range(len(det_ch)):
-        peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
-        print("\n")
-    
-    return stats_list
-
 
 #*******************************************************************************************************
 def gaussian(x, A, sigma, x0):
