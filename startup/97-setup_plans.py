@@ -34,12 +34,24 @@ def short_label(field):
     det3_current7_mean_value -> det3.7
     lambda_det_stats7_total  -> lambda.7
     lambda_det_stats3_total  -> lambda.3
+    tm1_sum_all_mean_value    -> tm1.4   # special case
+    tm2_sum_all_mean_value    -> tm2.4   # special case
     """
+    if field in ("tm1_sum_all_mean_value", "tm2_sum_all_mean_value"):
+        name = field.split("_", 1)[0]
+        return f"{name}.4"
+    
     # Generic current-channel detector pattern
     m = re.fullmatch(r"(det\d+)_current(\d+)_mean_value", field)
     if m:
         det, ch = m.groups()
         return f"{det}.{ch}"
+
+    # tm1 / tm2 pattern
+    m = re.fullmatch(r"(tm\d+)_current(\d+)_mean_value", field)
+    if m:
+        det_name, ch = m.groups()
+        return f"{det_name}.{ch}"
 
     # Lambda stats pattern
     m = re.fullmatch(r"lambda_det_stats(\d+)_total", field)
@@ -497,7 +509,7 @@ def ugap_setup():
 #   Scans the ID gap and sets it to max
     # det = tm1
     yname = tm1.sum_all.mean_value.name
-    res = yield from dscan(ivu22, -20, 20, 20, tm1, 1, det_ch=[4])
+    res = yield from dscan(ivu22, -20, 20, 21, tm1, 1, det_ch=[4])
     # x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
     max_pos = res[0].max
     x_pos = max_pos[0]

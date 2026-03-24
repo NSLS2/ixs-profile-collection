@@ -32,28 +32,34 @@ def _calc_fwhm(x, y):
     Approximate FWHM from sampled data using linear interpolation
     around the half-maximum crossings.
 
-    Returns NaN if the curve does not cross half-maximum twice.
+    Returns
+    -------
+    (fwhm, x_center)
+        fwhm     : width at half maximum
+        x_center : midpoint between left/right half-max crossings
+
+    Returns (np.nan, np.nan) if the curve does not cross half-maximum twice.
     """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
 
     m = np.isfinite(x) & np.isfinite(y)
     if np.count_nonzero(m) < 3:
-        return np.nan
+        return np.nan, np.nan
 
     x = x[m]
     y = y[m]
 
     ymax = np.nanmax(y)
     if not np.isfinite(ymax) or ymax <= 0:
-        return np.nan
+        return np.nan, np.nan
 
     half = ymax / 2.0
     above = y >= half
     idx = np.where(above)[0]
 
     if len(idx) < 2:
-        return np.nan
+        return np.nan, np.nan
 
     left_i = idx[0]
     right_i = idx[-1]
@@ -80,7 +86,10 @@ def _calc_fwhm(x, y):
         else:
             x_right = x0 + (half - y0) * (x1 - x0) / (y1 - y0)
 
-    return x_right - x_left
+    fwhm = x_right - x_left
+    x_center = 0.5 * (x_left + x_right)
+
+    return fwhm, x_center
 
 def _calc_max(x, y):
     """
@@ -242,12 +251,12 @@ class CustomLivePlot(QtAwareCallback):
             self._lines[field].set_data(xarr, yarr)
 
             if self.show_stats:
-                com = _calc_com(xarr, yarr)
-                fwhm = _calc_fwhm(xarr, yarr)
+                # com = _calc_com(xarr, yarr)
+                fwhm, xfwhm = _calc_fwhm(xarr, yarr)
                 xmax, ymax = _calc_max(xarr, yarr)
 
                 label = self.legend_keys.get(field, field)
-                stats_lines.append(f"{label}: MAX=({xmax:.5g}, {ymax:.5g}), COM={com:.5g}, FWHM={fwhm:.5g}")
+                stats_lines.append(f"{label}: MAX=({xmax:.5g}, {ymax:.5g}), FWHM={fwhm:.5g} at {xfwhm:.5g}")
 
         if self.show_stats and self._stats_text is not None:
             self._stats_text.set_text("\n".join(stats_lines))
