@@ -22,12 +22,15 @@ class DexelaMatplotlibGUI:
         self.root.title("Dexela EPICS Viewer")
         self.root.geometry("1500x950")
 
-        self.raw_image = None           # raw EPICS array, upper-left array origin
-        self.display_image = None       # image shown in CSS convention
-        self.marker_screen = None       # (x_css, y_css)
+        self.raw_image = None
+        self.display_image = None
+        self.marker_screen = None       # last selected COM, still useful as a generic “current” selection
+        self.direct_point = None        # stored direct beam position in CSS coordinates
+        self.reflected_point = None     # stored reflected beam position in CSS coordinates
+        self.measure_mode = tk.StringVar(value="direct")
         self.image_artist = None
-        self.marker_artist = None
-        self.colorbar = None
+        self.px_size = 0.0748   # mm/pixel
+        self.L = 140.0          # mm
 
         self.build_ui()
 
@@ -35,8 +38,9 @@ class DexelaMatplotlibGUI:
         main = ttk.Frame(self.root, padding=8)
         main.pack(fill="both", expand=True)
 
-        controls = ttk.Frame(main)
+        controls = ttk.Frame(main, width=320)
         controls.pack(side="left", fill="y", padx=(0, 12))
+        controls.pack_propagate(False)
 
         viewer = ttk.Frame(main)
         viewer.pack(side="left", fill="both", expand=True)
@@ -47,25 +51,34 @@ class DexelaMatplotlibGUI:
 
         ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=8)
 
-        self.pv_label = tk.StringVar(value=f"Image PV: {ARRAY_DATA_PV}")
-        self.shape_label = tk.StringVar(value="Image shape: --")
-        self.coord_label = tk.StringVar(value="Selected point: --")
+        ttk.Label(controls, text="Measurement mode", font=("Arial", 10, "bold")).pack(anchor="w")
+        ttk.Radiobutton(controls, text="Measure direct beam", variable=self.measure_mode, value="direct").pack(anchor="w")
+        ttk.Radiobutton(controls, text="Measure reflected beam", variable=self.measure_mode, value="reflected").pack(anchor="w")
+
+        ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=8)
+
+        # self.pv_label = tk.StringVar(value=f"Image PV: {ARRAY_DATA_PV}")
+        # self.shape_label = tk.StringVar(value="Image shape: --")
+        # self.coord_label = tk.StringVar(value="Selected point: --")
+        self.direct_label = tk.StringVar(value="Direct beam: --")
+        self.reflected_label = tk.StringVar(value="Reflected beam: --")
+        self.twotheta_label = tk.StringVar(value="2Theta: --")
+        self.tilt_label = tk.StringVar(value="Tilt: --")
         self.hover_label = tk.StringVar(value="Cursor: --")
         self.status_label = tk.StringVar(value="Load image from EPICS.")
 
-        ttk.Label(controls, textvariable=self.pv_label, wraplength=320, justify="left").pack(anchor="w", pady=2)
-        ttk.Label(controls, textvariable=self.shape_label, wraplength=320, justify="left").pack(anchor="w", pady=2)
-        ttk.Label(controls, textvariable=self.coord_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(10, 2))
+        # ttk.Label(controls, textvariable=self.pv_label, wraplength=320, justify="left").pack(anchor="w", pady=2)
+        # ttk.Label(controls, textvariable=self.shape_label, wraplength=320, justify="left").pack(anchor="w", pady=2)
+        # ttk.Label(controls, textvariable=self.coord_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(10, 2))
+        ttk.Label(controls, textvariable=self.direct_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls, textvariable=self.reflected_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
         ttk.Label(controls, textvariable=self.hover_label, wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
         ttk.Label(controls, textvariable=self.status_label, foreground="blue", wraplength=320, justify="left").pack(anchor="w", pady=(10, 2))
+        ttk.Label(controls, textvariable=self.twotheta_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(6, 2))
+        ttk.Label(controls, textvariable=self.tilt_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
 
-        help_text = (
-            "Display matches the matplotlib-style Dexela image.\n"
-            "Coordinates are CSS / physical coordinates.\n"
-            "Origin is at lower-left.\n"
-            "Click on the image to report CSS coordinates and draw a marker."
-        )
-        ttk.Label(controls, text=help_text, wraplength=320, justify="left").pack(anchor="w", pady=(10, 0))
+        # help_text = "Click on image to define beam position"
+        # ttk.Label(controls, text=help_text, wraplength=320, justify="left").pack(anchor="w", pady=(10, 0))
 
         self.fig = Figure(figsize=(10.5, 8.5), dpi=100)
         self.ax = self.fig.add_subplot(111)
@@ -78,6 +91,29 @@ class DexelaMatplotlibGUI:
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
         self.canvas.mpl_connect("button_press_event", self.on_plot_click)
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
+
+    def update_calculations(self):
+        if self.direct_point is None or self.reflected_point is None:
+            self.twotheta_label.set("2Theta: --")
+            self.tilt_label.set("Tilt: --")
+            return
+
+        x0, y0 = self.direct_point
+        x1, y1 = self.reflected_point
+
+        dx_px = x1 - x0
+        dy_px = y1 - y0
+        dr_px = np.hypot(dx_px, dy_px)
+        dr_mm = dr_px * self.px_size
+
+        two_theta_rad = np.arctan2(dr_mm, self.L)
+        two_theta_deg = np.degrees(two_theta_rad)
+
+        tilt_rad = np.arctan2((y1 - y0), (x0 - x1))
+        tilt_deg = np.degrees(tilt_rad)
+
+        self.twotheta_label.set(f"2Theta: {two_theta_deg:.5f} deg")
+        self.tilt_label.set(f"Tilt: {tilt_deg:.5f} deg")
 
     def read_dexela_image(self) -> np.ndarray:
         sx = caget(SIZE_X_PV)
@@ -108,10 +144,8 @@ class DexelaMatplotlibGUI:
             messagebox.showerror("EPICS read error", str(exc))
             return
 
-        ny, nx = self.raw_image.shape
         self.display_image = np.flipud(self.raw_image)
-        self.shape_label.set(f"Image shape: {ny} x {nx}  (Y x X)")
-        self.status_label.set("Image loaded. Click on the image.")
+        self.status_label.set("Click on image to define beam position")
         self.redraw_image()
 
     def redraw_image(self):
@@ -141,8 +175,11 @@ class DexelaMatplotlibGUI:
         self.ax.set_xlim(0, nx - 1)
         self.ax.set_ylim(0, ny - 1)
 
-        if self.marker_screen is not None:
-            self.draw_marker(self.marker_screen)
+        if self.direct_point is not None:
+            self.draw_marker(self.direct_point, color="lime")
+
+        if self.reflected_point is not None:
+            self.draw_marker(self.reflected_point, color="red")
 
         self.canvas.draw()
 
@@ -189,7 +226,7 @@ class DexelaMatplotlibGUI:
             return False
 
         background = float(np.median(border))
-        return max_intensity >= 3.0 * background
+        return max_intensity >= 1.0 * background
 
     def on_plot_click(self, event):
         if self.display_image is None:
@@ -209,7 +246,7 @@ class DexelaMatplotlibGUI:
 
         if not self.is_valid_click_region(point):
             self.marker_screen = None
-            self.coord_label.set("Selected point: --")
+            # self.coord_label.set("Selected point: --")
             self.status_label.set("Selection canceled: no peak is found.")
             self.redraw_image()
             return
@@ -217,14 +254,23 @@ class DexelaMatplotlibGUI:
         com_point = self.compute_com(point)
         if com_point is None:
             self.marker_screen = None
-            self.coord_label.set("Selected point: --")
+            # self.coord_label.set("Selected point: --")
             self.status_label.set("Selection canceled: could not compute center of mass.")
             self.redraw_image()
             return
 
         self.marker_screen = com_point
-        self.coord_label.set(f"Selected point: x={com_point[0]:.2f}, y={com_point[1]:.2f}")
-        self.status_label.set("Marker placed at center of mass.")
+
+        mode = self.measure_mode.get()
+        if mode == "direct":
+            self.direct_point = com_point
+            self.direct_label.set(f"Direct beam: x={com_point[0]:.2f}, y={com_point[1]:.2f}")
+        elif mode == "reflected":
+            self.reflected_point = com_point
+            self.reflected_label.set(f"Reflected beam: x={com_point[0]:.2f}, y={com_point[1]:.2f}")
+
+        self.status_label.set("Click on image to define beam position")
+        self.update_calculations()
         self.redraw_image()
 
     def on_mouse_move(self, event):
@@ -253,16 +299,15 @@ class DexelaMatplotlibGUI:
             f"Cursor: x={x_css:.2f}, y={y_css:.2f}, I={intensity:.1f}"
         )
 
-    def draw_marker(self, point_css):
+    def draw_marker(self, point_css, color="red"):
         x_css, y_css = point_css
 
-        # larger radius, thinner line, no cross
         self.ax.scatter(
             [x_css], [y_css],
-            s=700,                # increased size (radius)
+            s=700,
             facecolors="none",
-            edgecolors="red",
-            linewidths=1.5,       # thinner line
+            edgecolors=color,
+            linewidths=1.5,
             zorder=10,
         )
 
@@ -320,8 +365,12 @@ class DexelaMatplotlibGUI:
 
     def clear_marker(self):
         self.marker_screen = None
-        self.coord_label.set("Selected point: --")
-        self.status_label.set("Marker cleared.")
+        self.direct_point = None
+        self.reflected_point = None
+        self.direct_label.set("Direct beam: --")
+        self.reflected_label.set("Reflected beam: --")
+        self.status_label.set("Click on image to define beam position")
+        self.update_calculations()
         self.redraw_image()
 
 
