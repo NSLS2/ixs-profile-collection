@@ -1,3 +1,5 @@
+import json
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -14,7 +16,7 @@ IMAGE = f"{DEXELA}image1:"
 ARRAY_DATA_PV = f"{IMAGE}ArrayData"
 SIZE_X_PV = f"{IMAGE}ArraySize0_RBV"
 SIZE_Y_PV = f"{IMAGE}ArraySize1_RBV"
-
+SETTINGS_FILE = "dexela_beam_settings.json"
 
 class DexelaMatplotlibGUI:
     def __init__(self, root: tk.Tk):
@@ -61,20 +63,26 @@ class DexelaMatplotlibGUI:
         controls.pack(side="left", fill="y", padx=(0, 12))
         controls.pack_propagate(False)
 
+        controls_top = ttk.Frame(controls)
+        controls_top.pack(side="top", fill="both", expand=True)
+
+        controls_bottom = ttk.Frame(controls)
+        controls_bottom.pack(side="bottom", fill="x", pady=(8, 0))
+
         viewer = ttk.Frame(main)
         viewer.pack(side="left", fill="both", expand=True)
 
-        ttk.Label(controls, text="Dexela image viewer", font=("Arial", 12, "bold")).pack(anchor="w", pady=(0, 8))
-        ttk.Button(controls, text="Load image from Dexela", command=self.load_epics_image, style="Big.TButton").pack(fill="x", pady=2)
-        ttk.Button(controls, text="Clear settings", command=self.clear_marker, style="Big.TButton").pack(fill="x", pady=2)
+        ttk.Label(controls_top, text="Dexela image viewer", font=("Arial", 12, "bold")).pack(anchor="w", pady=(0, 8))
+        ttk.Button(controls_top, text="Load image from Dexela", command=self.load_epics_image, style="Big.TButton").pack(fill="x", pady=2)
+        ttk.Button(controls_top, text="Clear settings", command=self.clear_marker, style="Big.TButton").pack(fill="x", pady=2)
 
-        ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=8)
+        ttk.Separator(controls_top, orient="horizontal").pack(fill="x", pady=8)
 
-        ttk.Label(controls, text="Measurement mode", style="Mode.TLabel").pack(anchor="w")
-        ttk.Radiobutton(controls, text="Basic: set direct beam", variable=self.measure_mode, value="direct_basic", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
-        ttk.Radiobutton(controls, text="Basic: measure reflected", variable=self.measure_mode, value="reflected_basic", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
-        ttk.Radiobutton(controls, text="Extension: calibrate shift", variable=self.measure_mode, value="extension_calibrate", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
-        ttk.Radiobutton(controls, text="Extension: measure reflected", variable=self.measure_mode, value="extension_measure", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
+        ttk.Label(controls_top, text="Measurement mode", style="Mode.TLabel").pack(anchor="w")
+        ttk.Radiobutton(controls_top, text="Basic: set direct beam", variable=self.measure_mode, value="direct_basic", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
+        ttk.Radiobutton(controls_top, text="Basic: measure reflected", variable=self.measure_mode, value="reflected_basic", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
+        ttk.Radiobutton(controls_top, text="Extension: calibrate shift", variable=self.measure_mode, value="extension_calibrate", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
+        ttk.Radiobutton(controls_top, text="Extension: measure reflected", variable=self.measure_mode, value="extension_measure", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
 
         # ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=8)
 
@@ -90,23 +98,27 @@ class DexelaMatplotlibGUI:
         self.hover_label = tk.StringVar(value="Cursor: --")
         self.status_label = tk.StringVar(value="Click on image to define beam position")
 
-        ttk.Label(controls, textvariable=self.direct_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(8, 2))
-        ttk.Label(controls, textvariable=self.reflected_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls_top, textvariable=self.direct_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(8, 2))
+        ttk.Label(controls_top, textvariable=self.reflected_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
 
-        ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=6)
+        ttk.Separator(controls_top, orient="horizontal").pack(fill="x", pady=6)
 
-        ttk.Label(controls, textvariable=self.extension_ref_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
-        ttk.Label(controls, textvariable=self.extension_current_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
-        ttk.Label(controls, textvariable=self.extension_shift_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
-        ttk.Label(controls, textvariable=self.extension_direct_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls_top, textvariable=self.extension_ref_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls_top, textvariable=self.extension_current_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls_top, textvariable=self.extension_shift_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls_top, textvariable=self.extension_direct_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
 
-        ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=6)
+        ttk.Separator(controls_top, orient="horizontal").pack(fill="x", pady=6)
 
-        ttk.Label(controls, textvariable=self.active_geometry_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(8, 4))
-        ttk.Label(controls, textvariable=self.twotheta_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(6, 2))
-        ttk.Label(controls, textvariable=self.tilt_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
-        ttk.Label(controls, textvariable=self.hover_label, font=("Arial", 11), wraplength=320, justify="left").pack(anchor="w", pady=(8, 2))
-        ttk.Label(controls, textvariable=self.status_label, font=("Arial", 11), foreground="blue", wraplength=320, justify="left").pack(anchor="w", pady=(10, 2))
+        ttk.Label(controls_top, textvariable=self.active_geometry_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(8, 4))
+        ttk.Label(controls_top, textvariable=self.twotheta_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(6, 2))
+        ttk.Label(controls_top, textvariable=self.tilt_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls_top, textvariable=self.hover_label, font=("Arial", 11), wraplength=320, justify="left").pack(anchor="w", pady=(8, 2))
+        ttk.Label(controls_top, textvariable=self.status_label, font=("Arial", 11), foreground="blue", wraplength=320, justify="left").pack(anchor="w", pady=(10, 2))
+
+        ttk.Separator(controls_bottom, orient="horizontal").pack(fill="x", pady=(0, 8))
+        ttk.Button(controls_bottom, text="Save settings", command=self.save_settings, style="Big.TButton").pack(fill="x", pady=2)
+        ttk.Button(controls_bottom, text="Load settings", command=self.load_settings, style="Big.TButton").pack(fill="x", pady=2)
 
         # help_text = "Click on image to define beam position"
         # ttk.Label(controls, text=help_text, wraplength=320, justify="left").pack(anchor="w", pady=(10, 0))
@@ -479,6 +491,85 @@ class DexelaMatplotlibGUI:
         x_com = x0 + float((xx * weights).sum() / total)
         y_com = y0 + float((yy * weights).sum() / total)
         return (x_com, y_com)
+
+    def save_settings(self):
+        data = {
+            "direct_point": self.direct_point,
+            "extension_reflected_reference": self.extension_reflected_reference,
+            "extension_reflected_current": self.extension_reflected_current,
+            "extension_direct_inferred": self.extension_direct_inferred,
+            "extension_shift": self.extension_shift,
+        }
+
+        try:
+            with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            self.status_label.set("Settings saved.")
+        except Exception as exc:
+            messagebox.showerror("Save settings error", str(exc))
+
+    def load_settings(self):
+        if not os.path.exists(SETTINGS_FILE):
+            self.status_label.set("No saved settings file found.")
+            return
+
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as exc:
+            messagebox.showerror("Load settings error", str(exc))
+            return
+
+        def tup(v):
+            return tuple(v) if v is not None else None
+
+        self.direct_point = tup(data.get("direct_point"))
+        self.reflected_point = None
+        self.extension_reflected_reference = tup(data.get("extension_reflected_reference"))
+        self.extension_reflected_current = tup(data.get("extension_reflected_current"))
+        self.extension_direct_inferred = tup(data.get("extension_direct_inferred"))
+        self.extension_shift = tup(data.get("extension_shift"))
+
+        if self.direct_point is not None:
+            self.direct_label.set(f"Direct beam: x={self.direct_point[0]:.2f}, y={self.direct_point[1]:.2f}")
+        else:
+            self.direct_label.set("Direct beam: --")
+
+        self.reflected_label.set("Basic reflected beam: --")
+
+        if self.extension_reflected_reference is not None:
+            self.extension_ref_label.set(
+                f"Extension reflected ref: x={self.extension_reflected_reference[0]:.2f}, y={self.extension_reflected_reference[1]:.2f}"
+            )
+        else:
+            self.extension_ref_label.set("Extension reflected ref: --")
+
+        if self.extension_reflected_current is not None:
+            self.extension_current_label.set(
+                f"Extension reflected current: x={self.extension_reflected_current[0]:.2f}, y={self.extension_reflected_current[1]:.2f}"
+            )
+        else:
+            self.extension_current_label.set("Extension reflected current: --")
+
+        if self.extension_shift is not None:
+            self.extension_shift_label.set(
+                f"Extension shift: dx={self.extension_shift[0]:.2f}, dy={self.extension_shift[1]:.2f}"
+            )
+        else:
+            self.extension_shift_label.set("Extension shift: --")
+
+        if self.extension_direct_inferred is not None:
+            self.extension_direct_label.set(
+                f"Inferred direct beam: x={self.extension_direct_inferred[0]:.2f}, y={self.extension_direct_inferred[1]:.2f}"
+            )
+        else:
+            self.extension_direct_label.set("Inferred direct beam: --")
+
+        self.measure_mode.set("direct_basic")
+        self.update_active_geometry_label()
+        self.update_calculations()
+        self.show_markers = False
+        self.status_label.set("Settings loaded.")
 
     def clear_marker(self):
         self.marker_screen = None
