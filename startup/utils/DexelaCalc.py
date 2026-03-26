@@ -24,11 +24,24 @@ class DexelaMatplotlibGUI:
 
         self.raw_image = None
         self.display_image = None
-        self.marker_screen = None       # last selected COM, still useful as a generic “current” selection
-        self.direct_point = None        # stored direct beam position in CSS coordinates
-        self.reflected_point = None     # stored reflected beam position in CSS coordinates
-        self.measure_mode = tk.StringVar(value="direct")
+        self.marker_screen = None
+        self.show_markers = True
+
+        # basic mode points
+        self.direct_point = None
+        self.reflected_point = None
+
+        # extension mode points / derived values
+        self.extension_reflected_reference = None   # used only for shift calibration
+        self.extension_reflected_current = None     # used for later extension measurements
+        self.extension_direct_inferred = None
+        self.extension_shift = None   # (dx, dy) in CSS pixels
+
+        # four-state operation mode
+        self.measure_mode = tk.StringVar(value="direct_basic")
+
         self.image_artist = None
+
         self.px_size = 0.0748   # mm/pixel
         self.L = 140.0          # mm
 
@@ -38,6 +51,12 @@ class DexelaMatplotlibGUI:
         main = ttk.Frame(self.root, padding=8)
         main.pack(fill="both", expand=True)
 
+        style = ttk.Style()
+
+        style.configure("Big.TButton", font=("Arial", 12))
+        style.configure("Mode.TLabel", font=("Arial", 11, "bold"))
+        style.configure("Mode.TRadiobutton", font=("Arial", 11))
+
         controls = ttk.Frame(main, width=320)
         controls.pack(side="left", fill="y", padx=(0, 12))
         controls.pack_propagate(False)
@@ -46,36 +65,48 @@ class DexelaMatplotlibGUI:
         viewer.pack(side="left", fill="both", expand=True)
 
         ttk.Label(controls, text="Dexela image viewer", font=("Arial", 12, "bold")).pack(anchor="w", pady=(0, 8))
-        ttk.Button(controls, text="Load image from EPICS", command=self.load_epics_image).pack(fill="x", pady=2)
-        ttk.Button(controls, text="Clear marker", command=self.clear_marker).pack(fill="x", pady=2)
+        ttk.Button(controls, text="Load image from Dexela", command=self.load_epics_image, style="Big.TButton").pack(fill="x", pady=2)
+        ttk.Button(controls, text="Clear settings", command=self.clear_marker, style="Big.TButton").pack(fill="x", pady=2)
 
         ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=8)
 
-        ttk.Label(controls, text="Measurement mode", font=("Arial", 10, "bold")).pack(anchor="w")
-        ttk.Radiobutton(controls, text="Measure direct beam", variable=self.measure_mode, value="direct").pack(anchor="w")
-        ttk.Radiobutton(controls, text="Measure reflected beam", variable=self.measure_mode, value="reflected").pack(anchor="w")
+        ttk.Label(controls, text="Measurement mode", style="Mode.TLabel").pack(anchor="w")
+        ttk.Radiobutton(controls, text="Basic: set direct beam", variable=self.measure_mode, value="direct_basic", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
+        ttk.Radiobutton(controls, text="Basic: measure reflected", variable=self.measure_mode, value="reflected_basic", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
+        ttk.Radiobutton(controls, text="Extension: calibrate shift", variable=self.measure_mode, value="extension_calibrate", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
+        ttk.Radiobutton(controls, text="Extension: measure reflected", variable=self.measure_mode, value="extension_measure", style="Mode.TRadiobutton", command=self.update_active_geometry_label).pack(anchor="w")
 
-        ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=8)
+        # ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=8)
 
-        # self.pv_label = tk.StringVar(value=f"Image PV: {ARRAY_DATA_PV}")
-        # self.shape_label = tk.StringVar(value="Image shape: --")
-        # self.coord_label = tk.StringVar(value="Selected point: --")
+        self.active_geometry_label = tk.StringVar(value="Active geometry: BASIC")
         self.direct_label = tk.StringVar(value="Direct beam: --")
-        self.reflected_label = tk.StringVar(value="Reflected beam: --")
+        self.reflected_label = tk.StringVar(value="Basic reflected beam: --")
+        self.extension_ref_label = tk.StringVar(value="Extension reflected ref: --")
+        self.extension_current_label = tk.StringVar(value="Extension reflected current: --")
+        self.extension_shift_label = tk.StringVar(value="Extension shift: --")
+        self.extension_direct_label = tk.StringVar(value="Inferred direct beam: --")
         self.twotheta_label = tk.StringVar(value="2Theta: --")
         self.tilt_label = tk.StringVar(value="Tilt: --")
         self.hover_label = tk.StringVar(value="Cursor: --")
-        self.status_label = tk.StringVar(value="Load image from EPICS.")
+        self.status_label = tk.StringVar(value="Click on image to define beam position")
 
-        # ttk.Label(controls, textvariable=self.pv_label, wraplength=320, justify="left").pack(anchor="w", pady=2)
-        # ttk.Label(controls, textvariable=self.shape_label, wraplength=320, justify="left").pack(anchor="w", pady=2)
-        # ttk.Label(controls, textvariable=self.coord_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(10, 2))
-        ttk.Label(controls, textvariable=self.direct_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls, textvariable=self.direct_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(8, 2))
         ttk.Label(controls, textvariable=self.reflected_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
-        ttk.Label(controls, textvariable=self.hover_label, wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
-        ttk.Label(controls, textvariable=self.status_label, foreground="blue", wraplength=320, justify="left").pack(anchor="w", pady=(10, 2))
+
+        ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=6)
+
+        ttk.Label(controls, textvariable=self.extension_ref_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls, textvariable=self.extension_current_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls, textvariable=self.extension_shift_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls, textvariable=self.extension_direct_label, font=("Arial", 10), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+
+        ttk.Separator(controls, orient="horizontal").pack(fill="x", pady=6)
+
+        ttk.Label(controls, textvariable=self.active_geometry_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(8, 4))
         ttk.Label(controls, textvariable=self.twotheta_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(6, 2))
         ttk.Label(controls, textvariable=self.tilt_label, font=("Arial", 11, "bold"), wraplength=320, justify="left").pack(anchor="w", pady=(2, 2))
+        ttk.Label(controls, textvariable=self.hover_label, font=("Arial", 11), wraplength=320, justify="left").pack(anchor="w", pady=(8, 2))
+        ttk.Label(controls, textvariable=self.status_label, font=("Arial", 11), foreground="blue", wraplength=320, justify="left").pack(anchor="w", pady=(10, 2))
 
         # help_text = "Click on image to define beam position"
         # ttk.Label(controls, text=help_text, wraplength=320, justify="left").pack(anchor="w", pady=(10, 0))
@@ -91,15 +122,37 @@ class DexelaMatplotlibGUI:
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
         self.canvas.mpl_connect("button_press_event", self.on_plot_click)
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
+        self.update_active_geometry_label()
+
+    def update_active_geometry_label(self):
+        mode = self.measure_mode.get()
+        if mode in ("direct_basic", "reflected_basic"):
+            self.active_geometry_label.set("Active geometry: BASIC")
+        elif mode in ("extension_calibrate", "extension_measure"):
+            self.active_geometry_label.set("Active geometry: EXTENSION")
+        else:
+            self.active_geometry_label.set("Active geometry: --")
 
     def update_calculations(self):
-        if self.direct_point is None or self.reflected_point is None:
+        mode = self.measure_mode.get()
+
+        if mode in ("direct_basic", "reflected_basic"):
+            direct = self.direct_point
+            reflected = self.reflected_point
+        elif mode in ("extension_calibrate", "extension_measure"):
+            direct = self.extension_direct_inferred
+            reflected = self.extension_reflected_current
+        else:
+            direct = None
+            reflected = None
+
+        if direct is None or reflected is None:
             self.twotheta_label.set("2Theta: --")
             self.tilt_label.set("Tilt: --")
             return
 
-        x0, y0 = self.direct_point
-        x1, y1 = self.reflected_point
+        x0, y0 = direct
+        x1, y1 = reflected
 
         dx_px = x1 - x0
         dy_px = y1 - y0
@@ -145,6 +198,8 @@ class DexelaMatplotlibGUI:
             return
 
         self.display_image = np.flipud(self.raw_image)
+        self.marker_screen = None
+        self.show_markers = False
         self.status_label.set("Click on image to define beam position")
         self.redraw_image()
 
@@ -175,11 +230,24 @@ class DexelaMatplotlibGUI:
         self.ax.set_xlim(0, nx - 1)
         self.ax.set_ylim(0, ny - 1)
 
-        if self.direct_point is not None:
-            self.draw_marker(self.direct_point, color="lime")
+        if self.show_markers:
+            mode = self.measure_mode.get()
 
-        if self.reflected_point is not None:
-            self.draw_marker(self.reflected_point, color="red")
+            if mode == "direct_basic":
+                if self.direct_point is not None:
+                    self.draw_marker(self.direct_point, color="lime")
+
+            elif mode == "reflected_basic":
+                if self.reflected_point is not None:
+                    self.draw_marker(self.reflected_point, color="red")
+
+            elif mode == "extension_calibrate":
+                if self.extension_reflected_reference is not None:
+                    self.draw_marker(self.extension_reflected_reference, color="orange")
+
+            elif mode == "extension_measure":
+                if self.extension_reflected_current is not None:
+                    self.draw_marker(self.extension_reflected_current, color="lime")
 
         self.canvas.draw()
 
@@ -244,9 +312,22 @@ class DexelaMatplotlibGUI:
         y_css = min(max(y_css, 0.0), ny - 1.0)
         point = (x_css, y_css)
 
+        mode = self.measure_mode.get()
+
+        if mode == "reflected_basic" and self.direct_point is None:
+            self.status_label.set("Basic reflected measurement requires direct beam position first.")
+            return
+
+        if mode == "extension_calibrate" and (self.direct_point is None or self.reflected_point is None):
+            self.status_label.set("Extension calibration requires basic direct and reflected beam positions first.")
+            return
+
+        if mode == "extension_measure" and self.extension_direct_inferred is None:
+            self.status_label.set("Extension measurement requires extension calibration first.")
+            return
+
         if not self.is_valid_click_region(point):
             self.marker_screen = None
-            # self.coord_label.set("Selected point: --")
             self.status_label.set("Selection canceled: no peak is found.")
             self.redraw_image()
             return
@@ -254,22 +335,58 @@ class DexelaMatplotlibGUI:
         com_point = self.compute_com(point)
         if com_point is None:
             self.marker_screen = None
-            # self.coord_label.set("Selected point: --")
             self.status_label.set("Selection canceled: could not compute center of mass.")
             self.redraw_image()
             return
+        
+        com_point = (round(com_point[0], 1), round(com_point[1], 1))
 
+        self.show_markers = True
         self.marker_screen = com_point
-
         mode = self.measure_mode.get()
-        if mode == "direct":
+
+        if mode == "direct_basic":
             self.direct_point = com_point
             self.direct_label.set(f"Direct beam: x={com_point[0]:.2f}, y={com_point[1]:.2f}")
-        elif mode == "reflected":
-            self.reflected_point = com_point
-            self.reflected_label.set(f"Reflected beam: x={com_point[0]:.2f}, y={com_point[1]:.2f}")
+            self.status_label.set("Direct beam updated")
 
-        self.status_label.set("Click on image to define beam position")
+        elif mode == "reflected_basic":
+            self.reflected_point = com_point
+            self.reflected_label.set(f"Basic reflected beam: x={com_point[0]:.2f}, y={com_point[1]:.2f}")
+            self.status_label.set("Basic reflected beam updated")
+
+        elif mode == "extension_calibrate":
+            self.extension_reflected_reference = com_point
+            self.extension_ref_label.set(
+                f"Extension reflected ref: x={com_point[0]:.2f}, y={com_point[1]:.2f}"
+            )
+
+            dx = com_point[0] - self.reflected_point[0]
+            dy = com_point[1] - self.reflected_point[1]
+            self.extension_shift = (dx, dy)
+            self.extension_shift_label.set(f"Extension shift: dx={dx:.2f}, dy={dy:.2f}")
+
+            inferred_x = self.direct_point[0] + dx
+            inferred_y = self.direct_point[1] + dy
+            self.extension_direct_inferred = (inferred_x, inferred_y)
+            self.extension_direct_label.set(
+                f"Inferred direct beam: x={inferred_x:.2f}, y={inferred_y:.2f}"
+            )
+
+            self.extension_reflected_current = com_point
+            self.extension_current_label.set(
+                f"Extension reflected current: x={com_point[0]:.2f}, y={com_point[1]:.2f}"
+            )
+
+            self.status_label.set("Extension shift calibrated")
+
+        elif mode == "extension_measure":
+            self.extension_reflected_current = com_point
+            self.extension_current_label.set(
+                f"Extension reflected current: x={com_point[0]:.2f}, y={com_point[1]:.2f}"
+            )
+            self.status_label.set("Extension reflected beam updated")
+
         self.update_calculations()
         self.redraw_image()
 
@@ -365,10 +482,22 @@ class DexelaMatplotlibGUI:
 
     def clear_marker(self):
         self.marker_screen = None
+
         self.direct_point = None
         self.reflected_point = None
+
+        self.extension_reflected_reference = None
+        self.extension_reflected_current = None
+        self.extension_direct_inferred = None
+        self.extension_shift = None
+
         self.direct_label.set("Direct beam: --")
-        self.reflected_label.set("Reflected beam: --")
+        self.reflected_label.set("Basic reflected beam: --")
+        self.extension_ref_label.set("Extension reflected ref: --")
+        self.extension_current_label.set("Extension reflected current: --")
+        self.extension_shift_label.set("Extension shift: --")
+        self.extension_direct_label.set("Inferred direct beam: --")
+
         self.status_label.set("Click on image to define beam position")
         self.update_calculations()
         self.redraw_image()
