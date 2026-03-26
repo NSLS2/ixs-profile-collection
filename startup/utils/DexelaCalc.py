@@ -306,7 +306,7 @@ class DexelaMatplotlibGUI:
             return False
 
         background = float(np.median(border))
-        return max_intensity >= 1.0 * background
+        return max_intensity >= 2.0 * background
 
     def on_plot_click(self, event):
         if self.display_image is None:
