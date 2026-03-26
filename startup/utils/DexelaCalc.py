@@ -595,6 +595,7 @@ class DexelaMatplotlibGUI:
 
 
 def main():
+    import tkinter as tk
     root = tk.Tk()
     DexelaMatplotlibGUI(root)
     root.mainloop()
