@@ -97,6 +97,13 @@ from utils.CustomLivePlot import *
 #     spec_cb = Serializer(directory, file_prefix=spec_factory.prefix, flush=True)
 #     return [spec_cb], []
 
+def dexela_calc():
+    import runpy
+    runpy.run_path(
+        "/nsls2/data3/ixs/shared/config/bluesky/profile_collection/startup/utils/DexelaCalc.py",
+        run_name="__main__"
+    )
+
 def my_spec_factory(name, doc):
     if name != "start" or not my_spec_factory.enabled:
         return [], []
