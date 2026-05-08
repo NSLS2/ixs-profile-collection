@@ -5,25 +5,6 @@ from bluesky.callbacks.fitting import PeakStats
 
 
 #*******************************************************************************************************
-def dcm_setup():
-    det = tm1
-    yname = tm1.sum_all.mean_value.name
-    ps = PeakStats(dcm.p1.user_readback.name, yname)
-    yield from bpp.subs_wrapper(bp.rel_scan([det], dcm.p1, -80, 80, 40), ps)
-
-    cen = ps.cen
-    com = ps.com
-    fwhm = ps.fwhm
-
-    print('Peak stats\n', ps)
-    if fwhm < 50 and abs(cen - com)/ fwhm < 1 and len(ps.crossings) == 2:
-        yield from bps.mv(dcm.p1, cen)
-        print("DCM moved to center")
-    else:
-        print("Do not think we found a peak. Motor not moved!")
-
-
-#*******************************************************************************************************
 def qq2th(Qq,En=9.1317):
     # Calculates scattering TH-angle from the Q-value. Energy En is set in keV.
     if En > 15.0:
@@ -71,13 +52,9 @@ def hrmE_dscan(start, stop, steps, exp_time, md=None):
     """
 
     md = md or {}
-    md['count_time'] = exp_time
-
-    yield from set_lambda_exposure(exp_time)
-    return (
-#        yield from dscan(hrmE, start, stop, steps, [lambda_det], det_channel=[6])
-        yield from bp.rel_scan([lambda_det], hrmE, start, stop, steps, md=md)
-    )
+    # md['count_time'] = exp_time
+    # yield from set_lambda_exposure(exp_time)
+    yield from dscan(hrmE, start, stop, steps, lambda_det, exp_time, md=md)
 
 
 #*******************************************************************************************************
@@ -98,10 +75,25 @@ def hrmE_ascan(start, stop, steps, exp_time, md=None):
     """
 
     md = md or {}
-    md['count_time'] = exp_time
+    # md['count_time'] = exp_time
+    # yield from set_lambda_exposure(exp_time)
+    yield from dscan(hrmE, start, stop, steps, lambda_det, exp_time, md=md)
 
-    yield from set_lambda_exposure(exp_time)
-    return (
-        yield from bp.scan([lambda_det], hrmE, start, stop, steps, md=md)
-    )
+#*******************************************************************************************************
+# from ophyd.sim import SynAxis, SynGauss
 
+# # Simulated motor (positioner)
+# sym_mot = SynAxis(name="sym_mot")
+
+# # Simulated detector with Gaussian response vs motor position
+# #    I(m) = Imax * exp(-(m - center)^2 / (2*sigma^2)) + noise
+# sym_det = SynGauss(
+#     name="sym_det",
+#     motor=sym_mot,
+#     motor_field="sym_mot",   # must match key in sym_mot.read()
+#     center=0.0,
+#     Imax=1e5,
+#     sigma=0.2,
+#     noise="poisson",
+#     random_state=0,
+# )
