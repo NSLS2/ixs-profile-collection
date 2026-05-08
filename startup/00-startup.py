@@ -9,7 +9,9 @@ nslsii.configure_base(
     'ixs',
     publish_documents_with_kafka=False,
     call_returns_result=True,
-    redis_url="info.ixs.nsls2.bnl.gov"
+    redis_url="xf10id1-ixs-redis1.nsls2.bnl.gov",
+    redis_port = 6380,
+    redis_ssl = True
 )
 
 # After the above call, you will now have the following in your namespace:
