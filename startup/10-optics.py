@@ -166,3 +166,5 @@ k3 = Table('XF:10IDC-OP{Tbl:1', name='k3')
 ph = Pinhole('XF:10IDD-OP{Pinh:1', name='ph')
 
 mcm = MCM('XF:10IDD-OP{MCM:1', name='mcm', labels=('mcm',))
+mcm.x.readback.name = mcm.x.name
+mcm.y.readback.name = mcm.y.name

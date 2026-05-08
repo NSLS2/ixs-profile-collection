@@ -79,6 +79,10 @@ db
 
 .vscode/
 
-.directory/# pixi environments
+
+.directory/
+md/
+startup/utils/read_dexela.py
+startup/dexela_beam_settings.json
 .pixi/*
 !.pixi/config.toml

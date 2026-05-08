@@ -36,3 +36,20 @@ for j in range(1, 33):
 sclr.channels.chan21.name = 'I0'
 sclr.channels.chan21.kind = 'hinted'
 
+tm1.sum_all.kind="hinted"
+tm1.sum_all.mean_value.kind="hinted"
+
+det134 = NSLS_EM('XF10ID-BI:AH171:', name='det134')
+det134.configuration_attrs = ['integration_time', 'averaging_time']
+det134.read_attrs = [
+    'current3.mean_value',
+    'current4.mean_value'
+]
+# same port as det1 (j=0 → AH171)
+det134.conf.port_name.put('AH171')
+
+det21 = NSLS_EM('XF10ID-BI:AH172:', name='det21')
+det21.configuration_attrs = ['integration_time', 'averaging_time']
+det21.read_attrs = ['current1.mean_value']
+# same port as det1 (j=0 → AH172)
+det21.conf.port_name.put('AH172')

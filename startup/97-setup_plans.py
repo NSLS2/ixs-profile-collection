@@ -10,13 +10,57 @@ from bluesky.callbacks.mpl_plotting import LiveGrid
 from bluesky.suspenders import SuspendFloor
 from ophyd import EpicsSignal
 from tabulate import tabulate
+import re
 
 #from utils.sixcircle_1p53.sixcircle import *
 
 #*******************************************************************************************************
 # opens a Matplotlib figure with axes
-myfig, myaxs = plt.subplots(figsize=(8,5), num=1)
+# plt.ion()  # enable interactive mode
+myfig, myaxs = plt.subplots(figsize=(8,5), num="Live Scan", clear=False)
+myfig.canvas.manager.set_window_title("Live Scan")
+myfig.show()
+myfig.canvas.draw_idle()
+myfig.canvas.flush_events()
 
+#*******************************************************************************************************
+def short_label(field):
+    """
+    Convert long ophyd/bluesky field names into short legend mnemonics.
+
+    Examples
+    --------
+    det2_current2_mean_value -> det2.2
+    det3_current7_mean_value -> det3.7
+    lambda_det_stats7_total  -> lambda.7
+    lambda_det_stats3_total  -> lambda.3
+    tm1_sum_all_mean_value    -> tm1.4   # special case
+    tm2_sum_all_mean_value    -> tm2.4   # special case
+    """
+    if field in ("tm1_sum_all_mean_value", "tm2_sum_all_mean_value"):
+        name = field.split("_", 1)[0]
+        return f"{name}.4"
+    
+    # Generic current-channel detector pattern
+    m = re.fullmatch(r"(det\d+)_current(\d+)_mean_value", field)
+    if m:
+        det, ch = m.groups()
+        return f"{det}.{ch}"
+
+    # tm1 / tm2 pattern
+    m = re.fullmatch(r"(tm\d+)_current(\d+)_mean_value", field)
+    if m:
+        det_name, ch = m.groups()
+        return f"{det_name}.{ch}"
+
+    # Lambda stats pattern
+    m = re.fullmatch(r"lambda_det_stats(\d+)_total", field)
+    if m:
+        ch = m.group(1)
+        return f"lambda.{ch}"
+
+    # Fallback: return original field name unchanged
+    return field
 
 #*******************************************************************************************************
 def peaks_stats_print(dets_name, peak_stats):
@@ -61,56 +105,241 @@ def peaks_stats_print(dets_name, peak_stats):
 
 
 #*******************************************************************************************************
-def plotselect(det_name, mot_name):
-# creates a LivePlot object with given paramaters
-    myplt = LivePlot(det_name, x=mot_name, marker='o', markersize=6, ax=myaxs)
-    return myplt
-
+# def plotselect(det_name, mot_name):
+# # creates a LivePlot object with given paramaters
+#     # print(mot_name)
+#     myplt = LivePlot(det_name, x=mot_name, marker='o', markersize=6, ax=myaxs, stream_name="primary")
+#     return myplt
 
 #*******************************************************************************************************
-def dscan(mot, start, stop, steps, det, det_channel_picks=[0]):
-# performs relative scan of a detector DET channel 
-    myaxs.clear()
-    
-    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
+# def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
+# # performs relative scan of a detector DET channel 
+#     myaxs.cla()
+#     myfig.canvas.draw_idle()
 
-    subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.rel_scan([det], mot, start, stop, steps), subs_list)
+#     if det_ch is None:
+#         det_ch = [0]
+#     md = md or {}
+
+#     md["count_time"] = ct
+#     dets = [det, det134, sclr.channels.chan13, sr_curr]
+#     # dets = [det]
+
+#     # apply exposure if detector is lambda_det
+#     if getattr(det, "name", None) == "lambda_det":
+#         yield from set_lambda_exposure(ct)
+
+
+#     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
+#     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
+
+#     subs_list.extend(stats_list)
+#     plan = bpp.subs_wrapper(bp.rel_scan(dets, mot, start, stop, steps, md=md), subs_list)
         
+#     yield from plan
+
+#     print('\n')
+#     for n in range(len(det_ch)):
+#         peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
+#         print("\n")
+
+#     return stats_list
+
+#*******************************************************************************************************
+def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
+    """
+    Relative scan with live plotting and peak statistics.
+
+    Parameters
+    ----------
+    mot : OphydObj
+        Scanned motor.
+    start, stop : float
+        Relative scan limits.
+    steps : int
+        Number of points.
+    det : OphydObj
+        Main detector to plot.
+    ct : float
+        Count/exposure time.
+    det_ch : list[int] or None
+        Detector channels to plot.
+        If None:
+          - lambda_det -> default lambda_det_stats7_total
+          - other detectors -> default channel 0
+    md : dict or None
+        Extra metadata.
+    """
+    md = md or {}
+    md["count_time"] = ct
+
+    if det_ch is None:
+        det_ch = [0]
+
+    dets = [det, det134, sclr.channels.chan13, sr_curr]
+
+    # apply exposure if detector is lambda_det
+    if getattr(det, "name", None) == "lambda_det":
+        yield from set_lambda_exposure(ct)
+
+    # resolve actual event-data field names to plot/stat
+    y_fields = select_detector_fields(det, det_ch)
+
+    # compact legend labels
+    legend_keys = {f: short_label(f) for f in y_fields}
+
+    # one live plot callback for all selected fields
+    liveplot_cb = CustomLivePlot(
+        y_fields=y_fields,
+        x=mot.name,
+        ax=myaxs,
+        legend_keys=legend_keys,
+        clear_on_start=True,
+        show_stats=True,
+        update_every=1,
+        title=f"{det.name} vs {mot.name}",
+    )
+
+    # one PeakStats per plotted field
+    stats_list = [PeakStats(mot.name, field) for field in y_fields]
+
+    subs_list = [liveplot_cb]
+    subs_list.extend(stats_list)
+
+    plan = bpp.subs_wrapper(
+        bp.rel_scan(dets, mot, start, stop, steps, md=md),
+        subs_list,
+    )
+
     yield from plan
 
-    print('\n')
-    for n in range(len(det_channel_picks)):
-        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
+    print("\n")
+    for field, stats in zip(y_fields, stats_list):
+        peaks_stats_print(field, stats)
         print("\n")
 
     return stats_list
 
+#*******************************************************************************************************
+# def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
+# # performs relative scan of a detector DET channel 
+#     myaxs.clear()
+#     # myfig.canvas.draw_idle()
+
+#     if det_ch is None:
+#         det_ch = [0]
+#     md = md or {}
+
+#     md["count_time"] = ct
+#     dets = [det, det134, sclr.channels.chan13, sr_curr]
+
+#     # apply exposure if detector is lambda_det
+#     if getattr(det, "name", None) == "lambda_det":
+#         yield from set_lambda_exposure(ct)
+
+#     subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_ch]
+#     stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_ch]
+
+#     subs_list.extend(stats_list)
+#     plan = bpp.subs_wrapper(bp.scan(dets, mot, start, stop, steps, md=md), subs_list)
+        
+#     yield from plan
+
+#     for n in range(len(det_ch)):
+#         peaks_stats_print(det.hints['fields'][det_ch[n]], stats_list[n])
+#         print("\n")
+    
+#     return stats_list
+
+import bluesky.plans as bp
+import bluesky.preprocessors as bpp
+from bluesky.callbacks.fitting import PeakStats
+
 
 #*******************************************************************************************************
-def ascan(mot, start, stop, steps, det, det_channel_picks=[0]):
-# performs relative scan of a detector DET channel 
-    myaxs.clear()
-    
-    subs_list = [plotselect(det.hints['fields'][det_channel], mot.name) for det_channel in  det_channel_picks]
-    stats_list = [PeakStats(mot.name, det.hints['fields'][det_channel]) for det_channel in det_channel_picks]
+def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
+    """
+    Absolute scan with live plotting and peak statistics.
 
+    Parameters
+    ----------
+    mot : OphydObj
+        Scanned motor.
+    start, stop : float
+        Absolute scan limits.
+    steps : int
+        Number of points.
+    det : OphydObj
+        Main detector to plot.
+    ct : float
+        Count/exposure time.
+    det_ch : int, list[int], or None
+        Detector channels to plot.
+        If None:
+          - lambda_det -> default lambda_det_stats7_total
+          - other detectors -> default channel 0
+    md : dict or None
+        Extra metadata.
+    """
+    md = md or {}
+    md["count_time"] = ct
+
+    if det_ch is None:
+        det_ch = [0]
+
+    dets = [det, det134, sclr.channels.chan13, sr_curr]
+    # dets = [det]
+
+    # apply exposure if detector is lambda_det
+    if getattr(det, "name", None) == "lambda_det":
+        yield from set_lambda_exposure(ct)
+
+    # resolve actual event-data field names to plot/stat
+    y_fields = select_detector_fields(det, det_ch)
+    if not y_fields:
+        raise RuntimeError(f"No plot fields resolved for detector {det.name}")
+
+    # compact legend labels
+    legend_keys = {f: short_label(f) for f in y_fields}
+
+    # one live plot callback for all selected fields
+    liveplot_cb = CustomLivePlot(
+        y_fields=y_fields,
+        x=mot.name,
+        ax=myaxs,
+        legend_keys=legend_keys,
+        clear_on_start=True,
+        show_stats=True,
+        update_every=1,
+        title=f"{det.name} vs {mot.name}",
+    )
+
+    # one PeakStats per plotted field
+    stats_list = [PeakStats(mot.name, field) for field in y_fields]
+
+    subs_list = [liveplot_cb]
     subs_list.extend(stats_list)
-    plan = bpp.subs_wrapper(bp.scan([det], mot, start, stop, steps), subs_list)
-        
+
+    plan = bpp.subs_wrapper(
+        bp.scan(dets, mot, start, stop, steps, md=md),
+        subs_list,
+    )
+
     yield from plan
 
-    for n in range(len(det_channel_picks)):
-        peaks_stats_print(det.hints['fields'][det_channel_picks[n]], stats_list[n])
+    print("\n")
+    for field, stats in zip(y_fields, stats_list):
+        peaks_stats_print(field, stats)
         print("\n")
-    
-    return stats_list
 
+    return stats_list
 
 #*******************************************************************************************************
 def gaussian(x, A, sigma, x0):
-    return A*np.exp(-(x - x0)**2/(2 * sigma**2))
+    exponent = -(x - x0)**2/(2 * sigma**2)
+    # Clip exponent to prevent overflow; exp(-745) ≈ 0, exp(709) ≈ max float
+    exponent = np.clip(exponent, -745, 0)
+    return A*np.exp(exponent)
 
 
 #*******************************************************************************************************
@@ -137,6 +366,10 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
     myaxs.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
     myaxs.plot(table[x], gauss.values, label=f"gaussian fit {channel}")
     myaxs.legend()
+
+    myaxs.figure.canvas.draw_idle()
+    myaxs.figure.canvas.flush_events()
+
     return lf.result.values
 
 
@@ -191,20 +424,8 @@ def GCarbon_Qscan(exp_time=2):
         for q in Qq:
             th = qq2th(q)
             yield from bps.mv(spec.tth, th)
-            yield from set_lambda_exposure(exp_time)
-            yield from dscan(hrmE, -10, 10, 100, lambda_det)
-
-#            yield from hrmE_dscan(-10, 10, 100, exp_time)
-#            peak_stats = bec.peaks
-#            headers = ["com","cen","max","min","fwhm"]
-#            data = []
-#            for p in range(5):
-#                data.append(peak_stats[headers[p]]['lambda_det_stats7_total'])#
-
-#            data[2] = peak_stats[headers[2]]['lambda_det_stats7_total'][1]
-#            data[3] = peak_stats[headers[3]]['lambda_det_stats7_total'][1]
-
-#            print(tabulate([data], headers))
+            # yield from set_lambda_exposure(exp_time)
+            yield from dscan(hrmE, -10, 10, 100, lambda_det, exp_time)
 
 
 #*******************************************************************************************************
@@ -284,6 +505,40 @@ def DxtalTempCalc(uid=-1):
 
 
 #*******************************************************************************************************
+def ugap_setup():
+#   Scans the ID gap and sets it to max
+    # det = tm1
+    yname = tm1.sum_all.mean_value.name
+    res = yield from dscan(ivu22, -20, 20, 21, tm1, 1, det_ch=[4])
+    # x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
+    max_pos = res[0].max
+    x_pos = max_pos[0]
+    yield from bps.mv(ivu22, x_pos)
+    print('\n')
+    print('ID gap alignment finished\n')
+
+
+#*******************************************************************************************************
+def dcm_setup():
+    # Set the DCM position to max intensity
+ 
+    res = yield from dscan(dcm.p1, -80, 80, 40, tm1, 1, det_ch=[4])
+    fwhm = res[0].fwhm
+    cen  = res[0].cen
+    com  = res[0].com
+    crs = res[0].crossings
+
+    if fwhm is not None and cen is not None and com is not None and crs is not None:
+        if fwhm < 50 and abs(cen - com)/ fwhm < 1 and len(crs) == 2:
+            yield from bps.mv(dcm.p1, cen)
+            print("DCM moved to center")
+        else:
+            print("Peak was not found. Motor not moved!")
+    else:
+        print("Scan did not return valid results. Motor not moved!")
+
+
+#*******************************************************************************************************
 def mcm_setup_prep():
 # Prepares the URA for the MCM and Analyzer Slits setup, namely opens the Slits and lowers the analyzer
     hux = hrm2.read()['hrm2_ux']['value']
@@ -336,7 +591,7 @@ def mcm_setup(s1=0, s2=0):
     if aret[1] > 0:
         return
     if not s1 == 0:
-        yield from dscan(mcm.x, -0.2, 0.2, 40, det2)
+        yield from dscan(mcm.x, -0.2, 0.2, 40, det2, 1)
         x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
         xmax = x_pos[0]
         dxmax = MCM_XPOS - xmax
@@ -465,19 +720,7 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 
 
 #*******************************************************************************************************
-def ugap_setup():
-#   Scans the ID gap and sets it to max
-    det = tm1
-    yname = tm1.sum_all.mean_value.name
-    yield from bp.rel_scan([det], ivu22, -20, 20, 20)
-    x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
-    yield from bps.mv(ivu22, x_pos)
-    print('\n')
-    print('ID gap alignment finished\n')
-
-
-#*******************************************************************************************************
-def LocalBumpSetup():
+def LocalBumpSetup(silent=False):
     """
     Adjusts the e-beam local bump, i.e. horizontal & vertical positions of the x-ray beam on the XBPM1 screen
 
@@ -528,7 +771,11 @@ def LocalBumpSetup():
     dThe = 1.e-3*dXc/6.0
     if abs(dThe) < 0.01:
         print(f"Calculated horizontal e-beam shift {1.e3*dThe:0.1f} urad")
-        input_opts = input('Do you want to put it in (yes/no): ')
+        if not silent:
+            input_opts = input('Do you want to put it in (yes/no): ')
+        else:
+            input_opts = 'yes'
+        
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.horz_plane_nudge.set(1)
@@ -554,7 +801,11 @@ def LocalBumpSetup():
     dThe = -1.e-3*dYc/5.0
     if abs(dThe) < 0.01:
         print(f"Calculated vertical e-beam shift {1.e3*dThe:0.1f} urad")
-        input_opts = input('Do you want to put it in (yes/no): ')
+        if not silent:
+            input_opts = input('Do you want to put it in (yes/no): ')
+        else:
+            input_opts = 'yes'
+        
         if input_opts == 'yes':
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.vert_plane_nudge.set(1)
@@ -567,8 +818,12 @@ def LocalBumpSetup():
         else:
             print('*****************************************')
             print('Correction was canceled\n')
+
+    if not silent:
+        update_opts = input('Do you want to move the XBPM1 back (yes/no): ')
+    else:
+        update_opts = 'yes'
     
-    update_opts = input('Do you want to move the XBPM1 back (yes/no): ')
     if update_opts == 'yes':
         yield from bps.mv(bpm1_diag, pos3)
 
@@ -721,8 +976,9 @@ def ccr_setup(s1=0, s2=0, s3=0):
 def wcr_setup():
 #   Performs W crystal alignment
     yield from bps.mv(anpd, -90, whl, 7, analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
-    yield from set_lambda_exposure(1)
-    yield from bp.rel_scan([lambda_det], analyzer.wfth, -20, 20, 41)
+    # yield from set_lambda_exposure(1)
+    # yield from bp.rel_scan([lambda_det], analyzer.wfth, -20, 20, 41)
+    yield from dscan(analyzer.wfth, -20, 20, 41, lambda_det, 1)
     x_pos = calculate_max_value(x="analyzer.wfth", sampling=100)
     yield from bps.mvr(analyzer.wfth, -20)
     yield from bps.mv(analyzer.wfth, x_pos)
@@ -809,12 +1065,6 @@ def hrm_setup():
 
 
 #*******************************************************************************************************
-def gap_scan():
-# scans the ID gap
-    yield from dscan(ivu22, -10, 10, 10, tm1)
-    
-
-#*******************************************************************************************************
 def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
     """
     Performs mesh scan of the analyzer D crystals: analyzer vertical position versus energy.
@@ -850,3 +1100,108 @@ def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
     bec.disable_plots()
 
 #*******************************************************************************************************
+
+def Beamline_Setup_1():
+    # Performs 10-ID optics alignment down to the sample position
+    #
+    # 1. Move CRL to bypass position and wait for a few minutes for DCM to warm up.
+    #
+    print("Moving CRL out of the beam")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from bps.mv(crl.y, 35.17)
+        yield from sleep(200)
+        print("CRL is out of the beam")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
+    # 2. Check intensity at TM1 detector
+    #
+    counts = tm1.sum_all.mean_value.get()
+    if counts < 1.0e-6:
+        print("Low intensity at TM1 detector. Execution terminated")
+        return
+    #
+    # 3. DCM setup
+    #
+    print("DCM setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from dcm_setup()
+        yield from sleep(5)
+        print("DCM setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
+    # 4. UGAP setup
+    #
+    print("Undulator gap setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from ugap_setup()
+        yield from sleep(5)
+        print("Undulator gap setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
+    # 5. Local bump setup
+    #
+    print("Local bump setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from LocalBumpSetup(silent=True)
+        yield from sleep(5)
+        print("Local bump setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
+    # 6. Move CRL to the focusing position and wait for a few minutes for DCM to warm up.
+    #
+    print("Moving CRL into the beam")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from bps.mv(crl.y, 0.427)
+        yield from sleep(200)
+        print("CRL is in the beam")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
+    # 7. DCM setup
+    #
+    print("DCM setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from dcm_setup()
+        yield from sleep(5)
+        print("DCM setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+        #
+    # 8. CRL setup scan. Set CRL y-position to max intensity at TM1
+    #
+    print("CRL setup")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, 1, det_ch=[4])
+        fmax = res[0].max
+        xmax = fmax[0]
+        yield from bps.mv(crl.y, xmax)
+        print("CRL setup is done")
+        cont_opts = input('Do you want to continue (yes): ')
+        if cont_opts != "" or cont_opts != "yes":
+            return
+    #
+    # 9. Move HRM out of the beam
+    #
+    print("Moving HRM out of the beam")
+    cont_opts = input('Do you want to proceed (yes): ')
+    if cont_opts == "" or cont_opts == "yes":
+        yield from hrm_out()
+    
+    print("Beamline setup 1 is completed successfully")
