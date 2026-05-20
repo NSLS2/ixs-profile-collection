@@ -592,7 +592,7 @@ def mcm_setup(s1=0, s2=0):
         return
     if not s1 == 0:
         yield from dscan(mcm.x, -0.2, 0.2, 40, det2, 1)
-        x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
+        x_pos = calculate_max_value(uid=-1, x="mcm_x", y="det2_current1_mean_value", delta=1, sampling=5)
         xmax = x_pos[0]
         dxmax = MCM_XPOS - xmax
         print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
@@ -825,6 +825,7 @@ def LocalBumpSetup(silent=False):
         update_opts = 'yes'
     
     if update_opts == 'yes':
+        cam1.cam.acquire.set(0)
         yield from bps.mv(bpm1_diag, pos3)
 
 
@@ -1110,10 +1111,11 @@ def Beamline_Setup_1():
     cont_opts = input('Do you want to proceed (yes): ')
     if cont_opts == "" or cont_opts == "yes":
         yield from bps.mv(crl.y, 35.17)
-        yield from sleep(200)
+        yield from sleep(2)
         print("CRL is out of the beam")
         cont_opts = input('Do you want to continue (yes): ')
-        if cont_opts != "" or cont_opts != "yes":
+        print(cont_opts)
+        if cont_opts != "" and cont_opts != "yes":
             return
     #
     # 2. Check intensity at TM1 detector
@@ -1129,10 +1131,10 @@ def Beamline_Setup_1():
     cont_opts = input('Do you want to proceed (yes): ')
     if cont_opts == "" or cont_opts == "yes":
         yield from dcm_setup()
-        yield from sleep(5)
+        yield from sleep(2)
         print("DCM setup is done")
         cont_opts = input('Do you want to continue (yes): ')
-        if cont_opts != "" or cont_opts != "yes":
+        if cont_opts != "" and cont_opts != "yes":
             return
     #
     # 4. UGAP setup
@@ -1141,10 +1143,10 @@ def Beamline_Setup_1():
     cont_opts = input('Do you want to proceed (yes): ')
     if cont_opts == "" or cont_opts == "yes":
         yield from ugap_setup()
-        yield from sleep(5)
+        yield from sleep(2)
         print("Undulator gap setup is done")
         cont_opts = input('Do you want to continue (yes): ')
-        if cont_opts != "" or cont_opts != "yes":
+        if cont_opts != "" and cont_opts != "yes":
             return
     #
     # 5. Local bump setup
@@ -1153,10 +1155,10 @@ def Beamline_Setup_1():
     cont_opts = input('Do you want to proceed (yes): ')
     if cont_opts == "" or cont_opts == "yes":
         yield from LocalBumpSetup(silent=True)
-        yield from sleep(5)
+        yield from sleep(2)
         print("Local bump setup is done")
         cont_opts = input('Do you want to continue (yes): ')
-        if cont_opts != "" or cont_opts != "yes":
+        if cont_opts != "" and cont_opts != "yes":
             return
     #
     # 6. Move CRL to the focusing position and wait for a few minutes for DCM to warm up.
@@ -1165,10 +1167,10 @@ def Beamline_Setup_1():
     cont_opts = input('Do you want to proceed (yes): ')
     if cont_opts == "" or cont_opts == "yes":
         yield from bps.mv(crl.y, 0.427)
-        yield from sleep(200)
+        yield from sleep(2)
         print("CRL is in the beam")
         cont_opts = input('Do you want to continue (yes): ')
-        if cont_opts != "" or cont_opts != "yes":
+        if cont_opts != "" and cont_opts != "yes":
             return
     #
     # 7. DCM setup
@@ -1177,10 +1179,10 @@ def Beamline_Setup_1():
     cont_opts = input('Do you want to proceed (yes): ')
     if cont_opts == "" or cont_opts == "yes":
         yield from dcm_setup()
-        yield from sleep(5)
+        yield from sleep(2)
         print("DCM setup is done")
         cont_opts = input('Do you want to continue (yes): ')
-        if cont_opts != "" or cont_opts != "yes":
+        if cont_opts != "" and cont_opts != "yes":
             return
         #
     # 8. CRL setup scan. Set CRL y-position to max intensity at TM1
@@ -1194,7 +1196,7 @@ def Beamline_Setup_1():
         yield from bps.mv(crl.y, xmax)
         print("CRL setup is done")
         cont_opts = input('Do you want to continue (yes): ')
-        if cont_opts != "" or cont_opts != "yes":
+        if cont_opts != "" and cont_opts != "yes":
             return
     #
     # 9. Move HRM out of the beam

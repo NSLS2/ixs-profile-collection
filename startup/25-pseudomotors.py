@@ -1,9 +1,9 @@
-from ophyd import (EpicsMotor, PseudoSingle, PseudoPositioner, Device, Signal,
+from ophyd import (EpicsMotor, PseudoSingle, PseudoPositioner, Device, Signal, # type: ignore
                    Component as Cpt)
-from ophyd.pseudopos import (pseudo_position_argument, real_position_argument)
-import numpy as np
-from scipy import interpolate
-from ophyd import SoftPositioner
+from ophyd.pseudopos import (pseudo_position_argument, real_position_argument) # type: ignore
+import numpy as np # type: ignore
+from scipy import interpolate # type: ignore
+from ophyd import SoftPositioner # type: ignore
 
 from utils.sixcircle import SixCircle
 import time
@@ -35,7 +35,7 @@ class BLEnergy(PseudoPositioner):
 
     theta = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:P}Mtr', labels=('blenergy',))
     z2 = Cpt(EpicsMotor, 'XF:10IDA-OP{Mono:DCM-Ax:Z2}Mtr', labels=('blenergy',))
-    ugap = Cpt(Undulator, 'SR:C10-ID:G1{IVU22:1')
+    ugap = Cpt(Undulator, 'SR:C10-ID:G1{IVU22:1') # type: ignore
 
     def forward(self, pseudo_pos):
         _th = np.rad2deg(np.arcsin(_hc/(2.*_si_111*pseudo_pos)))
@@ -86,12 +86,26 @@ class HRMEnergy(PseudoPositioner):
     uof = Cpt(EpicsMotor, 'XF:10IDB-OP{Mono:HRM2-Ax:UTO}Mtr', labels=('hrmenergy',))
     dof = Cpt(EpicsMotor, 'XF:10IDB-OP{Mono:HRM2-Ax:DTO}Mtr', labels=('hrmenergy',))
 
+    def _scalar(self, x):
+        arr = np.asarray(x)
+        if arr.size != 1:
+            raise ValueError(f"Expected scalar-like value, got shape {arr.shape}: {x!r}")
+        return float(arr.reshape(-1)[0])
+
     def forward(self, pseudo_pos):
-        _pos = -1.0*pseudo_pos.energy*np.tan(np.deg2rad(_TB))/_EB
+        energy = self._scalar(pseudo_pos.energy)
+        _pos = -1.0*energy*np.tan(np.deg2rad(_TB))/_EB
+        _pos = self._scalar(_pos)
+
+        # _pos = -1.0*pseudo_pos.energy*np.tan(np.deg2rad(_TB))/_EB
         return self.RealPosition(uof=_pos, dof=_pos)
 
     def inverse(self, real_pos):
-        _energy = -1.0*_EB*real_pos.uof/np.tan(np.deg2rad(_TB))
+        uof = self._scalar(real_pos.uof)
+        _energy = -1.0*_EB*uof/np.tan(np.deg2rad(_TB))
+        _energy = self._scalar(_energy)
+
+        # _energy = -1.0*_EB*real_pos.uof/np.tan(np.deg2rad(_TB))
         return self.PseudoPosition(energy=_energy)
 
 
@@ -209,7 +223,7 @@ class SamplePrime(PseudoPositioner):
     
 
 def hkl_to_angles(H, K, L):
-    flag, pos = sc.ca_s(H, K, L)
+    flag, pos = sc.ca_s(H, K, L) # type: ignore
     if flag == True:
         tth, th, chi, phi, caMU, caGAM, caSA, caOMEGA, caAZIMUTH, caALPHA, caBETA = pos[0]
         # sc.br(H, K, L)
@@ -219,7 +233,7 @@ def hkl_to_angles(H, K, L):
     
 
 def angles_to_hkl(Tth, Th, Chi, Phi):
-    H, K, L = sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi)
+    H, K, L = sc.mv(tth=Tth,th=Th,chi=Chi,phi=Phi) # type: ignore
     return H, K, L
 
 

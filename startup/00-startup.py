@@ -1,12 +1,12 @@
-from ophyd.signal import EpicsSignalBase
+from ophyd.signal import EpicsSignalBase # type: ignore
 
 EpicsSignalBase.set_defaults(timeout=10, connection_timeout=10)  # new style
 
-import nslsii
+import nslsii # type: ignore
 import os
 
 nslsii.configure_base(
-    get_ipython().user_ns,
+    get_ipython().user_ns, # type: ignore
     'ixs',
     publish_documents_with_kafka=False,
     call_returns_result=True,
@@ -37,10 +37,10 @@ nslsii.configure_base(
 
 # At the end of every run, verify that files were saved and
 # print a confirmation message.
-from bluesky.callbacks.broker import verify_files_saved
-from bluesky.utils import PersistentDict
+from bluesky.callbacks.broker import verify_files_saved # type: ignore
+from bluesky.utils import PersistentDict # type: ignore
 
-from bluesky.callbacks.mpl_plotting import initialize_qt_teleporter
+from bluesky.callbacks.mpl_plotting import initialize_qt_teleporter # type: ignore
 initialize_qt_teleporter()
 
 # RE.subscribe(post_run(verify_files_saved), 'stop')
@@ -55,7 +55,7 @@ initialize_qt_teleporter()
 # ophyd.logger.setLevel(logging.DEBUG)
 # logging.basicConfig(level=logging.DEBUG)
 
-bec.disable_plots()
+bec.disable_plots() # type: ignore
 # bec.enable_plots()
 plt.ion()  # enable interactive mode for matplotlib
 
@@ -66,15 +66,15 @@ def relabel_fig(fig, new_label):
 
 
 # Implementing grid on plots:
-import matplotlib as mpl
+import matplotlib as mpl # type: ignore
 
 mpl.rcParams["axes.grid"] = True
 
-RE.md["beamline_id"] = "IXS"
-RE.md["owner"] = "xf10id"
-RE.md["group"] = "ixs"
+RE.md["beamline_id"] = "IXS" # type: ignore
+RE.md["owner"] = "xf10id" # type: ignore
+RE.md["group"] = "ixs" # type: ignore
 
-from pyOlog.ophyd_tools import get_all_positioners
+from pyOlog.ophyd_tools import get_all_positioners # type: ignore
 
 
 def relabel_motors():
@@ -85,7 +85,7 @@ def relabel_motors():
 
 # ## Live specfile exporting
 import time
-from event_model import RunRouter
+from event_model import RunRouter # type: ignore
 # from suitcase.specfile import Serializer
 from utils.CustomSpecWriter import CustomSpecWriter
 from utils.CustomLivePlot import *
@@ -115,12 +115,12 @@ def my_spec_factory(name, doc):
 
     cb = CustomSpecWriter(
         filepath=filepath,
-        motor_groups=motor_groups,
+        motor_groups=motor_groups, # type: ignore
         motors_per_line=8,  # or 4 if you want #O0/#O1 splitting
         include_md_keys={"uid", "detectors", "motors", "num_points", "num_intervals", "plan_pattern", "plan_pattern_args"},
-        g0_items=g0_items,
-        g1_items=g1_items,
-        q_items=q_items,
+        g0_items=g0_items, # type: ignore
+        g1_items=g1_items, # type: ignore
+        q_items=q_items, # type: ignore
         # Optional: force x field to match your scanned axis naming conventions
         # x_field_resolver=...,
         # data_field_order=...,
@@ -133,8 +133,8 @@ def my_spec_factory(name, doc):
 my_spec_factory.enabled = True # Set to False to disable spec file writing without removing the callback
 
 # Check if the 'spec_file' key exists and is not empty
-if RE.md.get('spec_file'):
-    config_file = RE.md['spec_file']
+if RE.md.get('spec_file'): # type: ignore
+    config_file = RE.md['spec_file'] # type: ignore
     directory, prefix = os.path.split(config_file)
     prefix = os.path.splitext(prefix)[0]  # remove .spec if present
     my_spec_factory.directory = directory
@@ -147,5 +147,6 @@ else:
 
 # spec_router = RunRouter([spec_factory])
 # RE.subscribe(spec_router)
+
 spec_router = RunRouter([my_spec_factory])
 RE.subscribe(spec_router)
