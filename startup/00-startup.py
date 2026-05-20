@@ -73,7 +73,6 @@ mpl.rcParams["axes.grid"] = True
 RE.md["beamline_id"] = "IXS"
 RE.md["owner"] = "xf10id"
 RE.md["group"] = "ixs"
-RE.md = PersistentDict('/nsls2/data/ixs/shared/config/bluesky/profile_collection/md')
 
 from pyOlog.ophyd_tools import get_all_positioners
 
