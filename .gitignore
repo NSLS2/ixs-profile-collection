@@ -64,6 +64,9 @@ target/
 #Ipython Notebook
 .ipynb_checkpoints
 
+# Mac
+.DS_Store
+
 # emacs scratch
 *~
 
