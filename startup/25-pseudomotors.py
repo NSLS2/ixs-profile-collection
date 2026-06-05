@@ -95,7 +95,7 @@ class HRMEnergy(PseudoPositioner):
     def forward(self, pseudo_pos):
         energy = self._scalar(pseudo_pos.energy)
         _pos = -1.0*energy*np.tan(np.deg2rad(_TB))/_EB
-        _pos = self._scalar(_pos)
+        # _pos = self._scalar(_pos)
 
         # _pos = -1.0*pseudo_pos.energy*np.tan(np.deg2rad(_TB))/_EB
         return self.RealPosition(uof=_pos, dof=_pos)
@@ -103,7 +103,7 @@ class HRMEnergy(PseudoPositioner):
     def inverse(self, real_pos):
         uof = self._scalar(real_pos.uof)
         _energy = -1.0*_EB*uof/np.tan(np.deg2rad(_TB))
-        _energy = self._scalar(_energy)
+        # _energy = self._scalar(_energy)
 
         # _energy = -1.0*_EB*real_pos.uof/np.tan(np.deg2rad(_TB))
         return self.PseudoPosition(energy=_energy)

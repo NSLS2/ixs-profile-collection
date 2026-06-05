@@ -519,6 +519,14 @@ def ugap_setup():
 
 
 #*******************************************************************************************************
+def crl_setup():
+        res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, 1, det_ch=[4])
+        fmax = res[0].max
+        xmax = fmax[0]
+        yield from bps.mv(crl.y, xmax)
+
+
+#*******************************************************************************************************
 def dcm_setup():
     # Set the DCM position to max intensity
  
@@ -1190,10 +1198,10 @@ def Beamline_Setup_1():
     print("CRL setup")
     cont_opts = input('Do you want to proceed (yes): ')
     if cont_opts == "" or cont_opts == "yes":
-        res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, 1, det_ch=[4])
-        fmax = res[0].max
-        xmax = fmax[0]
-        yield from bps.mv(crl.y, xmax)
+        # res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, 1, det_ch=[4])
+        # fmax = res[0].max
+        # xmax = fmax[0]
+        yield from crl_setup()
         print("CRL setup is done")
         cont_opts = input('Do you want to continue (yes): ')
         if cont_opts != "" and cont_opts != "yes":
