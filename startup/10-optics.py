@@ -1,6 +1,7 @@
 from ophyd import (Device, Component as Cpt, EpicsMotor, PVPositioner,
                    FormattedComponent as FCpt)
 
+import threading
 
 # List of available EpicsMotor labels in this script
 # [dcm. hrm2, vfm, hfm, xymotor, ssa, table, pinhole, bpm1, bpm1_diag, bpm2, bpm2_diag]
@@ -108,6 +109,8 @@ class MCMBase(PVPositioner):
         super().__init__(prefix, **kwargs)
         self._counter = 0
 
+    MOVE_TIMEOUT = 3  # seconds before declaring success regardless of InPos
+
     @property
     def moving(self):
         return (self.done_value != all(self.done.get(use_monitor=False)))
@@ -126,7 +129,7 @@ class MCMBase(PVPositioner):
                     return True
 
             # Reactuate every 2 seconds
-            ttime.sleep(0.2)
+            ttime.sleep(1.0)
             if self._counter % 10 == 0:
                 # print(  "Trying to actuate again...")
                 # self.stop_signal.set(self.stop_value).wait()  # uncomment if you need to kill the motor and then actuate
@@ -135,6 +138,15 @@ class MCMBase(PVPositioner):
             return False
 
         st = SubscriptionStatus(self.global_in_pos, callback, run=False)
+
+        def _timeout_watcher():
+            if not st.done:
+                st._finished(success=True)
+
+        t = threading.Timer(self.MOVE_TIMEOUT, _timeout_watcher)
+        t.daemon = True
+        t.start()
+
         return st
 
 

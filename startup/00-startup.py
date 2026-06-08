@@ -142,7 +142,7 @@ if RE.md.get('spec_file'): # type: ignore
     # spec_factory.directory = directory
     # spec_factory.prefix = prefix
 else:
-    # spec_factory.prefix = "spec_test"
+    my_spec_factory.directory="/nsls2/data/ixs/legacy/specfiles"
     my_spec_factory.prefix = "spec_test"
 
 # spec_router = RunRouter([spec_factory])
