@@ -545,8 +545,6 @@ def dcm_setup():
     else:
         print("Scan did not return valid results. Motor not moved!")
 
-    return res
-
 
 #*******************************************************************************************************
 def mcm_setup_prep():
