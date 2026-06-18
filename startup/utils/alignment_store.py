@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import datetime
+import sys
 from dataclasses import dataclass, field, asdict, fields
 from pathlib import Path
 from typing import Optional, Any
@@ -61,6 +62,18 @@ class _NumpyEncoder(json.JSONEncoder):
         except ImportError:
             pass
         return super().default(obj)
+
+
+# ---------------------------------------------------------------------------
+# ANSI colour constants (used only in comparison_summary)
+# Applied conditionally — only when stdout is a tty.
+# ---------------------------------------------------------------------------
+
+_ANSI_RESET       = "\033[0m"
+_ANSI_RED         = "\033[31m"
+_ANSI_GREEN       = "\033[32m"
+_ANSI_YELLOW      = "\033[33m"
+_ANSI_BOLD_YELLOW = "\033[1;33m"
 
 
 # ---------------------------------------------------------------------------
@@ -128,36 +141,54 @@ class AlignmentRecord:
 
     def comparison_summary(self) -> str:
         """Human-readable summary for logging / printout."""
+        _col = sys.stdout.isatty()
+
+        def _c(code: str, text: str) -> str:
+            return f"{code}{text}{_ANSI_RESET}" if _col else text
+
+        # Separator colour depends on comparison result
+        if self.comparison_status == "ok":
+            sep_colour = (
+                _ANSI_GREEN if self.delta_intensity >= 0 else _ANSI_RED
+            )
+        else:
+            sep_colour = _ANSI_YELLOW
+
+        SEP = _c(sep_colour, "─" * 50) if _col else "-" * 50
+
         cond = (
             f"CRL={self.crl_state}  HRM={self.hrm_state}  "
             f"ring={self.ring_current_mode}"
         )
         lines = [
+            SEP,
             f"[{self.instrument}/{self.step}]  "
             f"max_intensity = {self.max_intensity:.4g}  "
             f"({cond})",
         ]
         if self.comparison_status == "ok":
             arrow = "▲" if self.delta_intensity >= 0 else "▼"
-            lines.append(
+            colour = _ANSI_GREEN if self.delta_intensity >= 0 else _ANSI_RED
+            lines.append(_c(colour,
                 f"  {arrow} vs previous best: {self.prev_max_intensity:.4g}  "
                 f"Δ = {self.delta_intensity:+.4g}  ({self.delta_pct:+.2f}%)"
-            )
+            ))
             if self.is_new_best:
-                lines.append("  ★ NEW BEST")
+                lines.append(_c(_ANSI_BOLD_YELLOW, "  ★ NEW BEST"))
         elif self.comparison_status == "first_record":
-            lines.append(
+            lines.append(_c(_ANSI_YELLOW,
                 "  (first record for this instrument/step/conditions)"
-            )
+            ))
         else:  # "no_comparable_record"
-            lines.append(
-                "  (no comparable record — conditions differ from all prior records; "
-                "see WARNING above)"
-            )
+            lines.append(_c(_ANSI_YELLOW,
+                "  (no comparable record — conditions differ from all "
+                "prior records; see WARNING above)"
+            ))
         if self.fwhm is not None:
             lines.append(
                 f"  fwhm={self.fwhm:.4g}  cen={self.cen:.4g}  com={self.com:.4g}"
             )
+        lines.append(SEP)
         return "\n".join(lines)
 
 
