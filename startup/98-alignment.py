@@ -222,6 +222,47 @@ def _check_whl_at(target: float, tol: float = 0.1):
     return _check
 
 
+def _check_whl_for_mcm() -> tuple[bool, str]:
+    """
+    whl position for MCM scan depends on HRM state:
+      HRM OUT -> whl must be at 2 (±0.1)
+      HRM IN  -> whl must be at 0 (±0.1)
+    Aborts if HRM state cannot be read.
+    """
+    _TOL = 0.1
+    hrm_state = _read_hrm_state()
+    if hrm_state == "unknown":
+        return False, (
+            "Could not read HRM state — cannot determine required "
+            "whl position for MCM scan."
+        )
+    target = 2 if hrm_state == "out" else 0
+    try:
+        pos = whl.position
+        if abs(pos - target) > _TOL:
+            return False, (
+                f"whl = {pos:.3f} (HRM is {hrm_state}, "
+                f"must be at {target:+.0f} ± {_TOL})."
+            )
+        return True, ""
+    except Exception as exc:
+        return False, f"Could not read whl: {exc}."
+
+
+def _check_det2_em_range_0() -> tuple[bool, str]:
+    """det2.em_range must be set to 0."""
+    try:
+        val = det2.em_range.get()
+        if int(val) != 0:
+            return False, (
+                f"det2.em_range = {val} (must be 0). "
+                "Run: det2.em_range.set(0)"
+            )
+        return True, ""
+    except Exception as exc:
+        return False, f"Could not read det2.em_range: {exc}."
+
+
 def _make_slit_check(targets: dict[str, float], tol: float = 0.1):
     """
     Return a check function that verifies analyzer_slits are at *targets*
@@ -320,7 +361,7 @@ _SCAN_REGISTRY: dict[str, dict] = {
         step       = "p1_scan",
         det_label  = "tm1",
         mot_label  = "dcm.p1",
-        checks     = [],
+        checks     = [_check_hrm_out],
     ),
     "crl": dict(
         motor      = lambda: crl.y,
@@ -354,7 +395,8 @@ _SCAN_REGISTRY: dict[str, dict] = {
         det_label  = "det2",
         mot_label  = "mcm.y",
         checks     = [_check_anc_xtal_y_low,
-                      _check_slits_open],
+                      _check_slits_open,
+                      _check_whl_for_mcm],
     ),
     "hrm": dict(
         motor      = lambda: hrm2.dif,
@@ -381,7 +423,8 @@ _SCAN_REGISTRY: dict[str, dict] = {
                       _check_slits_narrow,
                       _check_anpd_at(40),
                       _check_whl_at(0),
-                      _check_hrm_out],
+                      _check_hrm_out,
+                      _check_det2_em_range_0],
     ),
     "wcr": dict(
         motor      = lambda: analyzer.wfth,

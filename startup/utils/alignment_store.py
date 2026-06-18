@@ -41,6 +41,29 @@ import bluesky.plan_stubs as bps   # only needed for record_alignment()
 
 
 # ---------------------------------------------------------------------------
+# JSON encoder that handles numpy scalar types
+# ---------------------------------------------------------------------------
+
+class _NumpyEncoder(json.JSONEncoder):
+    """
+    Extend the standard JSON encoder to handle numpy scalar types that
+    arrive from scan statistics (PeakStats returns numpy floats/bools).
+    """
+    def default(self, obj):
+        try:
+            import numpy as np
+            if isinstance(obj, np.integer):
+                return int(obj)
+            if isinstance(obj, np.floating):
+                return float(obj)
+            if isinstance(obj, np.bool_):
+                return bool(obj)
+        except ImportError:
+            pass
+        return super().default(obj)
+
+
+# ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
 
@@ -334,7 +357,7 @@ class AlignmentStore:
                 100.0 * record.delta_intensity / best.max_intensity
                 if best.max_intensity != 0 else 0.0
             )
-            record.is_new_best       = record.max_intensity > best.max_intensity
+            record.is_new_best       = bool(record.max_intensity > best.max_intensity)
             record.comparison_status = "ok"
             return
 
@@ -382,7 +405,7 @@ class AlignmentStore:
 
     def _write_jsonl(self, record: AlignmentRecord) -> None:
         with self.jsonl_path.open("a") as fh:
-            fh.write(json.dumps(record.to_dict()) + "\n")
+            fh.write(json.dumps(record.to_dict(), cls=_NumpyEncoder) + "\n")
 
     def _read_all_jsonl(self) -> list[AlignmentRecord]:
         if not self.jsonl_path.exists():
