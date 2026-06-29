@@ -263,6 +263,21 @@ def _check_det2_em_range_0() -> tuple[bool, str]:
         return False, f"Could not read det2.em_range: {exc}."
 
 
+def _check_bpm1_y_at_zero() -> tuple[bool, str]:
+    """bpm1.y must be near 0 (within ±0.1 mm)."""
+    _TARGET = 0.0
+    _TOL    = 0.1
+    try:
+        pos = bpm1.y.position
+        if abs(pos - _TARGET) > _TOL:
+            return False, (
+                f"bpm1.y = {pos:.3f} mm (must be at {_TARGET} ± {_TOL} mm)."
+            )
+        return True, ""
+    except Exception as exc:
+        return False, f"Could not read bpm1.y: {exc}."
+
+
 def _make_slit_check(targets: dict[str, float], tol: float = 0.1):
     """
     Return a check function that verifies analyzer_slits are at *targets*
@@ -361,7 +376,7 @@ _SCAN_REGISTRY: dict[str, dict] = {
         step       = "p1_scan",
         det_label  = "tm1",
         mot_label  = "dcm.p1",
-        checks     = [_check_hrm_out],
+        checks     = [_check_hrm_out, _check_bpm1_y_at_zero],
     ),
     "crl": dict(
         motor      = lambda: crl.y,
@@ -372,7 +387,7 @@ _SCAN_REGISTRY: dict[str, dict] = {
         step       = "y_scan",
         det_label  = "tm1",
         mot_label  = "crl.y",
-        checks     = [_check_crl_in],
+        checks     = [_check_crl_in, _check_bpm1_y_at_zero],
     ),
     "ugap": dict(
         motor      = lambda: ivu22,
@@ -383,7 +398,7 @@ _SCAN_REGISTRY: dict[str, dict] = {
         step       = "gap_scan",
         det_label  = "tm1",
         mot_label  = "ivu22",
-        checks     = [],
+        checks     = [_check_bpm1_y_at_zero],
     ),
     "mcm": dict(
         motor      = lambda: mcm.y,
@@ -396,7 +411,8 @@ _SCAN_REGISTRY: dict[str, dict] = {
         mot_label  = "mcm.y",
         checks     = [_check_anc_xtal_y_low,
                       _check_slits_open,
-                      _check_whl_for_mcm],
+                      _check_whl_for_mcm,
+                      _check_bpm1_y_at_zero],
     ),
     "hrm": dict(
         motor      = lambda: hrm2.dif,
@@ -408,7 +424,8 @@ _SCAN_REGISTRY: dict[str, dict] = {
         det_label  = "det5",
         mot_label  = "hrm2.dif",
         checks     = [_check_hrm_d5_at_2,
-                      _check_hrm_in],
+                      _check_hrm_in,
+                      _check_bpm1_y_at_zero],
     ),
     "ccr": dict(
         motor      = lambda: analyzer.cfth,
@@ -424,7 +441,8 @@ _SCAN_REGISTRY: dict[str, dict] = {
                       _check_anpd_at(40),
                       _check_whl_at(0),
                       _check_hrm_out,
-                      _check_det2_em_range_0],
+                      _check_det2_em_range_0,
+                      _check_bpm1_y_at_zero],
     ),
     "wcr": dict(
         motor      = lambda: analyzer.wfth,
@@ -438,7 +456,8 @@ _SCAN_REGISTRY: dict[str, dict] = {
         checks     = [_check_anpd_at(-90),
                       _check_whl_at(7),
                       _check_slits_narrow,
-                      _check_hrm_out],
+                      _check_hrm_out,
+                      _check_bpm1_y_at_zero],
     ),
 }
 
