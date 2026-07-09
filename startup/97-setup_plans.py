@@ -15,6 +15,28 @@ import re
 #from utils.sixcircle_1p53.sixcircle import *
 
 #*******************************************************************************************************
+# AH17x picoammeter detector names eligible for ValuesPerRead/AveragingTime control
+_AH_DET_NAMES = frozenset({'det1', 'det2', 'det3', 'det4', 'det5'})
+
+
+def _get_ah_scan_dets(primary_det):
+    """Return the list of AH17x detector objects to configure for a scan.
+
+    det1 is always included: det134 shares its hardware and participates
+    in every ascan dets list; det1 is also always physically acquiring
+    during dscan.
+
+    The primary detector is appended if it is det2, det3, det4, or det5.
+    If the primary detector is det1 it is already covered.
+    tm1/tm2 are excluded (managed separately if needed).
+    """
+    targets = [det1]
+    if primary_det.name in (_AH_DET_NAMES - {'det1'}):
+        targets.append(primary_det)
+    return targets
+
+
+#*******************************************************************************************************
 # opens a Matplotlib figure with axes
 # plt.ion()  # enable interactive mode
 myfig, myaxs = plt.subplots(figsize=(8,5), num="Live Scan", clear=False)
@@ -177,10 +199,23 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
         det_ch = [0]
 
     dets = [det, det134, sclr.channels.chan13, sr_curr]
+    # dets = [det, sclr.channels.chan13, sr_curr]
 
     # apply exposure if detector is lambda_det
     if getattr(det, "name", None) == "lambda_det":
         yield from set_lambda_exposure(ct)
+
+    # --- AH501D picoammeter pre-configuration ---
+    _ah_dets = _get_ah_scan_dets(det)
+    _ah_old = {d.name: (d.values_per_read.get(), d.averaging_time.get())
+               for d in _ah_dets}
+    md["ah501d_config"] = {
+        "values_per_read": 1,
+        "averaging_time": ct,
+        "detectors_configured": [d.name for d in _ah_dets],
+    }
+    for _d in _ah_dets:
+        yield from bps.mv(_d.values_per_read, 1, _d.averaging_time, ct)
 
     # resolve actual event-data field names to plot/stat
     y_fields = select_detector_fields(det, det_ch)
@@ -210,6 +245,14 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
         bp.rel_scan(dets, mot, start, stop, steps, md=md),
         subs_list,
     )
+
+    # --- AH501D restore wrapper (runs even on failure/interrupt) ---
+    def _restore_ah():
+        for _d in _ah_dets:
+            _vpr, _avg = _ah_old[_d.name]
+            yield from bps.mv(_d.values_per_read, _vpr, _d.averaging_time, _avg)
+
+    plan = bpp.finalize_wrapper(plan, _restore_ah())
 
     yield from plan
 
@@ -294,6 +337,18 @@ def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     if getattr(det, "name", None) == "lambda_det":
         yield from set_lambda_exposure(ct)
 
+    # --- AH501D picoammeter pre-configuration ---
+    _ah_dets = _get_ah_scan_dets(det)
+    _ah_old = {d.name: (d.values_per_read.get(), d.averaging_time.get())
+               for d in _ah_dets}
+    md["ah501d_config"] = {
+        "values_per_read": 1,
+        "averaging_time": ct,
+        "detectors_configured": [d.name for d in _ah_dets],
+    }
+    for _d in _ah_dets:
+        yield from bps.mv(_d.values_per_read, 1, _d.averaging_time, ct)
+
     # resolve actual event-data field names to plot/stat
     y_fields = select_detector_fields(det, det_ch)
     if not y_fields:
@@ -324,6 +379,14 @@ def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
         bp.scan(dets, mot, start, stop, steps, md=md),
         subs_list,
     )
+
+    # --- AH501D restore wrapper (runs even on failure/interrupt) ---
+    def _restore_ah():
+        for _d in _ah_dets:
+            _vpr, _avg = _ah_old[_d.name]
+            yield from bps.mv(_d.values_per_read, _vpr, _d.averaging_time, _avg)
+
+    plan = bpp.finalize_wrapper(plan, _restore_ah())
 
     yield from plan
 
