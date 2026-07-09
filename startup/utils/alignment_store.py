@@ -31,6 +31,7 @@ Usage inside a Bluesky plan
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import datetime
 import sys
@@ -359,6 +360,61 @@ class AlignmentStore:
         conn.commit()
         conn.close()
         return target
+
+    def delete_record(self, record: AlignmentRecord) -> bool:
+        """
+        Remove a single record from the JSONL file and the SQLite mirror,
+        then rebuild the in-memory best table.
+
+        The record is matched by (timestamp, scan_id, instrument, step).
+        The JSONL is rewritten atomically via a temporary file so that a
+        crash mid-write cannot corrupt the log.
+
+        Returns
+        -------
+        bool
+            True if the record was found and removed; False if no match
+            was found (neither file is modified in that case).
+        """
+        match_key = (
+            str(record.timestamp),
+            str(record.scan_id),
+            record.instrument,
+            record.step,
+        )
+
+        all_records = self._read_all_jsonl()
+        survivors = [
+            r for r in all_records
+            if (str(r.timestamp), str(r.scan_id), r.instrument, r.step) != match_key
+        ]
+
+        if len(survivors) == len(all_records):
+            return False   # nothing matched
+
+        # --- atomic JSONL rewrite -------------------------------------------
+        tmp = self.jsonl_path.with_suffix(".jsonl.tmp")
+        with tmp.open("w") as fh:
+            for r in survivors:
+                fh.write(json.dumps(r.to_dict(), cls=_NumpyEncoder) + "\n")
+        os.rename(tmp, self.jsonl_path)
+
+        # --- SQLite: targeted DELETE -----------------------------------------
+        if self.sqlite_path and self.sqlite_path.exists():
+            conn = sqlite3.connect(self.sqlite_path)
+            conn.execute(
+                f"DELETE FROM {self.TABLE} "
+                "WHERE timestamp=? AND scan_id=? AND instrument=? AND step=?",
+                match_key,
+            )
+            conn.commit()
+            conn.close()
+
+        # --- rebuild in-memory best table ------------------------------------
+        self._best.clear()
+        self._load_history()
+
+        return True
 
     # ------------------------------------------------------------------
     # Internal helpers

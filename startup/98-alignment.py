@@ -612,6 +612,172 @@ def print_best(instrument: str, step: str,
 
 
 def print_history(instrument: str | None = None,
-                  step:       str | None = None):
+                   step:       str | None = None):
     """Tabular printout of all (or filtered) historical records."""
     print(store.report(instrument=instrument, step=step))
+
+
+# ---------------------------------------------------------------------------
+# Interactive log manager
+# ---------------------------------------------------------------------------
+
+_PAGE_SIZE = 20   # rows shown per page
+
+
+def manage_alignment_log(instrument: str | None = None):
+    """
+    Interactive browser and editor for the alignment log.
+
+    Displays records in pages of 20.  At each page the operator can move
+    to the next or previous page, delete a record by its displayed number,
+    or quit.
+
+    Parameters
+    ----------
+    instrument : str or None
+        If given, only records for that instrument are shown
+        (e.g. ``"dcm"``, ``"crl"``).  Pass nothing to browse all records.
+
+    Examples
+    --------
+        manage_alignment_log()
+        manage_alignment_log("dcm")
+    """
+    def _load():
+        return store.history(instrument=instrument)
+
+    def _fmt_row(idx: int, r) -> str:
+        fwhm_s  = f"{r.fwhm:.4g}"  if r.fwhm  is not None else "—"
+        ring_s  = r.ring_current_mode
+        return (
+            f"{idx:>3}  {r.timestamp:<20}  {r.instrument:<10}  "
+            f"{r.step:<15}  {r.max_intensity:>13.4g}  "
+            f"{fwhm_s:>8}  {r.crl_state or '—':>5}  "
+            f"{r.hrm_state or '—':>5}  {ring_s:>6}"
+        )
+
+    _HDR = (
+        f"{'#':>3}  {'timestamp':<20}  {'instrument':<10}  "
+        f"{'step':<15}  {'max_intensity':>13}  "
+        f"{'fwhm':>8}  {'CRL':>5}  {'HRM':>5}  {'ring':>6}"
+    )
+    _SEP = "-" * len(_HDR)
+
+    records = _load()
+    if not records:
+        label = f"instrument='{instrument}'" if instrument else "all instruments"
+        print(f"No alignment records found for {label}.")
+        return
+
+    page = 0
+
+    while True:
+        total   = len(records)
+        n_pages = max(1, (total + _PAGE_SIZE - 1) // _PAGE_SIZE)
+        start   = page * _PAGE_SIZE
+        end     = min(start + _PAGE_SIZE, total)
+        page_records = records[start:end]
+
+        print()
+        label = f"  instrument='{instrument}'" if instrument else "  all instruments"
+        print(f"Alignment log —{label}   "
+              f"page {page + 1}/{n_pages}   "
+              f"records {start + 1}–{end} of {total}")
+        print(_SEP)
+        print(_HDR)
+        print(_SEP)
+        for i, r in enumerate(page_records, start=start + 1):
+            print(_fmt_row(i, r))
+        print(_SEP)
+
+        has_next = page < n_pages - 1
+        has_prev = page > 0
+        nav = []
+        if has_next:
+            nav.append("[n]ext")
+        if has_prev:
+            nav.append("[p]rev")
+        nav.append("[d]elete <#>")
+        nav.append("[q]uit")
+        prompt = "  ".join(nav) + "  > "
+
+        try:
+            raw = input(prompt).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+
+        if raw in ("q", "quit", "exit"):
+            break
+
+        elif raw in ("n", "next"):
+            if has_next:
+                page += 1
+            else:
+                print("  Already on the last page.")
+
+        elif raw in ("p", "prev", "previous"):
+            if has_prev:
+                page -= 1
+            else:
+                print("  Already on the first page.")
+
+        elif raw.startswith(("d ", "del ", "delete ")):
+            # parse the record number
+            parts = raw.split(None, 1)
+            try:
+                num = int(parts[1])
+            except (IndexError, ValueError):
+                print("  Usage: d <number>   e.g.  d 3")
+                continue
+
+            if num < 1 or num > total:
+                print(f"  Number out of range (1–{total}).")
+                continue
+
+            target = records[num - 1]
+            print()
+            print(f"  Record #{num}:")
+            print(f"    timestamp   : {target.timestamp}")
+            print(f"    scan_id     : {target.scan_id}")
+            print(f"    instrument  : {target.instrument}")
+            print(f"    step        : {target.step}")
+            print(f"    max_intensity: {target.max_intensity:.4g}")
+            print(f"    fwhm        : {target.fwhm}")
+            print(f"    CRL={target.crl_state}  HRM={target.hrm_state}  "
+                  f"ring={target.ring_current_mode}")
+            if target.note:
+                print(f"    note        : {target.note}")
+            print()
+
+            try:
+                answer = input(
+                    f"  Delete record #{num} "
+                    f"({target.instrument}/{target.step} @ {target.timestamp})? "
+                    "[y/N]  > "
+                ).strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                break
+
+            if answer == "y":
+                removed = store.delete_record(target)
+                if removed:
+                    print(f"  Deleted record #{num}.")
+                else:
+                    print("  Record not found in log — nothing deleted.")
+                # reload and clamp page to valid range
+                records = _load()
+                total   = len(records)
+                n_pages = max(1, (total + _PAGE_SIZE - 1) // _PAGE_SIZE)
+                if page >= n_pages:
+                    page = n_pages - 1
+                if not records:
+                    print("  Log is now empty.")
+                    break
+            else:
+                print("  Deletion cancelled.")
+
+        else:
+            if raw:
+                print("  Commands:  n  p  d <#>  q")
