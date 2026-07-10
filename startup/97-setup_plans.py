@@ -15,20 +15,21 @@ import re
 #from utils.sixcircle_1p53.sixcircle import *
 
 #*******************************************************************************************************
-# AH17x picoammeter detector names eligible for ValuesPerRead/AveragingTime control
-_AH_DET_NAMES = frozenset({'det1', 'det2', 'det3', 'det4', 'det5'})
+# Detector names eligible for ValuesPerRead/AveragingTime auto-configuration.
+# Includes AH17x picoammeters (det1-det5) and TetrAMM (tm1).
+_AH_DET_NAMES = frozenset({'det1', 'det2', 'det3', 'det4', 'det5', 'tm1'})
 
 
 def _get_ah_scan_dets(primary_det):
-    """Return the list of AH17x detector objects to configure for a scan.
+    """Return the list of detector objects to configure for a scan.
 
     det1 is always included: det134 shares its hardware and participates
     in every ascan dets list; det1 is also always physically acquiring
     during dscan.
 
-    The primary detector is appended if it is det2, det3, det4, or det5.
-    If the primary detector is det1 it is already covered.
-    tm1/tm2 are excluded (managed separately if needed).
+    The primary detector is appended if it is det2, det3, det4, det5,
+    or tm1. If the primary detector is det1 it is already covered.
+    tm2 is excluded and can be added to _AH_DET_NAMES if needed.
     """
     targets = [det1]
     if primary_det.name in (_AH_DET_NAMES - {'det1'}):
