@@ -46,6 +46,19 @@ def _format_spec_command(start):
                 return f"{pn} {m} {start_val} {stop_val} {num} {ct}"
             return f"{pn} {m} {start_val} {stop_val} {num}"
 
+        # Multi-motor grid scan (rel_grid_scan / grid_scan).
+        # plan_args["args"] layout: [m1_repr, start1, stop1, num1, m2_repr, start2, stop2, num2, ...]
+        # A trailing snake_axes bool (positional in older Bluesky) is safely ignored.
+        if len(motors) >= 2 and len(args) >= len(motors) * 4:
+            pieces = [pn]
+            for i, m in enumerate(motors):
+                base = i * 4
+                pieces.append(f"{m} {args[base + 1]} {args[base + 2]} {args[base + 3]}")
+            ct = start.get("count_time", pa.get("per_step", None))
+            if isinstance(ct, (int, float)) and ct >= 0:
+                pieces.append(_fmt(ct))
+            return " ".join(pieces)
+
     # Fallback: short summary, no giant repr
     pieces = [pn]
     if motors:
