@@ -1153,7 +1153,7 @@ def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
     
     """
 
-    spec_factory.prefix = "mesh_scan"
+    # spec_factory.prefix = "mesh_scan"
     yield from bps.mv(whl, whl_pos, spec.tth, 0)
     yield from bps.mv(analyzer_slits.top, 0.01, analyzer_slits.bottom, -0.01, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
     yield from bps.mv(mcm_slits.outboard, 1.0, mcm_slits.inboard, -1.0)

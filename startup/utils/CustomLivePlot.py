@@ -279,3 +279,190 @@ class CustomLivePlot(QtAwareCallback):
 def select_detector_fields(det, channels=[0]):
     hinted = list(det.hints["fields"])
     return [hinted[i] for i in channels]
+
+
+class CustomLiveMesh(QtAwareCallback):
+    """
+    Live 2-D scatter plot for selected detector channels during a mesh scan.
+
+    One subplot is created per field in *y_fields*.  The subplot layout is
+    rebuilt each scan (``fig.clf()`` is called in ``start()``), so the number
+    of subplots adapts dynamically.
+
+    Parameters
+    ----------
+    y_fields : list[str]
+        Event-data field names to plot (one subplot each).
+    outer_field : str
+        Event-data field name for the slow (outer) motor — plotted on the
+        y-axis.
+    inner_field : str
+        Event-data field name for the fast (inner) motor — plotted on the
+        x-axis.
+    fig : matplotlib.figure.Figure
+        Persistent figure (e.g. ``mymeshfig``).  Required.
+    legend_keys : dict[str, str], optional
+        Map field name -> subplot title / label.
+    stream_name : str, optional
+        Stream to listen to.  Default ``'primary'``.
+    clear_on_start : bool, optional
+        If True (default), call ``fig.clf()`` at the start of each scan.
+    update_every : int, optional
+        Redraw every N accepted events.  Default 10.
+    cmap : str, optional
+        Matplotlib colormap name.  Default ``'viridis'``.
+    title : str, optional
+        Figure suptitle.
+    """
+
+    def __init__(
+        self,
+        y_fields,
+        outer_field,
+        inner_field,
+        *,
+        fig,
+        legend_keys=None,
+        stream_name="primary",
+        clear_on_start=True,
+        update_every=10,
+        cmap="viridis",
+        title="Live Mesh Scan",
+        use_teleporter=None,
+    ):
+        super().__init__(use_teleporter=use_teleporter)
+
+        if fig is None:
+            raise ValueError("fig must be a persistent matplotlib Figure")
+
+        self.y_fields = list(y_fields)
+        self.outer_field = outer_field
+        self.inner_field = inner_field
+        self.fig = fig
+        self.legend_keys = legend_keys or {}
+        self.stream_name = stream_name
+        self.clear_on_start = clear_on_start
+        self.update_every = max(1, int(update_every))
+        self.cmap = cmap
+        self.title = title
+
+        self._descriptor_uids = set()
+        self._inner_data = {}
+        self._outer_data = {}
+        self._z_data = {}
+        self._scatters = {}
+        self._axes = {}
+        self._colorbars = {}
+        self._event_count = 0
+
+    # ------------------------------------------------------------------
+    def start(self, doc):
+        self._descriptor_uids.clear()
+        self._inner_data = {f: [] for f in self.y_fields}
+        self._outer_data = {f: [] for f in self.y_fields}
+        self._z_data = {f: [] for f in self.y_fields}
+        self._scatters = {}
+        self._axes = {}
+        self._colorbars = {}
+        self._event_count = 0
+
+        if self.clear_on_start:
+            self.fig.clf()
+
+        n = max(len(self.y_fields), 1)
+        for i, field in enumerate(self.y_fields):
+            ax = self.fig.add_subplot(1, n, i + 1)
+            self._axes[field] = ax
+
+            label = self.legend_keys.get(field, field)
+            sc = ax.scatter([], [], c=np.array([]), cmap=self.cmap, s=4)
+            sc.set_clim(0, 1)          # prevent warnings on empty scatter
+            self._scatters[field] = sc
+
+            ax.set_xlabel(self.inner_field)
+            ax.set_ylabel(self.outer_field)
+            ax.set_title(label)
+
+        self.fig.suptitle(self.title)
+        self._draw()
+
+    # ------------------------------------------------------------------
+    def descriptor(self, doc):
+        if doc.get("name") == self.stream_name:
+            self._descriptor_uids.add(doc["uid"])
+
+    # ------------------------------------------------------------------
+    def event(self, doc):
+        if doc.get("descriptor") not in self._descriptor_uids:
+            return
+
+        data = doc.get("data", {})
+        if self.inner_field not in data or self.outer_field not in data:
+            return
+
+        inner_val = data[self.inner_field]
+        outer_val = data[self.outer_field]
+
+        for field in self.y_fields:
+            self._inner_data[field].append(inner_val)
+            self._outer_data[field].append(outer_val)
+            self._z_data[field].append(data.get(field, np.nan))
+
+        self._event_count += 1
+
+        if self._event_count % self.update_every == 0:
+            self._update_plots()
+            self._draw()
+
+    # ------------------------------------------------------------------
+    def stop(self, doc):
+        self._update_plots()
+
+        # Add colorbars on scan completion (once per field)
+        for field in self.y_fields:
+            if field not in self._colorbars and field in self._scatters:
+                sc = self._scatters[field]
+                ax = self._axes[field]
+                try:
+                    cb = self.fig.colorbar(sc, ax=ax)
+                    self._colorbars[field] = cb
+                except Exception:
+                    pass
+
+        self._draw()
+
+    # ------------------------------------------------------------------
+    def _update_plots(self):
+        for field in self.y_fields:
+            inner = np.asarray(self._inner_data[field], dtype=float)
+            outer = np.asarray(self._outer_data[field], dtype=float)
+            z = np.asarray(self._z_data[field], dtype=float)
+
+            if len(inner) == 0:
+                continue
+
+            sc = self._scatters[field]
+            ax = self._axes[field]
+
+            sc.set_offsets(np.c_[inner, outer])
+            sc.set_array(z)
+
+            valid_z = z[np.isfinite(z)]
+            if len(valid_z) >= 1:
+                zmin, zmax = float(valid_z.min()), float(valid_z.max())
+                if zmin < zmax:
+                    sc.set_clim(zmin, zmax)
+
+            def _lim(arr):
+                lo, hi = float(arr.min()), float(arr.max())
+                span = hi - lo
+                margin = 0.05 * span if span > 0 else 0.5
+                return lo - margin, hi + margin
+
+            ax.set_xlim(*_lim(inner))
+            ax.set_ylim(*_lim(outer))
+
+    # ------------------------------------------------------------------
+    def _draw(self):
+        self.fig.canvas.draw_idle()
+        self.fig.canvas.flush_events()
