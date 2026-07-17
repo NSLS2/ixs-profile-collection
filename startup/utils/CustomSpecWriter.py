@@ -271,6 +271,11 @@ class CustomSpecWriter(CallbackBase):
         self._primary_desc = None
         self._primary_desc_uid = None
 
+        # Column layout cached by descriptor() and consumed by event()
+        self._x_field = None
+        self._extra_motor_fields = []   # non-x scanned motors, in start["motors"] order
+        self._y_fields_ordered = []     # detector / other fields, motors already removed
+
         # Flatten motor list and names in SPEC order
         self._motors = []
         self._motor_names = []
@@ -408,8 +413,22 @@ class CustomSpecWriter(CallbackBase):
         # Build #N/#L
         x = self.x_field_resolver(self._start, doc, {})
         y_fields = self.data_field_order(self._start, doc)
-        # Provide APS-like Epoch_float and Epoch columns
-        col_labels = [x, "Epoch_float", "Epoch"] + y_fields
+
+        # For multi-motor scans (grid_scan / rel_grid_scan): promote all
+        # scanned motors that are not x to immediately after x, before
+        # Epoch_float / Epoch / detector fields.  Preserves start["motors"]
+        # order (outer first → inner last for a 2-motor scan).
+        scan_motors = list(self._start.get("motors", []))
+        extra_motors = [m for m in scan_motors
+                        if m != x and m in doc.get("data_keys", {})]
+        non_motor_y  = [f for f in y_fields if f not in extra_motors]
+
+        # Cache for use in event()
+        self._x_field            = x
+        self._extra_motor_fields = extra_motors
+        self._y_fields_ordered   = non_motor_y
+
+        col_labels = [x] + extra_motors + ["Epoch_float", "Epoch"] + non_motor_y
         self._fh.write(f"#N {len(col_labels)}\n")
         self._fh.write("#L " + "  ".join(col_labels) + "\n")
         if self.flush:
@@ -419,21 +438,22 @@ class CustomSpecWriter(CallbackBase):
         if doc.get("descriptor") != self._primary_desc_uid:
             return
 
-        # Determine x and y fields
-        x = self.x_field_resolver(self._start, self._primary_desc, doc)
         data = doc.get("data", {})
-        ts = doc.get("time", time.time())
+        ts   = doc.get("time", time.time())
 
-        x_val = doc.get("seq_num") if x == "seq_num" else data.get(x, doc.get("seq_num"))
-        epoch_float = float(ts)
-        epoch_int = int(ts)
+        # x column
+        x_val = (doc.get("seq_num")
+                 if self._x_field == "seq_num"
+                 else data.get(self._x_field, doc.get("seq_num")))
 
-        y_fields = self.data_field_order(self._start, self._primary_desc)
-        y_vals = [data.get(k, "") for k in y_fields]
+        # Build row in the order established by descriptor():
+        #   x | extra_motors... | Epoch_float | Epoch | y_fields...
+        parts  = [_fmt(x_val)]
+        parts += [_fmt(data.get(m, "")) for m in self._extra_motor_fields]
+        parts += [_fmt(float(ts)), str(int(ts))]
+        parts += [_fmt(data.get(k, "")) for k in self._y_fields_ordered]
 
-        self._fh.write(
-            f"{_fmt(x_val)}  {_fmt(epoch_float)}  {epoch_int}  " + "  ".join(_fmt(v) for v in y_vals) + "\n"
-        )
+        self._fh.write("  ".join(parts) + "\n")
         if self.flush:
             self._fh.flush()
 
