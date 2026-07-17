@@ -37,9 +37,10 @@ def _get_ah_scan_dets(primary_det):
 
 
 #*******************************************************************************************************
-# Persistent figure for 1-D scan display.
+# Persistent figure shared by 1-D and 2-D scan display.
 # plt and the Qt event loop are already initialised by 00-startup.py.
-myfig, myaxs = plt.subplots(figsize=(8, 5), num="Live Scan", clear=False)
+# (10, 6) is wide enough for multi-subplot mesh layouts and comfortable for 1-D lines.
+myfig = plt.figure(figsize=(10, 6), num="Live Scan", clear=False)
 myfig.canvas.manager.set_window_title("Live Scan")
 myfig.show()
 myfig.canvas.draw_idle()
@@ -179,7 +180,7 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     liveplot_cb = CustomLivePlot(
         y_fields=y_fields,
         x=mot.name,
-        ax=myaxs,
+        fig=myfig,
         legend_keys=legend_keys,
         clear_on_start=True,
         show_stats=True,
@@ -277,7 +278,7 @@ def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     liveplot_cb = CustomLivePlot(
         y_fields=y_fields,
         x=mot.name,
-        ax=myaxs,
+        fig=myfig,
         legend_keys=legend_keys,
         clear_on_start=True,
         show_stats=True,
@@ -312,14 +313,6 @@ def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
         print("\n")
 
     return stats_list
-
-#*******************************************************************************************************
-# Persistent figure for 2-D mesh scan display.
-mymeshfig = plt.figure(figsize=(10, 6), num="Live Mesh Scan", clear=False)
-mymeshfig.canvas.manager.set_window_title("Live Mesh Scan")
-mymeshfig.show()
-mymeshfig.canvas.draw_idle()
-mymeshfig.canvas.flush_events()
 
 #*******************************************************************************************************
 def mesh_stats_print(field, slow_name, fast_name, table):
@@ -423,15 +416,17 @@ def dmeshscan(slow_mot, slow_start, slow_stop, slow_steps,
     y_fields = select_detector_fields(det, det_ch)
     legend_keys = {f: short_label(f) for f in y_fields}
 
-    # Live 2-D scatter callback
+    # Live 2-D image callback
     meshplot_cb = CustomLiveMesh(
         y_fields=y_fields,
         outer_field=slow_mot.name,
         inner_field=fast_mot.name,
-        fig=mymeshfig,
+        slow_steps=slow_steps,
+        fast_steps=fast_steps,
+        fig=myfig,
         legend_keys=legend_keys,
         clear_on_start=True,
-        update_every=10,
+        update_every=1,
         title=f"{det.name}: {slow_mot.name} vs {fast_mot.name}",
     )
 
@@ -537,15 +532,17 @@ def ameshscan(slow_mot, slow_start, slow_stop, slow_steps,
 
     legend_keys = {f: short_label(f) for f in y_fields}
 
-    # Live 2-D scatter callback
+    # Live 2-D image callback
     meshplot_cb = CustomLiveMesh(
         y_fields=y_fields,
         outer_field=slow_mot.name,
         inner_field=fast_mot.name,
-        fig=mymeshfig,
+        slow_steps=slow_steps,
+        fast_steps=fast_steps,
+        fig=myfig,
         legend_keys=legend_keys,
         clear_on_start=True,
-        update_every=10,
+        update_every=1,
         title=f"{det.name}: {slow_mot.name} vs {fast_mot.name}",
     )
 

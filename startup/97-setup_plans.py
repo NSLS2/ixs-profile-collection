@@ -7,7 +7,7 @@ from bluesky.callbacks import LiveFit
 from bluesky.callbacks.mpl_plotting import LiveGrid
 from tabulate import tabulate
 
-# _AH_DET_NAMES, _get_ah_scan_dets, myfig, myaxs, short_label, peaks_stats_print,
+# _AH_DET_NAMES, _get_ah_scan_dets, myfig, short_label, peaks_stats_print,
 # dscan, ascan are defined in 97-custom_scans.py (loads before this file).
 
 #*******************************************************************************************************
@@ -39,12 +39,13 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
     for name, doc in hdr.documents():
         lf(name, doc)
     gauss = gaussian(table[x], **lf.result.values)
-    myaxs.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
-    myaxs.plot(table[x], gauss.values, label=f"gaussian fit {channel}")
-    myaxs.legend()
+    _ax = myfig.gca()
+    _ax.plot(table[x], table[y], label=f"raw, channel={channel}", marker = 'o', linestyle = 'none')
+    _ax.plot(table[x], gauss.values, label=f"gaussian fit {channel}")
+    _ax.legend()
 
-    myaxs.figure.canvas.draw_idle()
-    myaxs.figure.canvas.flush_events()
+    myfig.canvas.draw_idle()
+    myfig.canvas.flush_events()
 
     return lf.result.values
 
@@ -94,7 +95,6 @@ def GCarbon_Qscan(exp_time=2):
     yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
     yield from bps.mv(anapd, 25, whl, 0)
 #    myplt = plotselect('lambda_det_stats7_total', hrmE.name)
-    myaxs.cla()
 
     for kk in range(1):
         for q in Qq:
@@ -126,7 +126,6 @@ def DxtalTempCalc(uid=-1):
 
     bet = C1*(1 - np.exp(-C2*(T0-T1))) + C3*T0
     dE = []
-    myaxs.cla()
     for n in range(1,7):
         fit_par = calc_lmfit(uid, channel=n)
         if fit_par['A'] < 100:
@@ -774,7 +773,7 @@ def DxtalMesh(cnum=4, whl_pos=6, ctime=1):
     hrmE_val = hrmE.read()['hrmE']['value']
 #    print(acyy, hrmE_val)
     bec.enable_plots()
-#    subs = [LiveGrid((150, 100), 'lambda_det_md7', xlabel='Energy', ylabel='acyy', ax=myaxs)]
+#    subs = [LiveGrid((150, 100), 'lambda_det_md7', xlabel='Energy', ylabel='acyy', ax=myfig.gca())]
 #    plan = bpp.subs_wrapper(bp.rel_grid_scan([lambda_det], anc_xtal.y, -0.875, 0.625, 150, hrmE, -10, 10, 100, False), subs)
     for n in range(cnum):
         yield from bp.rel_grid_scan([lambda_det], anc_xtal.y, -0.875, 0.625, 150, hrmE, -10, 10, 100, False)

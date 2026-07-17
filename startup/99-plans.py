@@ -163,7 +163,6 @@ def Dia_scan(exp_time=60):
     # yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
     # yield from bps.mv(anapd, 25, whl, 0)
 
-    myaxs.cla()
     # yield from set_lambda_exposure(exp_time)
     yield from dscan(hrmE, -14, 14, 56, lambda_det, exp_time)
 

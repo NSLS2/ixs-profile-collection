@@ -113,7 +113,12 @@ def _calc_max(x, y):
 
 class CustomLivePlot(QtAwareCallback):
     """
-    Live 2D plot for selected detector channels on one persistent axes.
+    Live 1-D plot for selected detector channels on a shared persistent figure.
+
+    The axes are rebuilt at the start of every scan (``fig.clf()`` +
+    ``fig.add_subplot``), so the figure window can be shared with
+    ``CustomLiveMesh`` without leaving stale axes references if the window
+    is closed and reopened between scans.
 
     Parameters
     ----------
@@ -121,16 +126,16 @@ class CustomLivePlot(QtAwareCallback):
         Event-data field names to plot.
     x : str
         Event-data field name for x-axis.
-    ax : matplotlib.axes.Axes
-        Existing persistent axes. Required.
+    fig : matplotlib.figure.Figure
+        Persistent figure shared with mesh scans (e.g. ``myfig``). Required.
     legend_keys : dict[str, str], optional
         Map field name -> legend label.
     stream_name : str, optional
         Stream name to listen to, default 'primary'.
     clear_on_start : bool, optional
-        If True, clear axes at the start of each run.
+        If True, clear the figure at the start of each run.
     show_stats : bool, optional
-        If True, show COM and FWHM in a text box.
+        If True, show MAX and FWHM in a text box.
     update_every : int, optional
         Redraw every N accepted events. Default 1.
     xlabel : str, optional
@@ -145,7 +150,7 @@ class CustomLivePlot(QtAwareCallback):
         y_fields,
         x,
         *,
-        ax,
+        fig,
         legend_keys=None,
         stream_name="primary",
         clear_on_start=True,
@@ -158,12 +163,15 @@ class CustomLivePlot(QtAwareCallback):
     ):
         super().__init__(use_teleporter=use_teleporter)
 
-        if ax is None:
-            raise ValueError("ax must be a persistent matplotlib Axes")
+        if fig is None:
+            raise ValueError("fig must be a persistent matplotlib Figure")
 
         self.y_fields = list(y_fields)
         self.x_field = x
-        self.ax = ax
+        self.fig = fig
+        self._fig_num = fig.get_label()
+        self._fig_size = tuple(fig.get_size_inches())
+        self.ax = None
         self.legend_keys = legend_keys or {}
         self.stream_name = stream_name
         self.clear_on_start = clear_on_start
@@ -173,7 +181,6 @@ class CustomLivePlot(QtAwareCallback):
         self.ylabel = ylabel
         self.title = title
 
-        self._fig = self.ax.figure
         self._descriptor_uids = set()
         self._xdata = []
         self._ydata = {field: [] for field in self.y_fields}
@@ -191,8 +198,12 @@ class CustomLivePlot(QtAwareCallback):
         self._stats_text = None
         self._event_count = 0
 
+        # Recreate the figure window if it was closed since the last scan.
+        self.fig = plt.figure(num=self._fig_num, figsize=self._fig_size, clear=False)
+
         if self.clear_on_start:
-            self.ax.cla()
+            self.fig.clf()
+        self.ax = self.fig.add_subplot(1, 1, 1)
 
         for field in self.y_fields:
             label = self.legend_keys.get(field, field)
@@ -272,9 +283,9 @@ class CustomLivePlot(QtAwareCallback):
         self._draw()
 
     def _draw(self):
-        self._fig.canvas.draw_idle()
-        self._fig.canvas.flush_events()
-        # self._fig.show()
+        self.fig.canvas.draw_idle()
+        self.fig.canvas.flush_events()
+        # self.fig.show()
 
 def select_detector_fields(det, channels=[0]):
     hinted = list(det.hints["fields"])
@@ -283,8 +294,10 @@ def select_detector_fields(det, channels=[0]):
 
 class CustomLiveMesh(QtAwareCallback):
     """
-    Live 2-D scatter plot for selected detector channels during a mesh scan.
+    Live 2-D image plot for selected detector channels during a mesh scan.
 
+    Uses ``ax.imshow`` so each scan cell is a solid-filled rectangle with no
+    gaps between points — identical in appearance to Bluesky's ``LiveGrid``.
     One subplot is created per field in *y_fields*.  The subplot layout is
     rebuilt each scan (``fig.clf()`` is called in ``start()``), so the number
     of subplots adapts dynamically.
@@ -299,8 +312,14 @@ class CustomLiveMesh(QtAwareCallback):
     inner_field : str
         Event-data field name for the fast (inner) motor — plotted on the
         x-axis.
+    slow_steps : int
+        Number of points on the slow (outer) axis — sets the number of image
+        rows.
+    fast_steps : int
+        Number of points on the fast (inner) axis — sets the number of image
+        columns.
     fig : matplotlib.figure.Figure
-        Persistent figure (e.g. ``mymeshfig``).  Required.
+        Persistent figure shared with 1-D scans (e.g. ``myfig``).  Required.
     legend_keys : dict[str, str], optional
         Map field name -> subplot title / label.
     stream_name : str, optional
@@ -308,7 +327,7 @@ class CustomLiveMesh(QtAwareCallback):
     clear_on_start : bool, optional
         If True (default), call ``fig.clf()`` at the start of each scan.
     update_every : int, optional
-        Redraw every N accepted events.  Default 10.
+        Redraw every N accepted events.  Default 1.
     cmap : str, optional
         Matplotlib colormap name.  Default ``'viridis'``.
     title : str, optional
@@ -320,12 +339,14 @@ class CustomLiveMesh(QtAwareCallback):
         y_fields,
         outer_field,
         inner_field,
+        slow_steps,
+        fast_steps,
         *,
         fig,
         legend_keys=None,
         stream_name="primary",
         clear_on_start=True,
-        update_every=10,
+        update_every=1,
         cmap="viridis",
         title="Live Mesh Scan",
         use_teleporter=None,
@@ -338,7 +359,11 @@ class CustomLiveMesh(QtAwareCallback):
         self.y_fields = list(y_fields)
         self.outer_field = outer_field
         self.inner_field = inner_field
+        self.slow_steps = max(1, int(slow_steps))
+        self.fast_steps = max(1, int(fast_steps))
         self.fig = fig
+        self._fig_num = fig.get_label()
+        self._fig_size = tuple(fig.get_size_inches())
         self.legend_keys = legend_keys or {}
         self.stream_name = stream_name
         self.clear_on_start = clear_on_start
@@ -347,37 +372,54 @@ class CustomLiveMesh(QtAwareCallback):
         self.title = title
 
         self._descriptor_uids = set()
-        self._inner_data = {}
-        self._outer_data = {}
-        self._z_data = {}
-        self._scatters = {}
+        self._Z = {}
+        self._images = {}
         self._axes = {}
         self._colorbars = {}
+        self._inner_vals = []
+        self._outer_vals = []
         self._event_count = 0
 
     # ------------------------------------------------------------------
     def start(self, doc):
         self._descriptor_uids.clear()
-        self._inner_data = {f: [] for f in self.y_fields}
-        self._outer_data = {f: [] for f in self.y_fields}
-        self._z_data = {f: [] for f in self.y_fields}
-        self._scatters = {}
+        self._Z = {}
+        self._images = {}
         self._axes = {}
         self._colorbars = {}
+        self._inner_vals = []
+        self._outer_vals = []
         self._event_count = 0
+
+        # Recreate the figure window if it was closed since the last scan.
+        self.fig = plt.figure(num=self._fig_num, figsize=self._fig_size, clear=False)
 
         if self.clear_on_start:
             self.fig.clf()
+
+        # Colormap with a distinct colour for not-yet-acquired cells.
+        cmap_obj = plt.get_cmap(self.cmap).copy()
+        cmap_obj.set_bad("lightgray")
 
         n = max(len(self.y_fields), 1)
         for i, field in enumerate(self.y_fields):
             ax = self.fig.add_subplot(1, n, i + 1)
             self._axes[field] = ax
 
+            Z_init = np.full((self.slow_steps, self.fast_steps), np.nan)
+            self._Z[field] = Z_init
+
             label = self.legend_keys.get(field, field)
-            sc = ax.scatter([], [], c=np.array([]), cmap=self.cmap, s=4)
-            sc.set_clim(0, 1)          # prevent warnings on empty scatter
-            self._scatters[field] = sc
+            im = ax.imshow(
+                Z_init,
+                origin="lower",           # row 0 at bottom (Cartesian convention)
+                aspect="auto",            # stretch to fill axes
+                interpolation="nearest",  # sharp cell boundaries, no blending
+                cmap=cmap_obj,
+                vmin=0,
+                vmax=1,                   # placeholder; replaced on first real update
+            )
+            self._images[field] = im
 
             ax.set_xlabel(self.inner_field)
             ax.set_ylabel(self.outer_field)
@@ -396,17 +438,27 @@ class CustomLiveMesh(QtAwareCallback):
         if doc.get("descriptor") not in self._descriptor_uids:
             return
 
-        data = doc.get("data", {})
-        if self.inner_field not in data or self.outer_field not in data:
-            return
+        # Use the 1-indexed seq_num to determine the grid cell.
+        # seq_num counts primary-stream events from 1 regardless of other streams.
+        idx = doc.get("seq_num", 1) - 1
+        row = idx // self.fast_steps
+        col = idx % self.fast_steps
 
-        inner_val = data[self.inner_field]
-        outer_val = data[self.outer_field]
+        if row >= self.slow_steps or col >= self.fast_steps:
+            return   # safety guard against out-of-range events
+
+        data = doc.get("data", {})
 
         for field in self.y_fields:
-            self._inner_data[field].append(inner_val)
-            self._outer_data[field].append(outer_val)
-            self._z_data[field].append(data.get(field, np.nan))
+            self._Z[field][row, col] = data.get(field, np.nan)
+
+        # Collect actual motor positions for axis extent computation.
+        inner_val = data.get(self.inner_field)
+        outer_val = data.get(self.outer_field)
+        if inner_val is not None:
+            self._inner_vals.append(float(inner_val))
+        if outer_val is not None:
+            self._outer_vals.append(float(outer_val))
 
         self._event_count += 1
 
@@ -418,13 +470,13 @@ class CustomLiveMesh(QtAwareCallback):
     def stop(self, doc):
         self._update_plots()
 
-        # Add colorbars on scan completion (once per field)
+        # Add colorbars on scan completion (once per field).
         for field in self.y_fields:
-            if field not in self._colorbars and field in self._scatters:
-                sc = self._scatters[field]
+            if field not in self._colorbars and field in self._images:
+                im = self._images[field]
                 ax = self._axes[field]
                 try:
-                    cb = self.fig.colorbar(sc, ax=ax)
+                    cb = self.fig.colorbar(im, ax=ax)
                     self._colorbars[field] = cb
                 except Exception:
                     pass
@@ -432,35 +484,43 @@ class CustomLiveMesh(QtAwareCallback):
         self._draw()
 
     # ------------------------------------------------------------------
-    def _update_plots(self):
-        for field in self.y_fields:
-            inner = np.asarray(self._inner_data[field], dtype=float)
-            outer = np.asarray(self._outer_data[field], dtype=float)
-            z = np.asarray(self._z_data[field], dtype=float)
+    def _compute_extent(self):
+        """Return [x0, x1, y0, y1] from collected motor positions, or None."""
+        iv = [v for v in self._inner_vals if np.isfinite(v)]
+        ov = [v for v in self._outer_vals if np.isfinite(v)]
+        if not iv or not ov:
+            return None
 
-            if len(inner) == 0:
+        x0, x1 = min(iv), max(iv)
+        y0, y1 = min(ov), max(ov)
+        dx = (x1 - x0) / (self.fast_steps - 1) if (self.fast_steps > 1 and x1 > x0) else 1.0
+        dy = (y1 - y0) / (self.slow_steps - 1) if (self.slow_steps > 1 and y1 > y0) else 1.0
+
+        # Extent uses cell edges, not centres (half-step padding on each side).
+        return [x0 - dx / 2, x1 + dx / 2, y0 - dy / 2, y1 + dy / 2]
+
+    # ------------------------------------------------------------------
+    def _update_plots(self):
+        extent = self._compute_extent()
+
+        for field in self.y_fields:
+            if field not in self._images:
                 continue
 
-            sc = self._scatters[field]
+            im = self._images[field]
             ax = self._axes[field]
+            Z  = self._Z[field]
 
-            sc.set_offsets(np.c_[inner, outer])
-            sc.set_array(z)
+            im.set_data(Z)
 
-            valid_z = z[np.isfinite(z)]
-            if len(valid_z) >= 1:
-                zmin, zmax = float(valid_z.min()), float(valid_z.max())
-                if zmin < zmax:
-                    sc.set_clim(zmin, zmax)
+            valid = Z[np.isfinite(Z)]
+            if len(valid) >= 2 and valid.min() < valid.max():
+                im.set_clim(float(valid.min()), float(valid.max()))
 
-            def _lim(arr):
-                lo, hi = float(arr.min()), float(arr.max())
-                span = hi - lo
-                margin = 0.05 * span if span > 0 else 0.5
-                return lo - margin, hi + margin
-
-            ax.set_xlim(*_lim(inner))
-            ax.set_ylim(*_lim(outer))
+            if extent is not None:
+                im.set_extent(extent)
+                ax.set_xlim(extent[0], extent[1])
+                ax.set_ylim(extent[2], extent[3])
 
     # ------------------------------------------------------------------
     def _draw(self):
