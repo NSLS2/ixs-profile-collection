@@ -59,6 +59,37 @@ bec.disable_plots() # type: ignore
 # bec.enable_plots()
 plt.ion()  # enable interactive mode for matplotlib
 
+# --- Show BEC figures after scan completes ---
+# Pumping the Qt event loop during RE callbacks blocks the RE's internal
+# asyncio loop, hanging the RunEngine and breaking prompt_toolkit (symptom:
+# repeated In [N]: with same number).  The safe approach is to make only
+# non-blocking Qt calls in the stop() callback; IPython's Qt input hook
+# renders all pending draws the moment it resumes after RE(plan) returns.
+# Only active when bec.enable_plots() has been called (Option A convention).
+from bluesky.callbacks.core import CallbackBase as _CallbackBase  # type: ignore
+
+class _CanvasFlusher(_CallbackBase):
+    """Show BEC figures as soon as the scan completes.
+
+    Pumping the Qt event loop during RE callbacks (descriptor/event) blocks
+    the RE's internal asyncio loop, hanging the RunEngine and breaking
+    prompt_toolkit.  Instead, stop() makes non-blocking Qt calls that
+    schedule the work; IPython's Qt input hook renders everything the moment
+    it resumes after RE(plan) returns.
+    """
+
+    def stop(self, doc):
+        from matplotlib._pylab_helpers import Gcf as _Gcf
+        try:
+            for m in _Gcf.get_all_fig_managers():
+                m.show()               # tell window manager to map the window
+                m.canvas.draw_idle()   # schedule final draw (non-blocking)
+        except Exception:
+            pass
+
+_canvas_flusher = _CanvasFlusher()
+RE.subscribe(_canvas_flusher)  # type: ignore
+
 # New figure title so no overplot.
 def relabel_fig(fig, new_label):
     fig.set_label(new_label)
