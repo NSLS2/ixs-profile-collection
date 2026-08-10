@@ -7,7 +7,7 @@ import os
 
 nslsii.configure_base(
     get_ipython().user_ns, # type: ignore
-    'ixs',
+    None,
     publish_documents_with_kafka=False,
     call_returns_result=True,
     redis_url="xf10id1-ixs-redis1.nsls2.bnl.gov",

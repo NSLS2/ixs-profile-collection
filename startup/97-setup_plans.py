@@ -31,12 +31,13 @@ def stepdown(x, A, sigma, x0, b):
 #*******************************************************************************************************
 def calc_lmfit(uid=-1, x="hrmE", channel=7):
     # Calculates fitting parameters for Gaussian function for energy scan with UID and Lambda channel
-    hdr = db[uid]
-    table = hdr.table()
-    model = lmfit.Model(gaussian)
     y = f'lambda_det_stats{channel}_total'
-    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.7, 'x0': table[x][table[y].argmax()+1]})
-    for name, doc in hdr.documents():
+    run = trc[uid]
+    table = run['primary'].read([x, y])
+    model = lmfit.Model(gaussian)
+    
+    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.7, 'x0': table[x][np.argmax(table[y].data)+1]})
+    for name, doc in run.documents():
         lf(name, doc)
     gauss = gaussian(table[x], **lf.result.values)
     _ax = myfig.gca()
@@ -53,12 +54,12 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
 #*******************************************************************************************************
 def calc_stepup_fit(x):
     # Calculates fitting parameters for step up function for MCM slits scan
-    hdr = db[-1]
-    table = hdr.table()
-    model = lmfit.Model(stepup)
     y = 'det2_current1_mean_value'
+    run = trc[-1]
+    table = run['primary'].read([x, y])
+    model = lmfit.Model(stepup)
     lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
-    for name, doc in hdr.documents():
+    for name, doc in run.documents():
         lf(name, doc)
     print(lf.result.values)
     stup = stepup(table[x], **lf.result.values)
@@ -72,12 +73,12 @@ def calc_stepup_fit(x):
 #*******************************************************************************************************
 def calc_stepdwn_fit(x):
     # Calculates fitting parameters for step down function for MCM slits scan
-    hdr = db[-1]
-    table = hdr.table()
-    model = lmfit.Model(stepdown)
     y = 'det2_current1_mean_value'
+    run = trc[-1]
+    table = run['primary'].read([x, y])
+    model = lmfit.Model(stepdown)
     lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
-    for name, doc in hdr.documents():
+    for name, doc in run.documents():
         lf(name, doc)
     print(lf.result.values)
     stdw = stepdown(table[x], **lf.result.values)
@@ -170,7 +171,7 @@ def DxtalTempCalc(uid=-1):
         print('\n')
         print('The temperatures are updated\n')
     elif update_opts == '2':
-        yield from bps.mvr(analyzer_xtals.d2the, dTh[1], analyzer_xtals.d3the, dTh[2], analyzer_xtals.d4the, dTh[3], analyzer_xtals.d5the, dTh[4], analyzer_xtals.d6the, dTh[5],)
+        yield from bps.mvr(analyzer_xtals.d2the, dTh[2], analyzer_xtals.d3the, dTh[3], analyzer_xtals.d4the, dTh[4], analyzer_xtals.d5the, dTh[5], analyzer_xtals.d6the, dTh[6],)
         print('\n')
         print('The Dxtals angles are updated\n')
     else:
@@ -367,8 +368,8 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 
     """
 
-    hdr = db[uid]
-    table = hdr.table()
+    run = trc[uid]
+    table = run['primary'].read([x, y])
     #y = f'lambda_det_stats{channel}_total'
     
     #cp_df = df.copy()
