@@ -132,7 +132,7 @@ from utils.CustomLivePlot import *
 def dexela_calc():
     import runpy
     runpy.run_path(
-        "/nsls2/data3/ixs/shared/config/bluesky/profile_collection/startup/utils/DexelaCalc.py",
+        "/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/DexelaCalc.py",
         run_name="__main__"
     )
 

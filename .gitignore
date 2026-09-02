@@ -100,3 +100,5 @@ docs/alignment_tracking_status.md
 docs/alignment-tracking.md
 docs/lambda_detector_setup_status.md
 docs/lambda_detector_setup.md
+tests/conftest.py
+tests/test_lambda_setup.py
