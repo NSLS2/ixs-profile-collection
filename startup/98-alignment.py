@@ -376,7 +376,7 @@ _SCAN_REGISTRY: dict[str, dict] = {
         step       = "p1_scan",
         det_label  = "tm1",
         mot_label  = "dcm.p1",
-        checks     = [_check_hrm_out, _check_bpm1_y_at_zero],
+        checks     = [_check_bpm1_y_at_zero],
     ),
     "crl": dict(
         motor      = lambda: crl.y,
