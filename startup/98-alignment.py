@@ -45,8 +45,10 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
+from time import monotonic
 
 import bluesky.plan_stubs as bps
+import bluesky.preprocessors as bpp
 
 from utils.alignment_store import AlignmentStore, record_alignment
 
@@ -369,9 +371,9 @@ store = AlignmentStore(
 _SCAN_REGISTRY: dict[str, dict] = {
     "dcm": dict(
         motor      = lambda: dcm.p1,
-        start      = -80,  stop = 80,  steps = 40,
+        start      = -80,  stop = 80,  steps = 41,
         detector   = lambda: tm1,
-        ct         = 1,    det_ch = [4],
+        ct         = 0.2,  det_ch = [4],
         instrument = "dcm",
         step       = "p1_scan",
         det_label  = "tm1",
@@ -380,9 +382,9 @@ _SCAN_REGISTRY: dict[str, dict] = {
     ),
     "crl": dict(
         motor      = lambda: crl.y,
-        start      = -0.2, stop = 0.2, steps = 20,
+        start      = -0.2, stop = 0.2, steps = 21,
         detector   = lambda: tm1,
-        ct         = 1,    det_ch = [4],
+        ct         = 0.2,  det_ch = [4],
         instrument = "crl",
         step       = "y_scan",
         det_label  = "tm1",
@@ -393,7 +395,7 @@ _SCAN_REGISTRY: dict[str, dict] = {
         motor      = lambda: ivu22,
         start      = -20,  stop = 20,  steps = 21,
         detector   = lambda: tm1,
-        ct         = 1,    det_ch = [4],
+        ct         = 0.2,  det_ch = [4],
         instrument = "ivu22",
         step       = "gap_scan",
         det_label  = "tm1",
@@ -402,7 +404,7 @@ _SCAN_REGISTRY: dict[str, dict] = {
     ),
     "mcm": dict(
         motor      = lambda: mcm.y,
-        start      = -0.2, stop = 0.2, steps = 40,
+        start      = -0.2, stop = 0.2, steps = 41,
         detector   = lambda: det2,
         ct         = 1,    det_ch = [0],
         instrument = "mcm",
@@ -466,7 +468,102 @@ _SCAN_REGISTRY: dict[str, dict] = {
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def alignment_scan(keyword: str, note: str = ""):
+def _diagnostic_message_tracer(plan, report):
+    """Print every Bluesky message immediately before the RE processes it."""
+    group_objects = {}
+
+    def _trace(msg):
+        command = msg.command
+        obj = getattr(msg.obj, "name", None)
+        if obj is None and msg.obj is not None:
+            obj = type(msg.obj).__name__
+
+        group = msg.kwargs.get("group")
+        if group is not None and obj is not None and command in {
+            "set", "trigger", "kickoff", "complete"
+        }:
+            group_objects.setdefault(group, []).append(obj)
+
+        details = []
+        if obj is not None:
+            details.append(f"object={obj}")
+        if command == "set" and msg.args:
+            details.append(f"target={msg.args[0]!r}")
+        if command == "wait":
+            waiting_for = group_objects.get(group, [])
+            if waiting_for:
+                details.append(f"for={','.join(waiting_for)}")
+        if group is not None:
+            details.append(f"group={group}")
+
+        suffix = " " + " ".join(details) if details else ""
+        report(f"RE message: {command}{suffix}")
+        return msg
+
+    return bpp.msg_mutator(plan, _trace)
+
+
+def _diagnostic_ah_preflight(detector, report):
+    """Read the AH501D settings that dscan reads before its first yield."""
+    try:
+        ah_detectors = _get_ah_scan_dets(detector)
+    except NameError:
+        report("AH501D preflight unavailable: _get_ah_scan_dets is not defined")
+        return
+
+    report(
+        "AH501D preflight: checking synchronous reads used by dscan for "
+        + ", ".join(det.name for det in ah_detectors)
+    )
+    for det in ah_detectors:
+        for attr in ("values_per_read", "averaging_time"):
+            signal = getattr(det, attr)
+            pvname = getattr(signal, "pvname", "unknown PV")
+            report(f"AH501D read starting: {det.name}.{attr} ({pvname})")
+            value = signal.get()
+            report(f"AH501D read complete: {det.name}.{attr} = {value!r}")
+
+
+def _capture_start_uid(uid_holder):
+    """Return a callback that stores the UID from this plan's Start document."""
+    def _capture(name, doc):
+        uid_holder["uid"] = doc["uid"]
+
+    return _capture
+
+
+def _confirm_tiled_run(uid, report, attempts=20, delay=0.25):
+    """Confirm that the exact completed run is visible in Tiled."""
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            run = trc[uid]
+            tiled_uid = run.start["uid"]
+            if tiled_uid != uid:
+                raise RuntimeError(
+                    f"Tiled returned UID {tiled_uid!r} for requested UID {uid!r}."
+                )
+            if "stop" not in run.metadata:
+                raise LookupError("run is visible but stop metadata is not present")
+        except Exception as exc:
+            last_error = exc
+            if attempt + 1 < attempts:
+                yield from bps.sleep(delay)
+        else:
+            report(f"Tiled run confirmed: {uid}")
+            return run
+
+    warnings.warn(
+        f"Run {uid} was not confirmed in Tiled after {attempts} attempts: "
+        f"{last_error}. Recording alignment with the UID captured from the "
+        "live Start document.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    return None
+
+
+def alignment_scan(keyword: str, note: str = "", *, diagnostics: bool = False):
     """
     Run a simplified alignment scan and record the result.
 
@@ -481,14 +578,30 @@ def alignment_scan(keyword: str, note: str = ""):
         "dcm", "crl", "ugap", "mcm", "hrm", "ccr", "wcr".
     note : str, optional
         Free-text note stored with the AlignmentRecord.
+    diagnostics : bool, optional
+        Print flushed precondition, device, and Bluesky message diagnostics.
+        The last printed line identifies the operation being processed if the
+        RunEngine blocks. Default is False.
 
     Examples
     --------
         RE(alignment_scan("dcm"))
+        RE(alignment_scan("dcm", diagnostics=True))
         RE(alignment_scan("crl", note="after top-up"))
         RE(alignment_scan("hrm"))
     """
+    diagnostic_start = monotonic()
+
+    def report(message):
+        if diagnostics:
+            elapsed = monotonic() - diagnostic_start
+            print(
+                f"[alignment_scan:{keyword} +{elapsed:7.2f}s] {message}",
+                flush=True,
+            )
+
     # --- validate keyword ---------------------------------------------------
+    report("plan entered")
     if keyword not in _SCAN_REGISTRY:
         raise ValueError(
             f"alignment_scan: unknown keyword '{keyword}'. "
@@ -496,11 +609,21 @@ def alignment_scan(keyword: str, note: str = ""):
         )
 
     cfg = _SCAN_REGISTRY[keyword]
+    report(
+        f"configuration: motor={cfg['mot_label']} detector={cfg['det_label']} "
+        f"range=({cfg['start']}, {cfg['stop']}) points={cfg['steps']} "
+        f"count_time={cfg['ct']}"
+    )
 
     # --- precondition checks (all evaluated before any yield) ---------------
     failures = []
     for check in cfg["checks"]:
+        report(f"precondition starting: {check.__name__}")
         ok, msg = check()
+        report(
+            f"precondition complete: {check.__name__} "
+            f"({'PASS' if ok else 'FAIL'})"
+        )
         if not ok:
             failures.append(msg)
 
@@ -510,13 +633,44 @@ def alignment_scan(keyword: str, note: str = ""):
             print(f"  ! {msg}")
         return
 
+    report("resolving motor and detector objects")
+    motor = cfg["motor"]()
+    detector = cfg["detector"]()
+    report(
+        f"resolved motor={getattr(motor, 'name', motor)!s} "
+        f"detector={getattr(detector, 'name', detector)!s}"
+    )
+
+    if diagnostics:
+        _diagnostic_ah_preflight(detector, report)
+
     # --- run the bare dscan (no motor move afterward) -----------------------
-    stats = yield from dscan(
-        cfg["motor"](),
+    report(
+        "entering dscan; before its first RE message it repeats the "
+        "AH501D reads listed above"
+    )
+    scan_plan = dscan(
+        motor,
         cfg["start"], cfg["stop"], cfg["steps"],
-        cfg["detector"](), cfg["ct"],
+        detector, cfg["ct"],
         det_ch=cfg["det_ch"],
     )
+    uid_holder = {}
+    scan_plan = bpp.subs_wrapper(
+        scan_plan,
+        {"start": [_capture_start_uid(uid_holder)]},
+    )
+    if diagnostics:
+        scan_plan = _diagnostic_message_tracer(scan_plan, report)
+    stats = yield from scan_plan
+    report("dscan complete")
+
+    scan_uid = uid_holder.get("uid")
+    if scan_uid is None:
+        raise RuntimeError(
+            "alignment_scan did not receive a Start document for its dscan run."
+        )
+    report(f"scan UID captured from live Start document: {scan_uid}")
 
     # --- guard: need a valid peak to record ---------------------------------
     if not stats or stats[0].max is None:
@@ -530,12 +684,20 @@ def alignment_scan(keyword: str, note: str = ""):
     fmax = s.max          # (x_at_max, max_intensity)
 
     # --- read context -------------------------------------------------------
-    scan_uid     = db[-1].start["uid"]
+    report("confirming exact scan UID in Tiled")
+    yield from _confirm_tiled_run(scan_uid, report)
+    report("reading CRL state")
     crl_state    = _read_crl_state()
+    report(f"CRL state read complete: {crl_state}")
+    report("reading HRM state")
     hrm_state    = _read_hrm_state()
+    report(f"HRM state read complete: {hrm_state}")
+    report("reading ring current")
     ring_current = _read_ring_current()
+    report(f"ring current read complete: {ring_current!r}")
 
     # --- record -------------------------------------------------------------
+    report("writing alignment record to JSONL and SQLite")
     yield from record_alignment(
         store,
         scan_id       = scan_uid,
@@ -553,6 +715,7 @@ def alignment_scan(keyword: str, note: str = ""):
         ring_current  = ring_current,
         note          = note,
     )
+    report("alignment record complete; plan finished")
 
 
 # ---------------------------------------------------------------------------

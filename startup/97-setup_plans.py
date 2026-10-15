@@ -407,6 +407,7 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 def LocalBumpSetup(silent=False):
     """
     Adjusts the e-beam local bump, i.e. horizontal & vertical positions of the x-ray beam on the XBPM1 screen
+    Beam position at the XBPM2 on screen X=1245, Y=1066 with the CRL in
 
     """
     

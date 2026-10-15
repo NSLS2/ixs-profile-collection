@@ -36,6 +36,11 @@ def _get_ah_scan_dets(primary_det):
     return targets
 
 
+def _scan_values_per_read(det):
+    """Return the device-specific ValuesPerRead used by dscan/ascan."""
+    return 50 if det.name == 'tm1' else 1
+
+
 #*******************************************************************************************************
 # Persistent figure shared by 1-D and 2-D scan display.
 # plt and the Qt event loop are already initialised by 00-startup.py.
@@ -158,17 +163,22 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     if getattr(det, "name", None) == "lambda_det":
         yield from set_lambda_exposure(ct)
 
-    # --- AH501D picoammeter pre-configuration ---
+    # --- Electrometer pre-configuration ---
     _ah_dets = _get_ah_scan_dets(det)
     _ah_old = {d.name: (d.values_per_read.get(), d.averaging_time.get())
                for d in _ah_dets}
     md["ah501d_config"] = {
-        "values_per_read": 1,
+        "values_per_read": {
+            d.name: _scan_values_per_read(d) for d in _ah_dets
+        },
         "averaging_time": ct,
         "detectors_configured": [d.name for d in _ah_dets],
     }
     for _d in _ah_dets:
-        yield from bps.mv(_d.values_per_read, 1, _d.averaging_time, ct)
+        yield from bps.mv(
+            _d.values_per_read, _scan_values_per_read(_d),
+            _d.averaging_time, ct,
+        )
 
     # resolve actual event-data field names to plot/stat
     y_fields = select_detector_fields(det, det_ch)
@@ -199,7 +209,7 @@ def dscan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
         subs_list,
     )
 
-    # --- AH501D restore wrapper (runs even on failure/interrupt) ---
+    # --- Electrometer restore wrapper (runs even on failure/interrupt) ---
     def _restore_ah():
         for _d in _ah_dets:
             _vpr, _avg = _ah_old[_d.name]
@@ -254,17 +264,22 @@ def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
     if getattr(det, "name", None) == "lambda_det":
         yield from set_lambda_exposure(ct)
 
-    # --- AH501D picoammeter pre-configuration ---
+    # --- Electrometer pre-configuration ---
     _ah_dets = _get_ah_scan_dets(det)
     _ah_old = {d.name: (d.values_per_read.get(), d.averaging_time.get())
                for d in _ah_dets}
     md["ah501d_config"] = {
-        "values_per_read": 1,
+        "values_per_read": {
+            d.name: _scan_values_per_read(d) for d in _ah_dets
+        },
         "averaging_time": ct,
         "detectors_configured": [d.name for d in _ah_dets],
     }
     for _d in _ah_dets:
-        yield from bps.mv(_d.values_per_read, 1, _d.averaging_time, ct)
+        yield from bps.mv(
+            _d.values_per_read, _scan_values_per_read(_d),
+            _d.averaging_time, ct,
+        )
 
     # resolve actual event-data field names to plot/stat
     y_fields = select_detector_fields(det, det_ch)
@@ -297,7 +312,7 @@ def ascan(mot, start, stop, steps, det, ct, det_ch=None, md=None):
         subs_list,
     )
 
-    # --- AH501D restore wrapper (runs even on failure/interrupt) ---
+    # --- Electrometer restore wrapper (runs even on failure/interrupt) ---
     def _restore_ah():
         for _d in _ah_dets:
             _vpr, _avg = _ah_old[_d.name]

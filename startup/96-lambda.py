@@ -59,6 +59,9 @@ for j in range(1, 8):
 lambda_det.stats7.total.kind = 'hinted'
 
 
+## Section for testing of lambda flex
+# lambda_flex = Lambda('XF:10ID1-ES{XSPD-Det:1}', name='lambda_flex')
+
 # Impose Stats4 to be ROI4 if in the future we need to exclude bad pixels
 def set_defaut_stat_roi():
     yield from bps.mv(lambda_det.stats1.nd_array_port, 'ROI1')
