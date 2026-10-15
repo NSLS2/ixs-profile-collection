@@ -30,6 +30,7 @@ def _load_helpers():
         "_capture_start_uid",
         "_ccr_temporary_settings_wrapper",
         "_confirm_tiled_run",
+        "_check_bpm1_y_at_zero",
         "alignment_scan",
     }
     functions = [
@@ -287,6 +288,27 @@ def test_alignment_production_has_no_legacy_or_latest_lookup():
 
     assert "db[" not in source
     assert "trc[-1]" not in source
+
+
+def test_bpm1_foil_precondition_uses_bpm1_diag_and_passes_near_zero():
+    helpers = _load_helpers()
+    helpers["bpm1_diag"] = SimpleNamespace(position=0.05)
+
+    ok, message = helpers["_check_bpm1_y_at_zero"]()
+
+    assert ok is True
+    assert message == ""
+
+
+def test_bpm1_foil_precondition_rejects_inserted_foil_position():
+    helpers = _load_helpers()
+    helpers["bpm1_diag"] = SimpleNamespace(position=25.0003)
+
+    ok, message = helpers["_check_bpm1_y_at_zero"]()
+
+    assert ok is False
+    assert "bpm1_diag = 25.000 mm" in message
+    assert "BPM1 Y-foil" in message
 
 
 def _install_ccr_devices(helpers, anpd_position, em_range):

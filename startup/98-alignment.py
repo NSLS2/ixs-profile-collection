@@ -252,18 +252,19 @@ def _check_whl_for_mcm() -> tuple[bool, str]:
 
 
 def _check_bpm1_y_at_zero() -> tuple[bool, str]:
-    """bpm1.y must be near 0 (within ±0.1 mm)."""
+    """The BPM1 Y-foil motor must be near 0 (within ±0.1 mm)."""
     _TARGET = 0.0
     _TOL    = 0.1
     try:
-        pos = bpm1.y.position
+        pos = bpm1_diag.position
         if abs(pos - _TARGET) > _TOL:
             return False, (
-                f"bpm1.y = {pos:.3f} mm (must be at {_TARGET} ± {_TOL} mm)."
+                f"bpm1_diag = {pos:.3f} mm "
+                f"(BPM1 Y-foil must be at {_TARGET} ± {_TOL} mm)."
             )
         return True, ""
     except Exception as exc:
-        return False, f"Could not read bpm1.y: {exc}."
+        return False, f"Could not read bpm1_diag (BPM1 Y-foil): {exc}."
 
 
 def _make_slit_check(targets: dict[str, float], tol: float = 0.1):
