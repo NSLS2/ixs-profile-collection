@@ -11,6 +11,8 @@ import bluesky.preprocessors as bpp
 import bluesky.plan_stubs as bps
 from bluesky import RunEngine
 from bluesky.utils import Msg
+from ophyd import Signal
+from ophyd.sim import SynAxis
 
 
 STARTUP_FILE = (
@@ -26,6 +28,7 @@ def _load_helpers():
         "_diagnostic_message_tracer",
         "_diagnostic_ah_preflight",
         "_capture_start_uid",
+        "_ccr_temporary_settings_wrapper",
         "_confirm_tiled_run",
         "alignment_scan",
     }
@@ -284,3 +287,145 @@ def test_alignment_production_has_no_legacy_or_latest_lookup():
 
     assert "db[" not in source
     assert "trc[-1]" not in source
+
+
+def _install_ccr_devices(helpers, anpd_position, em_range):
+    motor = SynAxis(name="anpd")
+    motor.set(anpd_position).wait()
+    range_signal = Signal(name="det2_em_range", value=em_range)
+    helpers["anpd"] = motor
+    helpers["det2"] = SimpleNamespace(em_range=range_signal)
+    return motor, range_signal
+
+
+def test_ccr_temporary_settings_are_applied_and_restored():
+    helpers = _load_helpers()
+    motor, range_signal = _install_ccr_devices(helpers, -90.0, 2)
+    values_during_scan = []
+
+    def scan_plan():
+        values_during_scan.append((motor.position, range_signal.get()))
+        yield from bps.null()
+
+    wrapped = helpers["_ccr_temporary_settings_wrapper"](
+        scan_plan(), lambda message: None
+    )
+    RunEngine({})(wrapped)
+
+    assert values_during_scan == [(40.0, 0)]
+    assert motor.position == -90.0
+    assert range_signal.get() == 2
+
+
+def test_ccr_temporary_settings_skip_values_already_at_target():
+    helpers = _load_helpers()
+    motor, range_signal = _install_ccr_devices(helpers, 40.05, 0)
+    set_messages = []
+
+    def scan_plan():
+        yield from bps.null()
+
+    wrapped = helpers["_ccr_temporary_settings_wrapper"](
+        scan_plan(), lambda message: None
+    )
+
+    def capture_set(msg):
+        if msg.command == "set":
+            set_messages.append(msg)
+        return msg
+
+    wrapped = bpp.msg_mutator(
+        wrapped,
+        capture_set,
+    )
+    RunEngine({})(wrapped)
+
+    assert set_messages == []
+    assert motor.position == 40.05
+    assert range_signal.get() == 0
+
+
+def test_ccr_temporary_settings_change_only_value_outside_target():
+    helpers = _load_helpers()
+    motor, range_signal = _install_ccr_devices(helpers, 40.0, 3)
+    set_messages = []
+
+    def scan_plan():
+        assert motor.position == 40.0
+        assert range_signal.get() == 0
+        yield from bps.null()
+
+    wrapped = helpers["_ccr_temporary_settings_wrapper"](
+        scan_plan(), lambda message: None
+    )
+
+    def capture_set(msg):
+        if msg.command == "set":
+            set_messages.append((msg.obj.name, msg.args[0]))
+        return msg
+
+    RunEngine({})(bpp.msg_mutator(wrapped, capture_set))
+
+    assert set_messages == [("det2_em_range", 0), ("det2_em_range", 3)]
+    assert motor.position == 40.0
+    assert range_signal.get() == 3
+
+
+def test_ccr_temporary_settings_restore_after_scan_failure():
+    helpers = _load_helpers()
+    motor, range_signal = _install_ccr_devices(helpers, -145.0, 1)
+    values_during_scan = []
+
+    def failing_scan_plan():
+        values_during_scan.append((motor.position, range_signal.get()))
+        yield from bps.null()
+        raise RuntimeError("synthetic scan failure")
+
+    wrapped = helpers["_ccr_temporary_settings_wrapper"](
+        failing_scan_plan(), lambda message: None
+    )
+    try:
+        RunEngine({})(wrapped)
+    except RuntimeError as exc:
+        assert str(exc) == "synthetic scan failure"
+    else:
+        raise AssertionError("The synthetic scan failure was not raised")
+
+    assert values_during_scan == [(40.0, 0)]
+    assert motor.position == -145.0
+    assert range_signal.get() == 1
+
+
+def test_ccr_failed_precondition_does_not_apply_temporary_settings():
+    helpers = _load_helpers()
+    motor, range_signal = _install_ccr_devices(helpers, -90.0, 2)
+    scan_called = []
+    detector = SimpleNamespace(name="det2")
+
+    def fake_dscan(*args, **kwargs):
+        scan_called.append(True)
+        yield from bps.null()
+
+    helpers["_SCAN_REGISTRY"] = {
+        "ccr": {
+            "motor": lambda: SimpleNamespace(name="analyzer_cfth"),
+            "start": -150,
+            "stop": 150,
+            "steps": 31,
+            "detector": lambda: detector,
+            "ct": 1,
+            "det_ch": [0],
+            "instrument": "ccr",
+            "step": "cfth_scan",
+            "det_label": "det2",
+            "mot_label": "analyzer.cfth",
+            "checks": [lambda: (False, "synthetic precondition failure")],
+        }
+    }
+    helpers["dscan"] = fake_dscan
+
+    RunEngine({})(helpers["alignment_scan"]("ccr"))
+
+    assert scan_called == []
+    assert motor.position == -90.0
+    assert range_signal.get() == 2

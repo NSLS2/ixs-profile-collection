@@ -251,20 +251,6 @@ def _check_whl_for_mcm() -> tuple[bool, str]:
         return False, f"Could not read whl: {exc}."
 
 
-def _check_det2_em_range_0() -> tuple[bool, str]:
-    """det2.em_range must be set to 0."""
-    try:
-        val = det2.em_range.get()
-        if int(val) != 0:
-            return False, (
-                f"det2.em_range = {val} (must be 0). "
-                "Run: det2.em_range.set(0)"
-            )
-        return True, ""
-    except Exception as exc:
-        return False, f"Could not read det2.em_range: {exc}."
-
-
 def _check_bpm1_y_at_zero() -> tuple[bool, str]:
     """bpm1.y must be near 0 (within ±0.1 mm)."""
     _TARGET = 0.0
@@ -440,10 +426,8 @@ _SCAN_REGISTRY: dict[str, dict] = {
         mot_label  = "analyzer.cfth",
         checks     = [_check_anc_xtal_y_high,
                       _check_slits_narrow,
-                      _check_anpd_at(40),
                       _check_whl_at(0),
                       _check_hrm_out,
-                      _check_det2_em_range_0,
                       _check_bpm1_y_at_zero],
     ),
     "wcr": dict(
@@ -530,6 +514,67 @@ def _capture_start_uid(uid_holder):
         uid_holder["uid"] = doc["uid"]
 
     return _capture
+
+
+def _ccr_temporary_settings_wrapper(plan, report):
+    """Set CCR scan devices temporarily and restore them after any outcome."""
+    target_anpd = 40.0
+    anpd_tolerance = 0.1
+
+    # Read both original values before changing either device. If a read fails,
+    # no temporary configuration has been applied and the scan does not start.
+    original_anpd = float(anpd.position)
+    original_range = det2.em_range.get()
+    try:
+        range_value = int(original_range)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"Could not interpret det2.em_range value {original_range!r}."
+        ) from exc
+
+    move_anpd = abs(original_anpd - target_anpd) > anpd_tolerance
+    change_range = range_value != 0
+
+    setup_args = []
+    setup_descriptions = []
+    if move_anpd:
+        setup_args.extend((anpd, target_anpd))
+        setup_descriptions.append(
+            f"anpd {original_anpd:.3f} -> {target_anpd:.3f} deg"
+        )
+    if change_range:
+        setup_args.extend((det2.em_range, 0))
+        setup_descriptions.append(f"det2.em_range {original_range!r} -> 0")
+
+    def _setup_and_scan():
+        if setup_args:
+            message = "; ".join(setup_descriptions)
+            print(f"alignment_scan('ccr'): temporary setup: {message}")
+            report(f"CCR temporary setup starting: {message}")
+            yield from bps.mv(*setup_args)
+            report("CCR temporary setup complete")
+        return (yield from plan)
+
+    def _restore():
+        restore_args = []
+        restore_descriptions = []
+        if move_anpd:
+            restore_args.extend((anpd, original_anpd))
+            restore_descriptions.append(f"anpd -> {original_anpd:.3f} deg")
+        if change_range:
+            restore_args.extend((det2.em_range, original_range))
+            restore_descriptions.append(
+                f"det2.em_range -> {original_range!r}"
+            )
+
+        if restore_args:
+            message = "; ".join(restore_descriptions)
+            print(f"alignment_scan('ccr'): restoring: {message}")
+            report(f"CCR restoration starting: {message}")
+            yield from bps.mv(*restore_args)
+            report("CCR restoration complete")
+
+    return (yield from bpp.finalize_wrapper(_setup_and_scan(), _restore))
 
 
 def _confirm_tiled_run(uid, report, attempts=20, delay=0.25):
@@ -660,6 +705,8 @@ def alignment_scan(keyword: str, note: str = "", *, diagnostics: bool = False):
         scan_plan,
         {"start": [_capture_start_uid(uid_holder)]},
     )
+    if keyword == "ccr":
+        scan_plan = _ccr_temporary_settings_wrapper(scan_plan, report)
     if diagnostics:
         scan_plan = _diagnostic_message_tracer(scan_plan, report)
     stats = yield from scan_plan
