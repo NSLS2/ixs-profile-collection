@@ -7,8 +7,11 @@ from tiled.client import from_uri
 # Initialize the Tiled client and the TiledWriter
 api_key = os.environ.get("TILED_BLUESKY_WRITING_API_KEY_IXS")
 tiled_writing_client_sql = from_uri("https://tiled.nsls2.bnl.gov", api_key=api_key)['ixs/raw']
+tiled_writing_client_sql.context.http_client.headers["tiled-qos"] = "acquisition"
+TILED_BACKUP_ROOT = "/nsls2/data/ixs/shared/config/bluesky/tiled_backup"
+
 tw = TiledWriter(client = tiled_writing_client_sql,
-                 backup_directory="/tmp/tiled_backup",
+                 backup_directory=f"{TILED_BACKUP_ROOT}/sql",
                  validate=False,  # validate from Prefect, if needed
                  #  batch_size=1   # uncomment to enable incremental updates; default 10_000
                  )
