@@ -1,7 +1,6 @@
 import os
 
-from bluesky_tiled_plugins import TiledWriter
-from bluesky.callbacks.buffer import BufferingWrapper
+from bluesky_tiled_plugins import BufferingWrapper, TiledWriter
 from tiled.client import from_uri
 
 # Initialize the Tiled client and the TiledWriter
