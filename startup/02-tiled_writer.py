@@ -23,3 +23,14 @@ RE.md["tiled_access_tags"] = [RE.md.get("data_session", "ixs_beamline")]
 RE.subscribe(tw)
 
 tiled_reading_client = trc = from_uri("https://tiled.nsls2.bnl.gov")['ixs/raw']
+
+
+def flush_tiled_buffers():
+    """Block until all buffered documents have been written to Tiled.
+
+    Call this before reading a just-acquired run back from Tiled: documents
+    are buffered, so Tiled's view may lag behind Bluesky. Flushes every
+    writer buffer, so it stays correct regardless of which writers are
+    subscribed to RE.
+    """
+    tw.flush()

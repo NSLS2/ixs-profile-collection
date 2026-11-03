@@ -470,7 +470,7 @@ def dmeshscan(slow_mot, slow_start, slow_stop, slow_steps,
     # Post-scan statistics: Tiled's view may lag behind Bluesky because the
     # documents are buffered, so flush the buffer before reading the run back,
     # and look it up by its uid rather than by position.
-    tw.flush()
+    flush_tiled_buffers()
     print("\n")
     table = trc[uid]["primary"].read().to_dataframe()
     for field in y_fields:
@@ -589,7 +589,7 @@ def ameshscan(slow_mot, slow_start, slow_stop, slow_steps,
     # Post-scan statistics: Tiled's view may lag behind Bluesky because the
     # documents are buffered, so flush the buffer before reading the run back,
     # and look it up by its uid rather than by position.
-    tw.flush()
+    flush_tiled_buffers()
     print("\n")
     table = trc[uid]["primary"].read().to_dataframe()
     for field in y_fields:
