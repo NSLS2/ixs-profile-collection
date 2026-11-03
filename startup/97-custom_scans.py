@@ -343,7 +343,8 @@ def mesh_stats_print(field, slow_name, fast_name, table):
     fast_name : str
         Column name for the fast (inner) motor position in *table*.
     table : pandas.DataFrame
-        Table returned by db[-1].table().
+        Table of the run's `primary` stream, e.g. returned by
+        `trc[uid]["primary"].read().to_dataframe()`.
     """
     print(field)
     if field not in table.columns:
@@ -464,11 +465,14 @@ def dmeshscan(slow_mot, slow_start, slow_stop, slow_steps,
             yield from bps.mv(_d.values_per_read, _vpr, _d.averaging_time, _avg)
 
     plan = bpp.finalize_wrapper(plan, _restore_ah())
-    yield from plan
+    uid = yield from plan
 
-    # Post-scan statistics
+    # Post-scan statistics: Tiled's view may lag behind Bluesky because the
+    # documents are buffered, so flush the buffer before reading the run back,
+    # and look it up by its uid rather than by position.
+    tw.flush()
     print("\n")
-    table = db[-1].table()
+    table = trc[uid]["primary"].read().to_dataframe()
     for field in y_fields:
         mesh_stats_print(field, slow_mot.name, fast_mot.name, table)
         print("\n")
@@ -580,11 +584,14 @@ def ameshscan(slow_mot, slow_start, slow_stop, slow_steps,
             yield from bps.mv(_d.values_per_read, _vpr, _d.averaging_time, _avg)
 
     plan = bpp.finalize_wrapper(plan, _restore_ah())
-    yield from plan
+    uid = yield from plan
 
-    # Post-scan statistics
+    # Post-scan statistics: Tiled's view may lag behind Bluesky because the
+    # documents are buffered, so flush the buffer before reading the run back,
+    # and look it up by its uid rather than by position.
+    tw.flush()
     print("\n")
-    table = db[-1].table()
+    table = trc[uid]["primary"].read().to_dataframe()
     for field in y_fields:
         mesh_stats_print(field, slow_mot.name, fast_mot.name, table)
         print("\n")
