@@ -25,7 +25,7 @@ RE.subscribe(tw)
 tiled_reading_client = trc = from_uri("https://tiled.nsls2.bnl.gov")['ixs/raw']
 
 
-def flush_tiled_buffers():
+def flush_tiled():
     """Block until all buffered documents have been written to Tiled.
 
     Call this before reading a just-acquired run back from Tiled: documents

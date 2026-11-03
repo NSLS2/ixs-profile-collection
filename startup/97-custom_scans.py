@@ -467,10 +467,8 @@ def dmeshscan(slow_mot, slow_start, slow_stop, slow_steps,
     plan = bpp.finalize_wrapper(plan, _restore_ah())
     uid = yield from plan
 
-    # Post-scan statistics: Tiled's view may lag behind Bluesky because the
-    # documents are buffered, so flush the buffer before reading the run back,
-    # and look it up by its uid rather than by position.
-    flush_tiled_buffers()
+    # Post-scan statistics
+    flush_tiled()  # wait for buffered documents to reach Tiled
     print("\n")
     table = trc[uid]["primary"].read().to_dataframe()
     for field in y_fields:
@@ -586,10 +584,8 @@ def ameshscan(slow_mot, slow_start, slow_stop, slow_steps,
     plan = bpp.finalize_wrapper(plan, _restore_ah())
     uid = yield from plan
 
-    # Post-scan statistics: Tiled's view may lag behind Bluesky because the
-    # documents are buffered, so flush the buffer before reading the run back,
-    # and look it up by its uid rather than by position.
-    flush_tiled_buffers()
+    # Post-scan statistics
+    flush_tiled()  # wait for buffered documents to reach Tiled
     print("\n")
     table = trc[uid]["primary"].read().to_dataframe()
     for field in y_fields:
