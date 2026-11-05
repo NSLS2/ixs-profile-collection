@@ -1,14 +1,16 @@
 import os
 
-from bluesky_tiled_plugins import TiledWriter
-from bluesky.callbacks.buffer import BufferingWrapper
+from bluesky_tiled_plugins import BufferingWrapper, TiledWriter
 from tiled.client import from_uri
 
 # Initialize the Tiled client and the TiledWriter
 api_key = os.environ.get("TILED_BLUESKY_WRITING_API_KEY_IXS")
 tiled_writing_client_sql = from_uri("https://tiled.nsls2.bnl.gov", api_key=api_key)['ixs/raw']
+tiled_writing_client_sql.context.http_client.headers["tiled-qos"] = "acquisition"
+TILED_BACKUP_ROOT = "/nsls2/data/ixs/shared/config/bluesky/tiled_backup"
+
 tw = TiledWriter(client = tiled_writing_client_sql,
-                 backup_directory="/tmp/tiled_backup",
+                 backup_directory=f"{TILED_BACKUP_ROOT}/sql",
                  validate=False,  # validate from Prefect, if needed
                  #  batch_size=1   # uncomment to enable incremental updates; default 10_000
                  )
@@ -21,3 +23,22 @@ RE.md["tiled_access_tags"] = [RE.md.get("data_session", "ixs_beamline")]
 RE.subscribe(tw)
 
 tiled_reading_client = trc = from_uri("https://tiled.nsls2.bnl.gov")['ixs/raw']
+
+
+def flush_tiled(timeout=30):
+    """Block until all buffered documents have been written to Tiled.
+
+    Call this before reading a just-acquired run back from Tiled: documents
+    are buffered, so Tiled's view may lag behind Bluesky. Flushes every
+    writer buffer, so it stays correct regardless of which writers are
+    subscribed to RE.
+
+    Raises RuntimeError if a buffer does not drain within ``timeout``
+    seconds or its worker thread has died.
+    """
+    for label, buffer in (("raw", tw),):
+        if not buffer.flush(timeout):
+            raise RuntimeError(
+                f"Tiled {label} buffer was not flushed within {timeout} s "
+                "(timed out or its worker thread died)."
+            )
