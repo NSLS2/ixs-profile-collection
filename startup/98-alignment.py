@@ -578,37 +578,6 @@ def _ccr_temporary_settings_wrapper(plan, report):
     return (yield from bpp.finalize_wrapper(_setup_and_scan(), _restore))
 
 
-def _confirm_tiled_run(uid, report, attempts=20, delay=0.25):
-    """Confirm that the exact completed run is visible in Tiled."""
-    last_error = None
-    for attempt in range(attempts):
-        try:
-            run = trc[uid]
-            tiled_uid = run.start["uid"]
-            if tiled_uid != uid:
-                raise RuntimeError(
-                    f"Tiled returned UID {tiled_uid!r} for requested UID {uid!r}."
-                )
-            if "stop" not in run.metadata:
-                raise LookupError("run is visible but stop metadata is not present")
-        except Exception as exc:
-            last_error = exc
-            if attempt + 1 < attempts:
-                yield from bps.sleep(delay)
-        else:
-            report(f"Tiled run confirmed: {uid}")
-            return run
-
-    warnings.warn(
-        f"Run {uid} was not confirmed in Tiled after {attempts} attempts: "
-        f"{last_error}. Recording alignment with the UID captured from the "
-        "live Start document.",
-        RuntimeWarning,
-        stacklevel=2,
-    )
-    return None
-
-
 def alignment_scan(keyword: str, note: str = "", *, diagnostics: bool = False):
     """
     Run a simplified alignment scan and record the result.
@@ -732,8 +701,6 @@ def alignment_scan(keyword: str, note: str = "", *, diagnostics: bool = False):
     fmax = s.max          # (x_at_max, max_intensity)
 
     # --- read context -------------------------------------------------------
-    report("confirming exact scan UID in Tiled")
-    yield from _confirm_tiled_run(scan_uid, report)
     report("reading CRL state")
     crl_state    = _read_crl_state()
     report(f"CRL state read complete: {crl_state}")

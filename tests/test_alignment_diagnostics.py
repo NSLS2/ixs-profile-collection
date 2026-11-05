@@ -29,7 +29,6 @@ def _load_helpers():
         "_diagnostic_ah_preflight",
         "_capture_start_uid",
         "_ccr_temporary_settings_wrapper",
-        "_confirm_tiled_run",
         "_check_bpm1_y_at_zero",
         "alignment_scan",
     }
@@ -159,59 +158,7 @@ def test_start_uid_callback_captures_exact_run():
     assert holder == {"uid": "exact-run-uid"}
 
 
-def test_tiled_confirmation_retries_exact_uid():
-    helpers = _load_helpers()
-    reports = []
-
-    class Catalog:
-        def __init__(self):
-            self.calls = []
-
-        def __getitem__(self, uid):
-            self.calls.append(uid)
-            if len(self.calls) < 3:
-                raise KeyError(uid)
-            return SimpleNamespace(
-                start={"uid": uid},
-                metadata={"start": {"uid": uid}, "stop": {}},
-            )
-
-    catalog = Catalog()
-    helpers["trc"] = catalog
-    plan = helpers["_confirm_tiled_run"](
-        "exact-run-uid", reports.append, attempts=3, delay=0
-    )
-
-    messages = list(plan)
-
-    assert [msg.command for msg in messages] == ["sleep", "sleep"]
-    assert catalog.calls == ["exact-run-uid"] * 3
-    assert reports == ["Tiled run confirmed: exact-run-uid"]
-
-
-def test_tiled_confirmation_warns_and_preserves_uid():
-    helpers = _load_helpers()
-    reports = []
-
-    class Catalog:
-        def __getitem__(self, uid):
-            raise KeyError(uid)
-
-    helpers["trc"] = Catalog()
-    plan = helpers["_confirm_tiled_run"](
-        "captured-run-uid", reports.append, attempts=2, delay=0
-    )
-
-    with __import__("warnings").catch_warnings(record=True) as caught:
-        __import__("warnings").simplefilter("always")
-        messages = list(plan)
-
-    assert [msg.command for msg in messages] == ["sleep"]
-    assert len(caught) == 1
-    assert "captured-run-uid" in str(caught[0].message)
-
-
-def test_alignment_records_exact_uid_confirmed_by_tiled():
+def test_alignment_records_exact_uid_without_accessing_tiled():
     helpers = _load_helpers()
     motor = SimpleNamespace(name="dcm_p1")
     detector = SimpleNamespace(name="tm1")
@@ -245,26 +192,18 @@ def test_alignment_records_exact_uid_confirmed_by_tiled():
         yield Msg("close_run", None)
         return [peak]
 
-    class Catalog:
-        def __init__(self):
-            self.requested = []
-
+    class UnavailableCatalog:
         def __getitem__(self, uid):
-            self.requested.append(uid)
-            return SimpleNamespace(
-                start={"uid": uid},
-                metadata={"start": {"uid": uid}, "stop": {}},
-            )
+            raise AssertionError("alignment_scan must not access Tiled")
 
     def fake_record_alignment(store, **kwargs):
         recorded.update(kwargs)
         yield from bps.null()
 
-    catalog = Catalog()
     helpers.update(
         {
             "dscan": fake_dscan,
-            "trc": catalog,
+            "trc": UnavailableCatalog(),
             "store": object(),
             "record_alignment": fake_record_alignment,
             "_read_crl_state": lambda: "out",
@@ -277,7 +216,6 @@ def test_alignment_records_exact_uid_confirmed_by_tiled():
     result = RE(helpers["alignment_scan"]("dcm"))
     uid = result.run_start_uids[0]
 
-    assert catalog.requested == [uid]
     assert recorded["scan_id"] == uid
     assert recorded["max_intensity"] == 42.0
     assert recorded["x_at_max"] == 1.25

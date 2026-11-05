@@ -418,6 +418,7 @@ def LocalBumpSetup(silent=False):
     pos5 = 49
     cenX_target = 387
     cenY_target = 904
+    max_dThe = 0.01  # mrad (= 10 urad)
 
     if cond1 != 2:
         print("****************** WARNING ******************")
@@ -454,7 +455,10 @@ def LocalBumpSetup(silent=False):
     cenX = centr[1]
     dXc = cenX - cenX_target
     dThe = 1.e-3*dXc/6.0
-    if abs(dThe) < 0.01:
+    if abs(dThe) >= max_dThe:
+        print("****************** WARNING ******************")
+        print(f"Calculated horizontal e-beam shift {1.e3*dThe:0.1f} urad exceeds the limit of {1.e3*max_dThe:0.0f} urad. Horizontal correction skipped\n")
+    else:
         print(f"Calculated horizontal e-beam shift {1.e3*dThe:0.1f} urad")
         if not silent:
             input_opts = input('Do you want to put it in (yes/no): ')
@@ -484,7 +488,10 @@ def LocalBumpSetup(silent=False):
     cenY = centr[0]
     dYc = cenY - cenY_target
     dThe = -1.e-3*dYc/5.0
-    if abs(dThe) < 0.01:
+    if abs(dThe) >= max_dThe:
+        print("****************** WARNING ******************")
+        print(f"Calculated vertical e-beam shift {1.e3*dThe:0.1f} urad exceeds the limit of {1.e3*max_dThe:0.0f} urad. Vertical correction skipped\n")
+    else:
         print(f"Calculated vertical e-beam shift {1.e3*dThe:0.1f} urad")
         if not silent:
             input_opts = input('Do you want to put it in (yes/no): ')
