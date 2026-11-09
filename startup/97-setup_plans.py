@@ -183,23 +183,31 @@ def DxtalTempCalc(uid=-1):
 #*******************************************************************************************************
 def ugap_setup():
 #   Scans the ID gap and sets it to max
-    # det = tm1
-    yname = tm1.sum_all.mean_value.name
+#
+    old_gap = ivu22.position
     res = yield from dscan(ivu22, -20, 20, 21, tm1, 1, det_ch=[4])
-    # x_pos = calculate_max_value(x="ivu22", y=yname, sampling=5)
+    
     max_pos = res[0].max
     x_pos = max_pos[0]
     yield from bps.mv(ivu22, x_pos)
     print('\n')
+    print(f'ID gap moved from {old_gap:.2f} um to {x_pos:.2f} um')
     print('ID gap alignment finished\n')
 
 
 #*******************************************************************************************************
 def crl_setup():
-        res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, 1, det_ch=[4])
-        fmax = res[0].max
-        xmax = fmax[0]
-        yield from bps.mv(crl.y, xmax)
+    old_pos = crl.y.position
+    res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, 1, det_ch=[4])
+    fmax = res[0].max
+    if fmax is None:
+        print('\n')
+        print(f'CRL y not moved, stays at {old_pos:.3f} mm\n')
+        return
+    xmax = fmax[0]
+    yield from bps.mv(crl.y, xmax)
+    print('\n')
+    print(f'CRL y moved from {old_pos:.3f} mm to {xmax:.3f} mm\n')
 
 
 #*******************************************************************************************************
