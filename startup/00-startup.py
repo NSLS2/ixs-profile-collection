@@ -136,6 +136,13 @@ def dexela_calc():
         run_name="__main__"
     )
 
+def xrayeye():
+    import runpy
+    runpy.run_path(
+        "/nsls2/data/ixs/shared/config/bluesky/profile_collection/startup/utils/XRayEye.py",
+        run_name="__main__"
+    )
+
 def my_spec_factory(name, doc):
     if name != "start" or not my_spec_factory.enabled:
         return [], []

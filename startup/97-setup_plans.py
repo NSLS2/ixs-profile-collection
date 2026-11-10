@@ -1,11 +1,18 @@
 import bluesky.plans as bp
 import bluesky.plan_stubs as bps
+import bluesky.preprocessors as bpp
+from bluesky.utils import RequestAbort, RequestStop
 import numpy as np
 import pandas as pd
 import lmfit
 from bluesky.callbacks import LiveFit
 from bluesky.callbacks.mpl_plotting import LiveGrid
 from tabulate import tabulate
+from utils.mcm_alignment import (
+    McmAlignConfig, CorrectionLimitError, HRM_IN, HRM_OUT, CONVERGED, CORRECT,
+    classify_hrm_state, hrm_measurement_settings, decide_analyzer_move,
+    analyzer_readback_ok, tx_correction, dch_moves, dy_correction,
+    convergence_step)
 
 # _AH_DET_NAMES, _get_ah_scan_dets, myfig, short_label, peaks_stats_print,
 # dscan, ascan are defined in 97-custom_scans.py (loads before this file).
@@ -231,76 +238,354 @@ def dcm_setup():
 
 
 #*******************************************************************************************************
-def mcm_setup_prep():
-# Prepares the URA for the MCM and Analyzer Slits setup, namely opens the Slits and lowers the analyzer
-    hux = hrm2.read()['hrm2_ux']['value']
-    hdx = hrm2.read()['hrm2_dx']['value']
-    acyy = anc_xtal.y.read()['anc_xtal_y']['value']
-    err = 0
-    if hux > -5 or hdx > -5:
-        print('*************************************\n')
-        print('HRM is in the beam. Execution aborted')
-        err = 1
-        return acyy, err
-    airpad.set(1)
-    det2.em_range.set(0)
- 
-    yield from bps.mv(spec.tth, 0)
+# MCM alignment. Pure logic (HRM state, corrections, limits, convergence) is in
+# utils/mcm_alignment.py. Requirements: docs/mcm_alignment_scope.md.
+class AlignmentFailure(RuntimeError):
+    """Alignment failed. Triggers failure restoration."""
 
-    yield from bps.mv(anc_xtal.y, 0.5, whl, 2, anpd, 0)
-    yield from bps.mv(analyzer_slits.top, 2, analyzer_slits.bottom, -2, analyzer_slits.outboard, 2, analyzer_slits.inboard, -2)
-    d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
-    if d21cnt < 1.0e5:
-        print('*************************************\n')
-        print('Low intensity on D21. Execution aborted')
-        yield from bps.mv(anc_xtal.y, acyy, anpd, -90)
+
+class OperatorAbort(RuntimeError):
+    """Operator declined a prompt. No restoration is performed."""
+
+
+def _mcm_describe(exc):
+    """Readable failure text; includes the cause of a failed device status."""
+    text = str(exc) or repr(exc)
+    try:
+        inner = exc.args[0].exception()
+    except Exception:
+        inner = None
+    return f'{text}: {inner!r}' if inner is not None else text
+
+
+def _mcm_yes(answer):
+    return str(answer).strip().lower() in ('y', 'yes')
+
+
+def _mcm_travel(motor):
+    """Motor (low, high) travel limits, or None if unavailable or unset."""
+    try:
+        low, high = motor.limits
+    except Exception:
+        return None
+    return None if low == high else (low, high)
+
+
+def _mcm_new_state(cfg):
+    return {
+        'cfg': cfg, 'hrm_state': None, 'hrm_readbacks': None,
+        'saved': {}, 'touched': set(), 'prep_started': False,
+        'mcm_ypos': None, 'mcm_x_active': False, 'mcm_y_return': None,
+        'vertical_started': False,
+        'axes': {}, 'history': [], 'corrections': [], 'uids': [],
+        'restored': False, 'restore_errors': [],
+    }
+
+
+def mcm_setup_prep(cfg, state):
+    """Save entry values and prepare the measurement (scope section 5)."""
+    try:
+        ux, dx = hrm2.ux.position, hrm2.dx.position
+    except Exception:
+        ux = dx = None
+    hrm_state = classify_hrm_state(ux, dx, cfg)
+    state['hrm_state'], state['hrm_readbacks'] = hrm_state, (ux, dx)
+    if hrm_state not in (HRM_IN, HRM_OUT):
+        raise AlignmentFailure(
+            f'HRM state is {hrm_state} (hrm2.ux = {ux}, hrm2.dx = {dx}; in = '
+            f'{cfg.hrm_in_position:g} +/- {cfg.hrm_tolerance:g} mm, out = '
+            f'{cfg.hrm_out_position:g} +/- {cfg.hrm_tolerance:g} mm). '
+            'Nothing was moved.')
+
+    saved = state['saved']
+    saved['y'] = anc_xtal.y.position
+    saved['slits'] = {
+        'top': analyzer_slits.top.position,
+        'bottom': analyzer_slits.bottom.position,
+        'outboard': analyzer_slits.outboard.position,
+        'inboard': analyzer_slits.inboard.position,
+    }
+    saved['anpd'] = anpd.position
+    saved['whl'] = whl.position
+    saved['em_range'] = det2.em_range.get()
+    if hrm_state == HRM_IN:
+        state['mcm_ypos'] = mcm.y.position  # MCM_YPOS, fixed for the run
+
+    decision = decide_analyzer_move(saved['y'], cfg)
+    print(decision.message)
+    if not decision.ok:
+        raise AlignmentFailure(decision.message)
+
+    state['prep_started'] = True
+    if decision.move:
+        state['touched'].add('y')
+        yield from bps.mv(anc_xtal.y, decision.y_target)
+        readback = anc_xtal.y.position
+        if not analyzer_readback_ok(readback, cfg):
+            raise AlignmentFailure(
+                f'Analyzer readback {readback} mm is outside '
+                f'({cfg.analyzer_min:g}, {cfg.analyzer_max:g}) mm after moving '
+                f'from {decision.y_initial} to {decision.y_target} mm.')
+
+    state['touched'].add('slits')
+    yield from bps.mv(analyzer_slits.top, cfg.slit_top,
+                      analyzer_slits.bottom, cfg.slit_bottom,
+                      analyzer_slits.outboard, cfg.slit_outboard,
+                      analyzer_slits.inboard, cfg.slit_inboard)
+    state['touched'].add('anpd')
+    yield from bps.mv(anpd, cfg.anpd_position)
+    settings = hrm_measurement_settings(hrm_state, cfg)
+    state['touched'].update(('whl', 'em_range'))
+    yield from bps.mv(whl, settings['whl'], det2.em_range, settings['em_range'])
+    # airpad is not restored; spec.tth is never restored.
+    yield from bps.mv(airpad, cfg.airpad_on)
+    yield from bps.mv(spec.tth, cfg.spec_tth_position)
+
+    intensity = yield from bps.rd(det2.current1.mean_value)
+    state['prep_intensity'] = intensity
+    if intensity < cfg.low_intensity_threshold:
+        raise AlignmentFailure(
+            f'Low intensity on det2.current1: {intensity:.3g} < '
+            f'{cfg.low_intensity_threshold:.3g}.')
+
+
+def mcm_setup_post(state):
+    """Restore the saved entry values that preparation changed.
+
+    Every item is attempted. Errors are recorded in state['restore_errors']
+    and never raised, so they cannot hide an original failure.
+    """
+    saved, touched = state['saved'], state['touched']
+    targets = []
+    if 'y' in touched:
+        targets.append(('anc_xtal.y', (anc_xtal.y, saved['y'])))
+    if 'slits' in touched:
+        s = saved['slits']
+        targets.append(('analyzer_slits', (
+            analyzer_slits.top, s['top'], analyzer_slits.bottom, s['bottom'],
+            analyzer_slits.outboard, s['outboard'],
+            analyzer_slits.inboard, s['inboard'])))
+    if 'anpd' in touched:
+        targets.append(('anpd', (anpd, saved['anpd'])))
+    if 'whl' in touched:
+        targets.append(('whl', (whl, saved['whl'])))
+    if 'em_range' in touched:
+        targets.append(('det2.em_range', (det2.em_range, saved['em_range'])))
+    for label, args in targets:
+        try:
+            yield from bps.mv(*args)
+        except (RequestAbort, RequestStop):
+            raise
+        except Exception as exc:
+            state['restore_errors'].append(f'{label}: {_mcm_describe(exc)}')
+    state['restored'] = not state['restore_errors']
+
+
+def _mcm_scan_fit(motor, cfg, state):
+    """Scan `motor` (relative, centered on its current position) and fit it.
+
+    Uses the exact scan UID, flushing the Tiled writer after the scan and
+    before the run is read back. Returns (position of maximum, fitted
+    intensity, uid).
+    """
+    uid_holder = {}
+
+    def _capture(name, doc):
+        uid_holder['uid'] = doc['uid']
+
+    plan = dscan(motor, -cfg.scan_half_range, cfg.scan_half_range,
+                 cfg.scan_points, det2, cfg.scan_time, det_ch=[0])
+    yield from bpp.subs_wrapper(plan, {'start': [_capture]})
+    uid = uid_holder.get('uid')
+    if uid is None:
+        raise AlignmentFailure(f'No Start document captured for the {motor.name} scan.')
+    state['uids'].append(uid)
+    try:
+        flush_tiled()
+        pos, intensity = calculate_max_value(
+            uid=uid, x=motor.name, y='det2_current1_mean_value',
+            delta=cfg.fit_delta, sampling=cfg.fit_sampling)
+    except Exception as exc:
+        raise AlignmentFailure(
+            f'Fit failed for {motor.name} scan {uid}: {exc}') from exc
+    return float(pos), float(intensity), uid
+
+
+def _mcm_confirm(ask, cfg, motor, deltas):
+    """Ask before a correction (interactive mode). Declining aborts."""
+    if not cfg.interactive:
         return
-    return acyy, err
+    pos = motor.position
+    target = pos + sum(deltas)
+    steps = ', '.join(f'{d:+.6g}' for d in deltas)
+    print(f'Proposed: {motor.name} at {pos:.6g}, relative move(s) {steps}, target {target:.6g}')
+    if not _mcm_yes(ask('Apply? (yes/no): ')):
+        raise OperatorAbort(f'Correction of {motor.name} declined by operator.')
 
 
-#*******************************************************************************************************
-def mcm_setup_post(y0):
-# Returns the motors to thier previous positions after the MCM and Analyzer Slits setup
-    yield from bps.mv(anc_xtal.y, y0, whl, 0, anpd, -90)
-    yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
+def _mcm_correction_moves(axis, hrm_state, err, cfg):
+    """Return (motor, [relative moves]) after limit checks; never clips."""
+    try:
+        if axis == 'horizontal':
+            if hrm_state == HRM_OUT:
+                m = sample_stage.tx
+                return m, [tx_correction(err, cfg, m.position, _mcm_travel(m))]
+            m = hrm2.dch
+            return m, dch_moves(err, cfg, m.position, _mcm_travel(m))
+        m = hrm2.dy
+        return m, [dy_correction(err, cfg, m.position, _mcm_travel(m))]
+    except CorrectionLimitError as exc:
+        raise AlignmentFailure(str(exc)) from exc
 
 
-#*******************************************************************************************************
-def mcm_setup(s1=0, s2=0):
-# MCM mirror setup procedure
-# Usage:
-#       if s1 > 0, then execute mcmx alignment, else - skip it
-#       if s2 > 0, then execute mcmy alignment, else - skip it
-    MCM_XPOS = -0.941
-    if s1 == 0 and s2 == 0:
-        print('*************************************\n')
-        print('Usage: mcm_setup(s1,s2)')
-        print('if s1 > 0, then execute mcmx alignment, else - skip it')
-        print('if s2 > 0, then execute mcmy alignment, else - skip it')
-        return
-    aret = yield from mcm_setup_prep()
-    acyy = aret[0]
-    if aret[1] > 0:
-        return
-    if not s1 == 0:
-        yield from dscan(mcm.x, -0.2, 0.2, 40, det2, 1)
-        x_pos = calculate_max_value(uid=-1, x="mcm_x", y="det2_current1_mean_value", delta=1, sampling=5)
-        xmax = x_pos[0]
-        dxmax = MCM_XPOS - xmax
-        print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
-        kc = 1
-#        while abs(dxmax) > 1.0e-3:
-#        yield from bps.mvr(sample_stage.tx, dxmax)
-#        yield from bp.rel_scan([det2], mcm.x, -0.2, 0.2, 41)
-#        x_pos = calculate_max_value(uid=-1, x="mcm.x", y="det2_current1_mean_value", delta=1, sampling=100)
-#        xmax = x_pos[0]
-#        dxmax = MCM_XPOS - xmax
-#        print(f"Maximum position X = {xmax}. Shifted by {dxmax} from the target")
-#        kc += 1
-#        if kc > 5:
-#            print("Could not set the MCM_X to maximum. Execution aborted")
-#            yield from mcm_setup_post(acyy)
-#            break
+def _mcm_axis_loop(axis, motor, reference, tolerance, cfg, state, ask):
+    """Scan, compare with `reference`, correct and rescan (max_scans)."""
+    for n in range(1, cfg.max_scans + 1):
+        yield from bps.mv(motor, reference)
+        pos, intensity, uid = yield from _mcm_scan_fit(motor, cfg, state)
+        yield from bps.mv(motor, reference)
+        err = pos - reference
+        state['history'].append({
+            'axis': axis, 'scan': n, 'uid': uid, 'max': pos,
+            'reference': reference, 'error': err, 'intensity': intensity})
+        decision = convergence_step(n, err, tolerance, cfg.max_scans)
+        print(f'{axis} scan {n}: max {pos:.5f}, reference {reference:.5f}, error {err:+.5f}')
+        if decision == CONVERGED:
+            return
+        if decision != CORRECT:
+            raise AlignmentFailure(
+                f'{axis} alignment did not converge after {n} scans '
+                f'(error {err:+.5f}, tolerance {tolerance:g}).')
+        corr_motor, moves = _mcm_correction_moves(axis, state['hrm_state'], err, cfg)
+        _mcm_confirm(ask, cfg, corr_motor, moves)
+        for delta in moves:
+            yield from bps.mvr(corr_motor, delta)
+        state['corrections'].append({
+            'axis': axis, 'scan': n, 'motor': corr_motor.name, 'moves': list(moves)})
+
+
+def _mcm_axis_enabled(axis, enabled, cfg, ask):
+    if not enabled:
+        return False
+    if cfg.interactive:
+        return _mcm_yes(ask(f'Perform {axis} alignment? (yes/no): '))
+    return True
+
+
+def _mcm_vertical_hrm_out(cfg, state, ask):
+    pre = mcm.y.position
+    state['mcm_y_return'] = pre
+    ymax, intensity, uid = yield from _mcm_scan_fit(mcm.y, cfg, state)
+    state['history'].append({
+        'axis': 'vertical', 'scan': 1, 'uid': uid, 'max': ymax,
+        'reference': pre, 'error': ymax - pre, 'intensity': intensity})
+    print(f'vertical scan: max {ymax:.5f}, pre-scan position {pre:.5f}')
+    _mcm_confirm(ask, cfg, mcm.y, [ymax - pre])
+    yield from bps.mv(mcm.y, ymax)
+    state['mcm_y_return'] = None  # moved on purpose; nothing to return to
+
+
+def _mcm_failure_cleanup(state):
+    """Return MCM axes and restore preparation after an alignment failure."""
+    cfg = state['cfg']
+
+    def _try(label, plan):
+        try:
+            yield from plan
+        except (RequestAbort, RequestStop):
+            raise
+        except Exception as exc:
+            state['restore_errors'].append(f'{label}: {_mcm_describe(exc)}')
+
+    if state['mcm_x_active']:
+        yield from _try('mcm.x', bps.mv(mcm.x, cfg.mcm_xpos))
+    if (state['hrm_state'] == HRM_IN and state['vertical_started']
+            and state['mcm_ypos'] is not None):
+        yield from _try('mcm.y', bps.mv(mcm.y, state['mcm_ypos']))
+    elif state['mcm_y_return'] is not None:
+        yield from _try('mcm.y', bps.mv(mcm.y, state['mcm_y_return']))
+    if state['prep_started']:
+        yield from mcm_setup_post(state)
+
+
+def _mcm_result(state, status, reason):
+    positions = {}
+    for label, getter in (
+            ('mcm.x', lambda: mcm.x.position), ('mcm.y', lambda: mcm.y.position),
+            ('anc_xtal.y', lambda: anc_xtal.y.position),
+            ('sample_stage.tx', lambda: sample_stage.tx.position),
+            ('hrm2.dch', lambda: hrm2.dch.position),
+            ('hrm2.dy', lambda: hrm2.dy.position)):
+        try:
+            positions[label] = getter()
+        except Exception as exc:
+            positions[label] = f'unreadable ({exc!r})'
+    result = {
+        'status': status, 'reason': reason, 'hrm_state': state['hrm_state'],
+        'hrm_readbacks': state['hrm_readbacks'], 'axes': dict(state['axes']),
+        'history': state['history'], 'corrections': state['corrections'],
+        'scan_uids': state['uids'], 'final_positions': positions,
+        'preparation_restored': state['restored'],
+        'restore_errors': state['restore_errors'],
+    }
+    print('\n' + '*' * 60)
+    print(f'MCM alignment: {status.upper()}' + (f' - {reason}' if reason else ''))
+    for key in ('hrm_state', 'hrm_readbacks', 'axes', 'corrections',
+                'final_positions', 'preparation_restored', 'restore_errors'):
+        print(f'  {key}: {result[key]}')
+    for rec in state['history']:
+        print(f"  {rec['axis']} scan {rec['scan']}: max {rec['max']:.5f}, "
+              f"error {rec['error']:+.5f}, uid {rec['uid']}")
+    print('*' * 60 + '\n')
+    return result
+
+
+def mcm_setup(cfg=None, ask=input, **overrides):
+    """Align the MCM horizontally and vertically (docs/mcm_alignment_scope.md).
+
+    Usage: RE(mcm_setup()) or RE(mcm_setup(interactive=False, restore_positions=True)).
+    Keyword overrides set McmAlignConfig fields. Returns a result dict.
+
+    Failure (including a failed preparation move) restores the saved analyzer
+    height, slits, anpd, whl and detector range. Operator interruption, abort
+    or a declined prompt leaves everything as it is.
+    """
+    cfg = cfg or McmAlignConfig()
+    for key, value in overrides.items():
+        if not hasattr(cfg, key):
+            raise TypeError(f'mcm_setup: unknown option {key!r}')
+        setattr(cfg, key, value)
+    state = _mcm_new_state(cfg)
+    status, reason = 'success', ''
+    try:
+        yield from mcm_setup_prep(cfg, state)
+        if _mcm_axis_enabled('horizontal', cfg.align_horizontal, cfg, ask):
+            state['mcm_x_active'] = True
+            yield from _mcm_axis_loop('horizontal', mcm.x, cfg.mcm_xpos,
+                                      cfg.horizontal_tolerance, cfg, state, ask)
+            state['axes']['horizontal'] = 'aligned'
+        else:
+            state['axes']['horizontal'] = 'skipped'
+        if _mcm_axis_enabled('vertical', cfg.align_vertical, cfg, ask):
+            state['vertical_started'] = True
+            if state['hrm_state'] == HRM_OUT:
+                yield from _mcm_vertical_hrm_out(cfg, state, ask)
+            else:
+                yield from _mcm_axis_loop('vertical', mcm.y, state['mcm_ypos'],
+                                          cfg.vertical_tolerance, cfg, state, ask)
+            state['axes']['vertical'] = 'aligned'
+        else:
+            state['axes']['vertical'] = 'skipped'
+        if cfg.restore_positions:
+            yield from mcm_setup_post(state)
+    except (RequestAbort, RequestStop):
+        raise  # operator interruption: no restoration
+    except OperatorAbort as exc:
+        status, reason = 'aborted', str(exc)
+    except Exception as exc:
+        status, reason = 'failed', _mcm_describe(exc)
+        yield from _mcm_failure_cleanup(state)
+    return _mcm_result(state, status, reason)
 
 
 #*******************************************************************************************************
