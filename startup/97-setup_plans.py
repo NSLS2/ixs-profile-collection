@@ -203,18 +203,70 @@ def ugap_setup():
 
 
 #*******************************************************************************************************
-def crl_setup():
-    old_pos = crl.y.position
-    res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, 1, det_ch=[4])
-    fmax = res[0].max
-    if fmax is None:
-        print('\n')
-        print(f'CRL y not moved, stays at {old_pos:.3f} mm\n')
-        return
+def _crl_validate(stats, initial_pos):
+    """Return (xmax, contrast); raise AlignmentFailure with diagnostics."""
+    MAX_SHIFT = 0.1
+    MIN_CONTRAST = 0.2
+    MIN_INTENSITY = 3.e-5
+    fmax, fmin = stats.max, stats.min
+    contrast = None
+    try:
+        ymax, ymin = fmax[1], fmin[1]
+        if (ymax + ymin) != 0:
+            contrast = (ymax - ymin) / (ymax + ymin)
+    except (TypeError, IndexError):
+        pass
+    diag = f'initial={initial_pos:.3f} max={fmax} contrast={contrast}'
+    if fmax is None or contrast is None:
+        raise AlignmentFailure(f'CRL y scan found no intensity maximum ({diag}).')
     xmax = fmax[0]
-    yield from bps.mv(crl.y, xmax)
-    print('\n')
-    print(f'CRL y moved from {old_pos:.3f} mm to {xmax:.3f} mm\n')
+    if not fmax[1] > MIN_INTENSITY:
+        raise AlignmentFailure(
+            f'CRL y maximum intensity {fmax[1]:.3e} not above {MIN_INTENSITY:.1e} ({diag}).')
+    if abs(xmax - initial_pos) > MAX_SHIFT:
+        raise AlignmentFailure(
+            f'CRL y maximum {xmax - initial_pos:+.3f} mm from initial exceeds '
+            f'+/-{MAX_SHIFT} mm ({diag}).')
+    if contrast < MIN_CONTRAST:
+        raise AlignmentFailure(
+            f'CRL y contrast {contrast:.2f} below {MIN_CONTRAST} ({diag}).')
+    return xmax, contrast
+
+
+def crl_setup():
+    """Move crl.y to the intensity maximum. Raises AlignmentFailure on failure.
+
+    Failure restores crl.y to its initial position and aborts the calling plan.
+    """
+    initial_pos = crl.y.position
+    status, reason, restore_errors = 'success', '', []
+    xmax = contrast = None
+    try:
+        res = yield from dscan(crl.y, -0.2, 0.2, 20, tm1, 1, det_ch=[4])
+        xmax, contrast = _crl_validate(res[0], initial_pos)
+        yield from bps.mv(crl.y, xmax)
+    except (RequestAbort, RequestStop):
+        raise
+    except Exception as exc:
+        status, reason = 'failed', _mcm_describe(exc)
+        try:
+            yield from bps.mv(crl.y, initial_pos)
+        except (RequestAbort, RequestStop):
+            raise
+        except Exception as rexc:
+            restore_errors.append(f'crl.y: {_mcm_describe(rexc)}')
+    try:
+        final = crl.y.position
+    except Exception as exc:
+        final = f'unreadable ({exc!r})'
+    print('\n' + '*' * 60)
+    print(f'CRL setup: {status.upper()}' + (f' - {reason}' if reason else ''))
+    print(f'  initial: {initial_pos}  final: {final}')
+    print(f'  max position: {xmax}  contrast: {contrast}')
+    print(f'  restore_errors: {restore_errors}')
+    print('*' * 60 + '\n')
+    if status == 'failed':
+        raise AlignmentFailure(reason)
 
 
 #*******************************************************************************************************
@@ -223,6 +275,7 @@ def _dcm_validate(stats, initial_pos):
     FWHM_MIN, FWHM_MAX = 46.0, 47.0
     CONTRAST_REF, CONTRAST_TOL = 0.9, 0.1
     MAX_SHIFT = 20.0
+    MIN_INTENSITY = 3.e-5
     fwhm, cen = stats.fwhm, stats.cen
     contrast = None
     try:
@@ -234,6 +287,10 @@ def _dcm_validate(stats, initial_pos):
     diag = f'initial={initial_pos:.3f} fwhm={fwhm} cen={cen} contrast={contrast}'
     if fwhm is None or cen is None or contrast is None:
         raise AlignmentFailure(f'DCM p1 scan returned invalid results ({diag}).')
+    if not stats.max[1] > MIN_INTENSITY:
+        raise AlignmentFailure(
+            f'DCM p1 maximum intensity {stats.max[1]:.3e} not above '
+            f'{MIN_INTENSITY:.1e} ({diag}).')
     if not FWHM_MIN <= fwhm <= FWHM_MAX:
         raise AlignmentFailure(
             f'DCM p1 FWHM {fwhm:.2f} outside [{FWHM_MIN}, {FWHM_MAX}] ({diag}).')
