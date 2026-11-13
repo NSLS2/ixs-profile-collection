@@ -815,108 +815,92 @@ def LocalBumpSetup(silent=False):
 
 
 #*******************************************************************************************************
+class CCRSetupError(RuntimeError):
+    """Raised when the C crystal alignment cannot proceed or fails."""
+
+
+def _ccr_fail(msg):
+    print('*************************************')
+    print(f'Error: {msg}. Execution aborted\n')
+    raise CCRSetupError(msg)
+
+
+def _ccr_check_hrm():
+    # Must run before any motion: refuse to start if the HRM is in the beam
+    rd = hrm2.read()
+    if rd['hrm2_ux']['value'] > -5 or rd['hrm2_dx']['value'] > -5:
+        _ccr_fail('HRM is in the beam')
+
+
 def ccr_setup_prep():
 # Prepares the URA for the C crystal setup
-    hux = hrm2.read()['hrm2_ux']['value']
-    hdx = hrm2.read()['hrm2_dx']['value']
-    err = 0
-    if hux > -5 or hdx > -5:
-        print('*************************************')
-        print('Error: HRM is in the beam. Execution aborted\n')
-        err = 1
-        return err
-    
-    airpad.set(1)
-    det2.em_range.set(0)
+    yield from bps.mv(airpad, 1)
+    yield from bps.mv(det2.em_range, 0)
     yield from bps.mv(spec.tth, 0)
     acyy = anc_xtal.read()['anc_xtal_y']['value']
     if acyy < 5:
-        print('*************************************')
-        print('Error: URA Y-position (acyy) is too low. Execution aborted\n')
-        err = 1
-        return err
+        _ccr_fail('URA Y-position (acyy) is too low')
 
     yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
     d21cnt = det2.current1.mean_value.read()['det2_current1_mean_value']['value']
     if d21cnt < 1.0e5:
-        print('****************************************')
-        print('Error: low intensity on D21. Execution aborted\n')
-        yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
-        err = 1
-        return err
-    return err
+        _ccr_fail('low intensity on D21')
+
 
 #*******************************************************************************************************
 def ccr_setup_post():
 #   Recover positions after the C crystal alignment is finished
     yield from bps.mv(anpd, -90, analyzer_slits.top, 1, analyzer_slits.bottom, -1, analyzer_slits.outboard, 1.5, analyzer_slits.inboard, -1.5)
-    
+
 
 #*******************************************************************************************************
 def ccr_the_setup():
-#   Performs C crystal theta alignment
+#   Performs C crystal theta alignment; raises CCRSetupError if not converged
     x0 = 10
     kxmov = 0
     while abs(x0) > 5 and kxmov < 5:
         yield from bp.rel_scan([det2], analyzer.cfth, -150, 150, 31)
-        peak_stats = bec.peaks
-        x0 = peak_stats['cen']['det2_current1_mean_value']
+        x0 = bec.peaks['cen'].get('det2_current1_mean_value')
+        if x0 is None:
+            _ccr_fail('C crystal The-peak centre not found')
+        # cfth is in urad; convention (sign included) confirmed on hardware
         x_deg = -np.rad2deg(1.e-6*x0)
         yield from bps.mvr(anc_xtal.the, x_deg)
         kxmov += 1
 
+    if abs(x0) > 5:
+        _ccr_fail('C crystal The-positioning did not converge')
     return kxmov
 
 
 #*******************************************************************************************************
-def ccr_setup(s1=0, s2=0, s3=0):
-#   C crystal alignment, namely the-position, analyzer vertical position and chi-position
-    
-    if s1 == 0 and s2 == 0 and s3 == 0:
-        print("\n")
-        print("Usage: ccr_setup(s1, s2, s3)")
-        print("if s1 > 0, then execute acthe alignment, else - skip")
-        print("if s2 > 0, then execute acyy alignment, else - skip")
-        print("if s3 > 0, then execute cchi alignment, else - skip")
-        return
-    
-    ret = yield from ccr_setup_prep()
-    if ret > 0:
-        return
-    
+def _ccr_setup_body(s1, s2, s3):
+    yield from ccr_setup_prep()
+
     # C crystal Theta alignment
     if s1 != 0:
         print('\n')
         print('Setting up the C crystal The-position\n')
-        det2.em_range.set(0)
-        sleep(1)
+        yield from bps.mv(det2.em_range, 0)
+        yield from bps.sleep(1)
         yield from bps.mv(whl, 0, anpd, 40)
-        kxmov = yield from ccr_the_setup()
-        if kxmov > 5:
-            print('\n')
-            print('************************************')
-            print('Error: C crystal The-positioning. Execution aborted\n')
-            return
-        
+        yield from ccr_the_setup()
+
     # C crystal Y alignment
     if s2 != 0:
         print('\n')
         print('Setting up the C crystal Y-position\n')
-        det2.em_range.set(1)
-        sleep(1)
+        yield from bps.mv(det2.em_range, 1)
+        yield from bps.sleep(1)
         yield from bps.mv(whl, 2, anpd, -145)
         yield from bps.mv(analyzer_slits.top, 0.04, analyzer_slits.bottom, -0.04)
         yield from bp.rel_scan([det2], anc_xtal.y, -0.3, 0.3, 61)
         peak_stats = bec.peaks
         p_max = peak_stats['max']['det2_current1_mean_value'][1]
         p_min = peak_stats['min']['det2_current1_mean_value'][1]
-        dp = p_max - p_min
-        if dp < 1.e3:
-            print('\n')
-            print('Error: acyy position maximum not found. Execution aborted\n')
-            yield from bps.mv(analyzer_slits.top, 1, analyzer_slits.bottom, -1)
-            return
-        
+        if p_max - p_min < 1.e3:
+            _ccr_fail('acyy position maximum not found')
+
         p_com = peak_stats['com']['det2_current1_mean_value']
         yield from bps.mv(anc_xtal.y, p_com)
         yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1)
@@ -926,34 +910,41 @@ def ccr_setup(s1=0, s2=0, s3=0):
         print('\n')
         print('Setting up the C crystal Chi-position\n')
         yield from bps.mv(whl, 0, anpd, -145)
-        det2.em_range.set(0)
-        sleep(1)
+        yield from bps.mv(det2.em_range, 0)
+        yield from bps.sleep(1)
         yield from bps.mvr(anc_xtal.y, 0.6)
         yield from bps.mv(analyzer_slits.outboard, 0.5, analyzer_slits.inboard, -0.5)
         d22cnt = det2.current2.mean_value.read()['det2_current2_mean_value']['value']
         if d22cnt < 1.e5:
-            print('\n')
-            print('Error: low intensity on d22. Verify acchi manually. Execution aborted\n')
-            return
-        
+            _ccr_fail('low intensity on d22. Verify acchi manually')
+
         yield from bp.rel_scan([det2], analyzer.cchi, -0.15, 0.15, 31)
         yield from bps.mvr(analyzer.cchi, -0.15)
-        peak_stats = bec.peaks
-        x0 = peak_stats['cen']['det2_current2_mean_value']
+        x0 = bec.peaks['cen'].get('det2_current2_mean_value')
+        if x0 is None:
+            _ccr_fail('C crystal Chi-peak centre not found')
         yield from bps.mv(analyzer.cchi, x0)
         yield from bps.mv(analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
 
         # Re-checking C crystal The-position
-
         yield from bps.mv(anpd, 40)
-        kxmov = yield from ccr_the_setup()
-        if kxmov > 5:
-            print('\n')
-            print('************************************')
-            print('Error: C crystal The-positioning. Execution aborted\n')
-            return
-        
-    yield from ccr_setup_post
+        yield from ccr_the_setup()
+
+
+#*******************************************************************************************************
+def ccr_setup(s1=0, s2=0, s3=0):
+#   C crystal alignment, namely the-position, analyzer vertical position and chi-position
+
+    if s1 == 0 and s2 == 0 and s3 == 0:
+        print("\n")
+        print("Usage: ccr_setup(s1, s2, s3)")
+        print("if s1 > 0, then execute acthe alignment, else - skip")
+        print("if s2 > 0, then execute acyy alignment, else - skip")
+        print("if s3 > 0, then execute cchi alignment, else - skip")
+        return
+
+    _ccr_check_hrm()  # before any motion, outside the restore wrapper
+    yield from bpp.finalize_wrapper(_ccr_setup_body(s1, s2, s3), ccr_setup_post())
     print('\n')
     print('C crystal alignment finished\n')
 
