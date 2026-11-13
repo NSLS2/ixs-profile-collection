@@ -218,23 +218,74 @@ def crl_setup():
 
 
 #*******************************************************************************************************
-def dcm_setup():
-    # Set the DCM position to max intensity
- 
-    res = yield from dscan(dcm.p1, -80, 80, 40, tm1, 1, det_ch=[4])
-    fwhm = res[0].fwhm
-    cen  = res[0].cen
-    com  = res[0].com
-    crs = res[0].crossings
+def _dcm_validate(stats, initial_pos):
+    """Return (cen, fwhm, contrast); raise AlignmentFailure with diagnostics."""
+    FWHM_MIN, FWHM_MAX = 46.0, 47.0
+    CONTRAST_REF, CONTRAST_TOL = 0.9, 0.1
+    MAX_SHIFT = 20.0
+    fwhm, cen = stats.fwhm, stats.cen
+    contrast = None
+    try:
+        ymax, ymin = stats.max[1], stats.min[1]
+        if (ymax + ymin) != 0:
+            contrast = (ymax - ymin) / (ymax + ymin)
+    except (TypeError, IndexError):
+        pass
+    diag = f'initial={initial_pos:.3f} fwhm={fwhm} cen={cen} contrast={contrast}'
+    if fwhm is None or cen is None or contrast is None:
+        raise AlignmentFailure(f'DCM p1 scan returned invalid results ({diag}).')
+    if not FWHM_MIN <= fwhm <= FWHM_MAX:
+        raise AlignmentFailure(
+            f'DCM p1 FWHM {fwhm:.2f} outside [{FWHM_MIN}, {FWHM_MAX}] ({diag}).')
+    if abs(contrast - CONTRAST_REF) > CONTRAST_TOL + 1e-9:
+        raise AlignmentFailure(
+            f'DCM p1 contrast {contrast:.2f} outside '
+            f'{CONTRAST_REF}+/-{CONTRAST_TOL} ({diag}).')
+    if abs(cen - initial_pos) > MAX_SHIFT:
+        raise AlignmentFailure(
+            f'DCM p1 shift {cen - initial_pos:+.2f} exceeds +/-{MAX_SHIFT} ({diag}).')
+    return cen, fwhm, contrast
 
-    if fwhm is not None and cen is not None and com is not None and crs is not None:
-        if fwhm < 50 and abs(cen - com)/ fwhm < 1 and len(crs) == 2:
-            yield from bps.mv(dcm.p1, cen)
-            print("DCM moved to center")
-        else:
-            print("Peak was not found. Motor not moved!")
-    else:
-        print("Scan did not return valid results. Motor not moved!")
+
+def dcm_setup():
+    """Center dcm.p1 on the beam-intensity peak. Raises AlignmentFailure on failure.
+
+    Failure restores dcm.p1 to its initial position and aborts the calling plan.
+    Operator interruption (RequestAbort/RequestStop) restores nothing.
+    """
+    initial_pos = dcm.p1.position
+    status, reason, restore_errors = 'success', '', []
+    cen = fwhm = contrast = None
+    try:
+        res = yield from dscan(dcm.p1, -80, 80, 40, tm1, 1, det_ch=[4])
+        cen, fwhm, contrast = _dcm_validate(res[0], initial_pos)
+        yield from bps.mv(dcm.p1, cen)
+    except (RequestAbort, RequestStop):
+        raise
+    except OperatorAbort as exc:
+        status, reason = 'aborted', str(exc)
+    except Exception as exc:
+        status, reason = 'failed', _mcm_describe(exc)
+        try:
+            yield from bps.mv(dcm.p1, initial_pos)
+        except (RequestAbort, RequestStop):
+            raise
+        except Exception as rexc:
+            restore_errors.append(f'dcm.p1: {_mcm_describe(rexc)}')
+    try:
+        final = dcm.p1.position
+    except Exception as exc:
+        final = f'unreadable ({exc!r})'
+    print('\n' + '*' * 60)
+    print(f'DCM setup: {status.upper()}' + (f' - {reason}' if reason else ''))
+    print(f'  initial: {initial_pos}  final: {final}')
+    print(f'  fwhm: {fwhm}  contrast: {contrast}  cen: {cen}')
+    print(f'  restore_errors: {restore_errors}')
+    print('*' * 60 + '\n')
+    if status == 'failed':
+        raise AlignmentFailure(reason)
+    if status == 'aborted':
+        raise OperatorAbort(reason)
 
 
 #*******************************************************************************************************
