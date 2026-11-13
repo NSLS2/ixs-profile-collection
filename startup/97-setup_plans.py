@@ -188,18 +188,59 @@ def DxtalTempCalc(uid=-1):
 
 
 #*******************************************************************************************************
+def _ugap_validate(stats, initial_gap):
+    """Return xmax; raise AlignmentFailure with diagnostics."""
+    MAX_SHIFT = 10.0        # um
+    MIN_INTENSITY = 3.e-5
+    fmax = stats.max
+    diag = f'initial={initial_gap:.2f} max={fmax}'
+    if fmax is None:
+        raise AlignmentFailure(f'ID gap scan found no intensity maximum ({diag}).')
+    xmax, ymax = fmax[0], fmax[1]
+    if not ymax > MIN_INTENSITY:
+        raise AlignmentFailure(
+            f'ID gap maximum intensity {ymax:.3e} not above {MIN_INTENSITY:.1e} ({diag}).')
+    if abs(xmax - initial_gap) > MAX_SHIFT:
+        raise AlignmentFailure(
+            f'ID gap maximum {xmax - initial_gap:+.2f} um from initial exceeds '
+            f'+/-{MAX_SHIFT} um ({diag}).')
+    return xmax
+
+
 def ugap_setup():
-#   Scans the ID gap and sets it to max
-#
-    old_gap = ivu22.position
-    res = yield from dscan(ivu22, -20, 20, 21, tm1, 1, det_ch=[4])
-    
-    max_pos = res[0].max
-    x_pos = max_pos[0]
-    yield from bps.mv(ivu22, x_pos)
-    print('\n')
-    print(f'ID gap moved from {old_gap:.2f} um to {x_pos:.2f} um')
-    print('ID gap alignment finished\n')
+    """Move the ivu22 gap to the intensity maximum. Raises AlignmentFailure on failure.
+
+    Failure restores the gap to its initial value and aborts the calling plan.
+    """
+    initial_gap = ivu22.position
+    status, reason, restore_errors = 'success', '', []
+    xmax = None
+    try:
+        res = yield from dscan(ivu22, -20, 20, 21, tm1, 1, det_ch=[4])
+        xmax = _ugap_validate(res[0], initial_gap)
+        yield from bps.mv(ivu22, xmax)
+    except (RequestAbort, RequestStop):
+        raise
+    except Exception as exc:
+        status, reason = 'failed', _mcm_describe(exc)
+        try:
+            yield from bps.mv(ivu22, initial_gap)
+        except (RequestAbort, RequestStop):
+            raise
+        except Exception as rexc:
+            restore_errors.append(f'ivu22: {_mcm_describe(rexc)}')
+    try:
+        final = ivu22.position
+    except Exception as exc:
+        final = f'unreadable ({exc!r})'
+    print('\n' + '*' * 60)
+    print(f'ID gap setup: {status.upper()}' + (f' - {reason}' if reason else ''))
+    print(f'  initial: {initial_gap}  final: {final}')
+    print(f'  max position: {xmax}')
+    print(f'  restore_errors: {restore_errors}')
+    print('*' * 60 + '\n')
+    if status == 'failed':
+        raise AlignmentFailure(reason)
 
 
 #*******************************************************************************************************
