@@ -15,7 +15,7 @@ SIZE_Y_PV = f"{IMAGE}ArraySize1_RBV"
 
 EXPECTED_SHAPE = (484, 644)  # (rows, cols), Mako G-030B
 DEFAULT_PX_UM = 0.38
-DEFAULT_FOLDER = "/IXS/CAMERA/KB"
+DEFAULT_FOLDER = "/nsls2/data/ixs/legacy/XrayEye"
 DEFAULT_PREFIX = "XRY"
 DEFAULT_DIGITS = 3
 DEFAULT_EXT = "tif"
@@ -115,6 +115,26 @@ def profiles(img, point, px_um=1.0):
 
 def build_filename(folder, prefix, n, digits=DEFAULT_DIGITS, ext=DEFAULT_EXT):
     return os.path.join(folder, f"{prefix}_{n:0{digits}d}.{ext.lstrip('.')}")
+
+
+def next_file_number(folder, prefix, digits=DEFAULT_DIGITS, ext=DEFAULT_EXT):
+    """Highest existing PREFIX_NNN.ext number in folder plus one (1 if none)."""
+    import re
+    if not os.path.isdir(folder):
+        return 1
+    pat = re.compile(rf"^{re.escape(prefix)}_(\d+)\.{re.escape(ext.lstrip('.'))}$")
+    nums = [int(m.group(1)) for f in os.listdir(folder) if (m := pat.match(f))]
+    return max(nums) + 1 if nums else 1
+
+
+def save_tiff(img, path):
+    """Save as 16-bit TIFF. Creates the folder; refuses to overwrite."""
+    from PIL import Image
+    if os.path.exists(path):
+        raise FileExistsError(path)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    arr = np.clip(np.rint(np.asarray(img)), 0, 65535).astype(np.uint16)
+    Image.fromarray(arr).save(path)
 
 
 def load_tiff(path):
@@ -237,6 +257,7 @@ class XRayEyeGUI:
         ttk.Label(ctl, text="X-Ray Eye", font=("Arial", 12, "bold")).pack(anchor="w", pady=(0, 6))
         ttk.Button(ctl, text="Load from camera", command=self.load_camera).pack(fill="x", pady=2)
         ttk.Button(ctl, text="Load file...", command=self.load_file).pack(fill="x", pady=2)
+        ttk.Button(ctl, text="Save current image", command=self.save_image).pack(fill="x", pady=2)
         ttk.Separator(ctl).pack(fill="x", pady=6)
 
         ttk.Label(ctl, text="Pick mode", font=bold).pack(anchor="w")
@@ -323,6 +344,21 @@ class XRayEyeGUI:
             self._err("File error", str(exc))
             return
         self._set_image(img, os.path.basename(path))
+
+    def save_image(self):
+        if self.img is None:
+            self._err("Save error", "No image loaded.")
+            return
+        try:
+            digits = int(self._float(self.digits, "Digits"))
+            folder, prefix, ext = self.folder.get(), self.prefix.get(), self.ext.get()
+            n = next_file_number(folder, prefix, digits, ext)
+            path = build_filename(folder, prefix, n, digits, ext)
+            save_tiff(self.img, path)
+        except Exception as exc:
+            self._err("Save error", str(exc))
+            return
+        self.status.set(f"Saved {os.path.basename(path)}")
 
     # ---- analysis
     def on_click(self, event):
