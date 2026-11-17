@@ -54,11 +54,24 @@ def fwhm(x, y, level=0.5):
     return float(right - left)
 
 
-def _roi_bounds(shape, point, half_size):
+def median3(img):
+    """3x3 median filter (edge padded); removes isolated dead/hot pixels."""
+    a = np.asarray(img, dtype=np.float32)
+    p = np.pad(a, 1, mode="edge")
+    ny, nx = a.shape
+    stack = np.stack([p[i:i + ny, j:j + nx] for i in range(3) for j in range(3)])
+    return np.median(stack, axis=0)
+
+
+def _clip_region(shape, region):
+    """region = (x0, x1, y0, y1) in pixels; returns clipped int (x0, x1, y0, y1)."""
     ny, nx = shape
-    xc, yc = int(round(point[0])), int(round(point[1]))
-    return (max(0, yc - half_size), min(ny, yc + half_size + 1),
-            max(0, xc - half_size), min(nx, xc + half_size + 1))
+    if region is None:
+        return 0, nx, 0, ny
+    x0, x1, y0, y1 = region
+    x0, x1 = sorted((int(round(x0)), int(round(x1))))
+    y0, y1 = sorted((int(round(y0)), int(round(y1))))
+    return max(0, x0), min(nx, x1 + 1), max(0, y0), min(ny, y1 + 1)
 
 
 def _border_median(roi):
@@ -70,20 +83,22 @@ def _border_median(roi):
     return float(np.median(np.concatenate([np.ravel(p) for p in parts])))
 
 
-def has_peak(img, point, half_size=20, ratio=2.0):
-    """True if the ROI maximum is at least `ratio` times the border median."""
-    y0, y1, x0, x1 = _roi_bounds(img.shape, point, half_size)
-    roi = img[y0:y1, x0:x1]
-    bg = _border_median(roi)
-    if bg is None:
-        return False
-    return float(roi.max()) >= ratio * bg
+def find_max(img, region=None):
+    """(x, y) of the brightest pixel of the median-filtered image, optionally
+    restricted to region=(x0, x1, y0, y1). Returns full-image coordinates."""
+    x0, x1, y0, y1 = _clip_region(img.shape, region)
+    sub = median3(img)[y0:y1, x0:x1]
+    if sub.size == 0:
+        return None
+    r, c = np.unravel_index(int(np.argmax(sub)), sub.shape)
+    return (float(x0 + c), float(y0 + r))
 
 
-def centroid(img, point, half_size=20):
-    """Background-subtracted centre of mass in a ROI. Returns (x, y) or None."""
-    y0, y1, x0, x1 = _roi_bounds(img.shape, point, half_size)
-    roi = np.asarray(img[y0:y1, x0:x1], dtype=np.float64)
+def centroid(img, region):
+    """Background-subtracted centre of mass inside region=(x0, x1, y0, y1),
+    using the median-filtered image. Returns (x, y) or None."""
+    x0, x1, y0, y1 = _clip_region(img.shape, region)
+    roi = median3(img)[y0:y1, x0:x1].astype(np.float64)
     bg = _border_median(roi)
     if bg is None:
         return None
@@ -95,22 +110,17 @@ def centroid(img, point, half_size=20):
     return (x0 + float((xx * w).sum() / total), y0 + float((yy * w).sum() / total))
 
 
-def find_max(img):
-    """(x, y) of the brightest pixel."""
-    r, c = np.unravel_index(int(np.argmax(img)), img.shape)
-    return (float(c), float(r))
-
-
 def profiles(img, point, px_um=1.0):
-    """Horizontal and vertical cuts through `point`.
+    """Horizontal and vertical cuts through `point` of the median-filtered image.
 
     Returns (x_um, ix, y_um, iy).
     """
-    ny, nx = img.shape
+    f = median3(img)
+    ny, nx = f.shape
     c = min(max(int(round(point[0])), 0), nx - 1)
     r = min(max(int(round(point[1])), 0), ny - 1)
-    return (px_um * np.arange(nx), np.asarray(img[r, :], dtype=float),
-            px_um * np.arange(ny), np.asarray(img[:, c], dtype=float))
+    return (px_um * np.arange(nx), f[r, :].astype(float),
+            px_um * np.arange(ny), f[:, c].astype(float))
 
 
 def build_filename(folder, prefix, n, digits=DEFAULT_DIGITS, ext=DEFAULT_EXT):
@@ -143,27 +153,33 @@ def load_tiff(path):
         return np.asarray(im, dtype=np.float32)
 
 
-def measure_image(img, px_um, mode="click", point=None, half_size=20):
-    """Locate the beam and return dict(point, fwhm_x, fwhm_y, imax) or None."""
-    if mode == "auto" or point is None:
-        pt = find_max(img)
+def measure_image(img, px_um, mode="click", region=None):
+    """Locate the beam and return dict(point, fwhm_x, fwhm_y, imax) or None.
+
+    mode "auto": brightest filtered pixel (inside region if given).
+    mode "click": centroid inside region (region required).
+    """
+    if mode == "auto":
+        pt = find_max(img, region)
+    elif region is None:
+        return None
     else:
-        pt = centroid(img, point, half_size)
-        if pt is None:
-            return None
+        pt = centroid(img, region)
+    if pt is None:
+        return None
     xx, ix, yy, iy = profiles(img, pt, px_um)
-    # background-subtract each profile by its minimum, as the old scripts did
+    x0, x1, y0, y1 = _clip_region(img.shape, region)
     return {
         "point": pt,
         "fwhm_x": fwhm(xx, ix - ix.min()),
         "fwhm_y": fwhm(yy, iy - iy.min()),
-        "imax": float(img.max()),
+        "imax": float(median3(img)[y0:y1, x0:x1].max()),
     }
 
 
 def focus_scan(folder, prefix, n1, n2, direction, px_um,
-               digits=DEFAULT_DIGITS, ext=DEFAULT_EXT):
-    """Width and intensity vs. file number using the brightest pixel per image.
+               digits=DEFAULT_DIGITS, ext=DEFAULT_EXT, region=None):
+    """Width and intensity vs. file number using the brightest filtered pixel per image (inside region if given).
 
     direction: "x" or "y". Returns dict with arrays n, width, imax, the best
     file numbers, and a list of (n, reason) for skipped files.
@@ -176,7 +192,10 @@ def focus_scan(folder, prefix, n1, n2, direction, px_um,
         except Exception as exc:  # missing/unreadable file
             skipped.append((n, str(exc)))
             continue
-        m = measure_image(img, px_um, mode="auto")
+        m = measure_image(img, px_um, mode="auto", region=region)
+        if m is None:
+            skipped.append((n, "no signal"))
+            continue
         w = m["fwhm_x"] if direction.lower() == "x" else m["fwhm_y"]
         ns.append(n)
         widths.append(w)
@@ -228,10 +247,9 @@ class XRayEyeGUI:
         root.geometry("1500x950")
 
         self.img = None
-        self.point = None
+        self.region = None  # (x0, x1, y0, y1) in pixels
         self.pick_mode = tk.StringVar(value="click")
         self.px_um = tk.StringVar(value=str(DEFAULT_PX_UM))
-        self.half = tk.StringVar(value="20")
         self.folder = tk.StringVar(value=DEFAULT_FOLDER)
         self.prefix = tk.StringVar(value=DEFAULT_PREFIX)
         self.digits = tk.StringVar(value=str(DEFAULT_DIGITS))
@@ -244,6 +262,7 @@ class XRayEyeGUI:
         self.fwy_var = tk.StringVar(value="FWHM Y: --")
         self.imax_var = tk.StringVar(value="Imax: --")
         self.status = tk.StringVar(value="Load an image")
+        self.next_var = tk.StringVar(value="Next file: --")
 
         main = ttk.Frame(root, padding=8)
         main.pack(fill="both", expand=True)
@@ -258,15 +277,18 @@ class XRayEyeGUI:
         ttk.Button(ctl, text="Load from camera", command=self.load_camera).pack(fill="x", pady=2)
         ttk.Button(ctl, text="Load file...", command=self.load_file).pack(fill="x", pady=2)
         ttk.Button(ctl, text="Save current image", command=self.save_image).pack(fill="x", pady=2)
+        ttk.Label(ctl, textvariable=self.next_var).pack(anchor="w")
         ttk.Separator(ctl).pack(fill="x", pady=6)
 
         ttk.Label(ctl, text="Pick mode", font=bold).pack(anchor="w")
-        ttk.Radiobutton(ctl, text="Click + ROI centroid", variable=self.pick_mode,
-                        value="click").pack(anchor="w")
-        ttk.Radiobutton(ctl, text="Auto (brightest pixel)", variable=self.pick_mode,
+        ttk.Radiobutton(ctl, text="Rectangle ROI centroid", variable=self.pick_mode,
+                        value="click", command=self.analyze).pack(anchor="w")
+        ttk.Radiobutton(ctl, text="Auto (brightest filtered pixel)", variable=self.pick_mode,
                         value="auto", command=self.analyze).pack(anchor="w")
         self._field(ctl, "Pixel size (um)", self.px_um)
-        self._field(ctl, "ROI half size (px)", self.half)
+        ttk.Button(ctl, text="Clear region", command=self.clear_region).pack(fill="x", pady=2)
+        ttk.Label(ctl, text="Drag a rectangle on the image to set the region.",
+                  wraplength=320).pack(anchor="w")
         ttk.Separator(ctl).pack(fill="x", pady=6)
 
         for v in (self.center_var, self.fwx_var, self.fwy_var, self.imax_var):
@@ -295,7 +317,13 @@ class XRayEyeGUI:
         self.axy = self.fig.add_subplot(gs[1, 1])
         self.canvas = FigureCanvasTkAgg(self.fig, master=view)
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
-        self.canvas.mpl_connect("button_press_event", self.on_click)
+        from matplotlib.widgets import RectangleSelector
+        self.selector = RectangleSelector(self.ax, self.on_select, useblit=False,
+                                          button=[1], minspanx=3, minspany=3,
+                                          spancoords="pixels", interactive=False)
+        for v in (self.folder, self.prefix, self.digits, self.ext):
+            v.trace_add("write", lambda *a: self.update_next())
+        self.update_next()
 
     def _field(self, parent, label, var):
         row = self.ttk.Frame(parent)
@@ -320,7 +348,6 @@ class XRayEyeGUI:
         else:
             self.status.set(f"Loaded {source}")
         self.img = img
-        self.point = None
         self.analyze()
 
     def load_camera(self):
@@ -359,23 +386,27 @@ class XRayEyeGUI:
             self._err("Save error", str(exc))
             return
         self.status.set(f"Saved {os.path.basename(path)}")
+        self.update_next()
 
     # ---- analysis
-    def on_click(self, event):
-        if self.img is None or event.inaxes != self.ax or event.xdata is None:
-            return
-        if self.pick_mode.get() != "click":
-            return
+    def update_next(self):
         try:
-            half = int(self._float(self.half, "ROI half size"))
-        except ValueError as exc:
-            self._err("Input error", str(exc))
+            n = next_file_number(self.folder.get(), self.prefix.get(),
+                                 int(self.digits.get()), self.ext.get())
+            self.next_var.set("Next file: " + os.path.basename(
+                build_filename(self.folder.get(), self.prefix.get(), n,
+                               int(self.digits.get()), self.ext.get())))
+        except Exception:
+            self.next_var.set("Next file: --")
+
+    def on_select(self, eclick, erelease):
+        if eclick.xdata is None or erelease.xdata is None:
             return
-        pt = (event.xdata, event.ydata)
-        if not has_peak(self.img, pt, half):
-            self.status.set("Selection canceled: no peak found.")
-            return
-        self.point = pt
+        self.region = (eclick.xdata, erelease.xdata, eclick.ydata, erelease.ydata)
+        self.analyze()
+
+    def clear_region(self):
+        self.region = None
         self.analyze()
 
     def analyze(self):
@@ -383,18 +414,17 @@ class XRayEyeGUI:
             return
         try:
             px = self._float(self.px_um, "Pixel size")
-            half = int(self._float(self.half, "ROI half size"))
         except ValueError as exc:
             self._err("Input error", str(exc))
             return
         mode = self.pick_mode.get()
-        if mode == "click" and self.point is None:
+        if mode == "click" and self.region is None:
             self.redraw(None)
-            self.status.set("Click on the beam to measure it")
+            self.status.set("Drag a rectangle around the beam")
             return
-        res = measure_image(self.img, px, mode, self.point, half)
+        res = measure_image(self.img, px, mode, self.region)
         if res is None:
-            self.status.set("Could not compute centroid.")
+            self.status.set("No signal above background in the region.")
             self.redraw(None)
             return
         self.center_var.set(f"Center: x={res['point'][0]:.1f}, y={res['point'][1]:.1f}")
@@ -412,6 +442,11 @@ class XRayEyeGUI:
                        vmin=np.percentile(self.img, 1), vmax=np.percentile(self.img, 99.5),
                        interpolation="nearest")
         self.ax.set_title("XrayEye image (as stored, origin top-left)")
+        if self.region is not None:
+            from matplotlib.patches import Rectangle
+            rx0, rx1, ry0, ry1 = sorted(self.region[:2]) + sorted(self.region[2:])
+            self.ax.add_patch(Rectangle((rx0, ry0), rx1 - rx0, ry1 - ry0,
+                                        fill=False, edgecolor="yellow", linestyle="--"))
         if res is not None:
             x0, y0 = res["point"]
             self.ax.scatter([x0], [y0], s=500, facecolors="none", edgecolors="lime")
@@ -439,7 +474,7 @@ class XRayEyeGUI:
             self._err("Input error", "Last # must be >= First #")
             return
         res = focus_scan(self.folder.get(), self.prefix.get(), n1, n2,
-                         self.direction.get(), px, digits, self.ext.get())
+                         self.direction.get(), px, digits, self.ext.get(), self.region)
         if res["n"].size == 0:
             self._err("Focus scan", "No readable files in range.")
             return
