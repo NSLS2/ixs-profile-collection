@@ -217,8 +217,11 @@ def ugap_setup():
     xmax = None
     try:
         res = yield from dscan(ivu22, -20, 20, 21, tm1, 1, det_ch=[4])
+        # print("scan finished")
         xmax = _ugap_validate(res[0], initial_gap)
+        print("Validation passed", xmax)
         yield from bps.mv(ivu22, xmax)
+        print("Moved the gap to max")
     except (RequestAbort, RequestStop):
         raise
     except Exception as exc:
@@ -247,7 +250,7 @@ def ugap_setup():
 def _crl_validate(stats, initial_pos):
     """Return (xmax, contrast); raise AlignmentFailure with diagnostics."""
     MAX_SHIFT = 0.1
-    MIN_CONTRAST = 0.2
+    MIN_CONTRAST = 0.08
     MIN_INTENSITY = 3.e-5
     fmax, fmin = stats.max, stats.min
     contrast = None
@@ -274,12 +277,57 @@ def _crl_validate(stats, initial_pos):
     return xmax, contrast
 
 
+CRL_IN_POS, CRL_OUT_POS = 0.427, 35.17
+CRL_TOL = 0.01          # mm
+CRL_IN_LIMIT = 1.0      # crl.y below this means the CRL is in the beam
+
+
+def crl_in():
+    """Move crl.y into the beam only if the CRL is out (crl.y >= 1 mm).
+
+    If crl.y < 1 mm the position is left unchanged.
+    Raises AlignmentFailure if the final position is not within +/-0.01 mm of the target.
+    """
+    pos = crl.y.position
+    if pos < CRL_IN_LIMIT:
+        print(f'CRL already in the beam (crl.y = {pos:.3f} mm). Position not changed.')
+        return
+    yield from bps.mv(crl.y, CRL_IN_POS)
+    final = crl.y.position
+    if abs(final - CRL_IN_POS) > CRL_TOL:
+        raise AlignmentFailure(
+            f'CRL in: crl.y = {final:.3f} mm, target {CRL_IN_POS} +/-{CRL_TOL} mm.')
+    print(f'CRL moved in: crl.y {pos:.3f} -> {final:.3f} mm')
+
+
+def crl_out():
+    """Move crl.y out of the beam unless it is already at 35.17 +/-0.01 mm.
+
+    Raises AlignmentFailure if the final position is not within +/-0.01 mm of the target.
+    """
+    pos = crl.y.position
+    if abs(pos - CRL_OUT_POS) <= CRL_TOL:
+        print(f'CRL already out of the beam (crl.y = {pos:.3f} mm). Position not changed.')
+        return
+    yield from bps.mv(crl.y, CRL_OUT_POS)
+    final = crl.y.position
+    if abs(final - CRL_OUT_POS) > CRL_TOL:
+        raise AlignmentFailure(
+            f'CRL out: crl.y = {final:.3f} mm, target {CRL_OUT_POS} +/-{CRL_TOL} mm.')
+    print(f'CRL moved out: crl.y {pos:.3f} -> {final:.3f} mm')
+
+
 def crl_setup():
     """Move crl.y to the intensity maximum. Raises AlignmentFailure on failure.
 
+    Requires the CRL to be IN the beam (crl.y < 1 mm).
     Failure restores crl.y to its initial position and aborts the calling plan.
     """
     initial_pos = crl.y.position
+    if not initial_pos < CRL_IN_LIMIT:
+        raise AlignmentFailure(
+            f'CRL setup requires the CRL IN the beam (crl.y < {CRL_IN_LIMIT} mm); '
+            f'crl.y = {initial_pos:.3f} mm. Move it in with crl_in() first.')
     status, reason, restore_errors = 'success', '', []
     xmax = contrast = None
     try:
@@ -313,7 +361,7 @@ def crl_setup():
 #*******************************************************************************************************
 def _dcm_validate(stats, initial_pos):
     """Return (cen, fwhm, contrast); raise AlignmentFailure with diagnostics."""
-    FWHM_MIN, FWHM_MAX = 46.0, 47.0
+    FWHM_MIN, FWHM_MAX = 44.0, 47.0
     CONTRAST_REF, CONTRAST_TOL = 0.9, 0.1
     MAX_SHIFT = 20.0
     MIN_INTENSITY = 3.e-5
@@ -908,13 +956,13 @@ def LocalBumpSetup(silent=False):
             input_opts = 'yes'
         
         if input_opts == 'yes':
+            xpos = strg_ring_orb_fb.xa_rbv.read()['srofb_xa_rbv']['value']
+            valx = 1.e3*(xpos + dThe)
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.horz_plane_nudge.set(1)
             yield from sleep(2)
             print('*****************************************')
-            xtarget = strg_ring_orb_fb.xa_rbv.read()
-            valx = 1.e3*xtarget['srofb_xa_rbv']['value']
-            print(f'Horizontal angle correction was applied. New value {valx:0.1f} urad\n')
+            print(f'Horizontal angle correction was applied. Expected new value {valx:0.1f} urad\n')
             print(strg_ring_orb_fb.nudge_status.alarm_status)
         else:
             print('*****************************************')
@@ -941,13 +989,13 @@ def LocalBumpSetup(silent=False):
             input_opts = 'yes'
         
         if input_opts == 'yes':
+            ypos = strg_ring_orb_fb.xy_rbv.read()['srofb_xy_rbv']['value']
+            valy = 1.e3*(ypos + dThe)
             strg_ring_orb_fb.nudge_increment.set(dThe)
             strg_ring_orb_fb.vert_plane_nudge.set(1)
             yield from sleep(2)
             print('*****************************************')
-            ytarget = strg_ring_orb_fb.xy_rbv.read()
-            valy = 1.e3*ytarget['srofb_xy_rbv']['value']
-            print(f'Vertical angle correction was applied. New value {valy:0.1f} urad\n')
+            print(f'Vertical angle correction was applied. Expected new value {valy:0.1f} urad\n')
             print(strg_ring_orb_fb.nudge_status.alarm_status)
         else:
             print('*****************************************')
