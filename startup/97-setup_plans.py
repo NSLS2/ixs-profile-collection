@@ -860,6 +860,12 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 
     run = trc[uid]
     table = run['primary'].read([x, y])
+    # Tiled may return an xarray Dataset (no 'time' coordinate); the code
+    # below needs a plain DataFrame with a RangeIndex.
+    if hasattr(table, 'to_dataframe'):
+        table = table.to_dataframe().reset_index(drop=True)
+    else:
+        table = pd.DataFrame(table).reset_index(drop=True)
     #y = f'lambda_det_stats{channel}_total'
     
     #cp_df = df.copy()
