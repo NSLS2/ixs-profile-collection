@@ -59,41 +59,41 @@ def calc_lmfit(uid=-1, x="hrmE", channel=7):
 
 
 #*******************************************************************************************************
-def calc_stepup_fit(x):
-    # Calculates fitting parameters for step up function for MCM slits scan
-    y = 'det2_current1_mean_value'
-    run = trc[-1]
-    table = run['primary'].read([x, y])
-    model = lmfit.Model(stepup)
-    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
-    for name, doc in run.documents():
-        lf(name, doc)
-    print(lf.result.values)
-    stup = stepup(table[x], **lf.result.values)
-    plt.clf()
-    plt.plot(table[x], table[y], label=f"raw data", marker = 'o', linestyle = 'none')
-    plt.plot(table[x], stup.values, label=f"data fit")
-    plt.legend()
-    return lf.result.values['x0']
+# def calc_stepup_fit(x):
+#     # Calculates fitting parameters for step up function for MCM slits scan
+#     y = 'det2_current1_mean_value'
+#     run = trc[-1]
+#     table = run['primary'].read([x, y])
+#     model = lmfit.Model(stepup)
+#     lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
+#     for name, doc in run.documents():
+#         lf(name, doc)
+#     print(lf.result.values)
+#     stup = stepup(table[x], **lf.result.values)
+#     plt.clf()
+#     plt.plot(table[x], table[y], label=f"raw data", marker = 'o', linestyle = 'none')
+#     plt.plot(table[x], stup.values, label=f"data fit")
+#     plt.legend()
+#     return lf.result.values['x0']
 
 
 #*******************************************************************************************************
-def calc_stepdwn_fit(x):
-    # Calculates fitting parameters for step down function for MCM slits scan
-    y = 'det2_current1_mean_value'
-    run = trc[-1]
-    table = run['primary'].read([x, y])
-    model = lmfit.Model(stepdown)
-    lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
-    for name, doc in run.documents():
-        lf(name, doc)
-    print(lf.result.values)
-    stdw = stepdown(table[x], **lf.result.values)
-    plt.clf()
-    plt.plot(table[x], table[y], label=f"raw data", marker = 'o', linestyle = 'none')
-    plt.plot(table[x], stdw.values, label=f"data fit")
-    plt.legend()
-    return lf.result.values['x0']
+# def calc_stepdwn_fit(x):
+#     # Calculates fitting parameters for step down function for MCM slits scan
+#     y = 'det2_current1_mean_value'
+#     run = trc[-1]
+#     table = run['primary'].read([x, y])
+#     model = lmfit.Model(stepdown)
+#     lf = LiveFit(model, y, {'x': x}, {'A': table[y].max(), 'sigma': 0.25, 'x0': 0, 'b':0})
+#     for name, doc in run.documents():
+#         lf(name, doc)
+#     print(lf.result.values)
+#     stdw = stepdown(table[x], **lf.result.values)
+#     plt.clf()
+#     plt.plot(table[x], table[y], label=f"raw data", marker = 'o', linestyle = 'none')
+#     plt.plot(table[x], stdw.values, label=f"data fit")
+#     plt.legend()
+#     return lf.result.values['x0']
 
 
 #*******************************************************************************************************
@@ -786,38 +786,168 @@ def mcm_setup(cfg=None, ask=input, **overrides):
 
 
 #*******************************************************************************************************
-def analyzer_slit_scan(mtr, start, stop, gaps):
-#    plt.clf()
-    yield from bps.mv(mtr, 0)
-    yield from bp.rel_scan([det2], mtr, start, stop, gaps)
-    peak_stats = bec.peaks
-    x0 = peak_stats['cen']['det2_current1_mean_value']
-    print('*********************\n')
-    print(f'{mtr.name} position center {x0}\n')
-    if x0 > 1 or x0 < -1:
-        print('*********************************************************\n')
-        print(f'Verify the {mtr.name} data. Execution aborted!')
+SAN_MIN_INTENSITY = 2.7e6
+SAN_MIN_CONTRAST = 0.7
+SAN_MAX_CENTER = 1.0
+# blade: (open position, step direction, scan start, scan stop, points)
+SAN_BLADES = {
+    'outboard': (2, 'up', -1.2, 1.2, 41),
+    'inboard': (-2, 'down', -1.2, 1.2, 41),
+    'top': (2, 'up', -1.0, 1.0, 41),
+    'bottom': (-2, 'down', -1.0, 1.0, 41),
+}
+
+
+def _san_step_fit(x, y, direction):
+    """Fit a step edge with lmfit; return (x0, fit result)."""
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    order = np.argsort(x)
+    x, y = x[order], y[order]
+    ymin, ymax = float(y.min()), float(y.max())
+    span = float(x.max() - x.min())
+    mid = 0.5 * (ymin + ymax)
+    above = y > mid
+    if direction == 'up':
+        # stepup(): signal rises with x
+        idx = int(np.argmax(above)) if above.any() else len(x) // 2
+        model = lmfit.Model(stepup)
     else:
-        yield from bps.mv(mtr, x0)
-        mtr.set_current_position(0)
+        # stepdown(): signal falls with x
+        idx = int(np.argmax(~above)) if (~above).any() else len(x) // 2
+        model = lmfit.Model(stepdown)
+    params = model.make_params(A=ymax - ymin, sigma=0.1 * span, x0=float(x[idx]), b=ymin)
+    params['sigma'].set(min=1e-6)
+    result = model.fit(y, params, x=x)
+    return float(result.params['x0'].value), result
 
 
-#*******************************************************************************************************
+def _san_validate(name, direction, x, y):
+    """Fit the blade scan and validate it; return (x0, contrast)."""
+    y = np.asarray(y, dtype=float)
+    ymax, ymin = float(y.max()), float(y.min())
+    contrast = (ymax - ymin) / (ymax + ymin) if (ymax + ymin) != 0 else None
+    try:
+        x0, result = _san_step_fit(x, y, direction)
+    except Exception as exc:
+        raise AlignmentFailure(f'{name}: step fit failed: {_mcm_describe(exc)}') from exc
+    diag = f'x0={x0:.4f} contrast={contrast} max={ymax:.4g} min={ymin:.4g}'
+    if not result.success:
+        raise AlignmentFailure(f'{name}: step fit did not converge ({diag}).')
+    if contrast is None or contrast < SAN_MIN_CONTRAST:
+        raise AlignmentFailure(
+            f'{name}: contrast {contrast} below {SAN_MIN_CONTRAST} ({diag}).')
+    if abs(x0) > SAN_MAX_CENTER:
+        raise AlignmentFailure(
+            f'{name}: edge position {x0:.4f} outside +/-{SAN_MAX_CENTER} ({diag}).')
+    return x0, contrast
+
+
+def analyzer_slit_scan(mtr, direction, start, stop, gaps):
+    """Scan one analyzer slit blade, fit the step edge, and center on it.
+
+    Returns a record dict. Raises AlignmentFailure on failure; in that case
+    the blade offset is not changed.
+    """
+    yield from bps.mv(mtr, 0)
+    uid_holder = {}
+
+    def _capture(name, doc):
+        uid_holder['uid'] = doc['uid']
+
+    plan = dscan(mtr, start, stop, gaps, det2, 1, det_ch=[0])
+    yield from bpp.subs_wrapper(plan, {'start': [_capture]})
+    uid = uid_holder.get('uid')
+    if uid is None:
+        raise AlignmentFailure(f'No Start document captured for the {mtr.name} scan.')
+    try:
+        flush_tiled()
+        table = trc[uid]['primary'].read([mtr.name, 'det2_current1_mean_value'])
+        x = table[mtr.name].values
+        y = table['det2_current1_mean_value'].values
+    except Exception as exc:
+        raise AlignmentFailure(
+            f'Reading {mtr.name} scan {uid} failed: {_mcm_describe(exc)}') from exc
+    x0, contrast = _san_validate(mtr.name, direction, x, y)
+    print('*********************\n')
+    print(f'{mtr.name} edge position {x0:.4f}, contrast {contrast:.3f}\n')
+    yield from bps.mv(mtr, x0)
+    mtr.set_current_position(0)
+    return {'x0': x0, 'contrast': contrast, 'uid': uid}
+
+
+def _san_summary(status, reason, intensity, initial, records, restore_errors):
+    final = {}
+    for name in SAN_BLADES:
+        try:
+            final[name] = getattr(analyzer_slits, name).position
+        except Exception as exc:
+            final[name] = f'unreadable ({exc!r})'
+    print('\n' + '*' * 60)
+    print(f'Analyzer slits setup: {status.upper()}' + (f' - {reason}' if reason else ''))
+    print(f'  open-slit intensity: {intensity}')
+    print(f'  initial positions: {initial}')
+    print(f'  final positions: {final}')
+    for name, rec in records.items():
+        print(f"  {name}: edge {rec['x0']:.4f}, contrast {rec['contrast']:.3f}, uid {rec['uid']}")
+    print(f'  restore_errors: {restore_errors}')
+    print('*' * 60 + '\n')
+
+
 def san_setup():
-#    acyy = ura_setup_prep()
-    yield from analyzer_slit_scan(analyzer_slits.outboard, -1.2, 1.2, 41)
-    yield from bps.mv(analyzer_slits.outboard, 2)
+    """Center the four analyzer slit blades on their step edges.
 
-    yield from analyzer_slit_scan(analyzer_slits.inboard, -1.2, 1.2, 41)
-    yield from bps.mv(analyzer_slits.inboard, -2)
-
-    yield from analyzer_slit_scan(analyzer_slits.top, -1., 1., 41)
-    yield from bps.mv(analyzer_slits.top, 2)
-    
-    yield from analyzer_slit_scan(analyzer_slits.bottom, -1., 1., 41)
-    yield from bps.mv(analyzer_slits.bottom, -2)
-    
-#    ura_setup_post(acyy)
+    The open-slit intensity is checked before any scan; if it fails the
+    initial blade positions are restored. If a blade scan fails, blades
+    already scanned stay where they are (offsets unchanged) and the failing
+    blade is returned to its open position.
+    """
+    blades = {name: getattr(analyzer_slits, name) for name in SAN_BLADES}
+    initial = {name: mtr.position for name, mtr in blades.items()}
+    records, restore_errors = {}, []
+    intensity = None
+    status, reason = 'success', ''
+    current = None
+    try:
+        # 1. Open all slits and check the intensity before any scan
+        for name, (open_pos, *_rest) in SAN_BLADES.items():
+            yield from bps.mv(blades[name], open_pos)
+        intensity = det2.current1.mean_value.get()
+        if not intensity > SAN_MIN_INTENSITY:
+            current = 'initial'
+            raise AlignmentFailure(
+                f'Open-slit intensity {intensity:.4g} not above {SAN_MIN_INTENSITY:.1e}.')
+        # 2. Scan the blades one by one
+        for name, (open_pos, direction, start, stop, gaps) in SAN_BLADES.items():
+            current = name
+            records[name] = yield from analyzer_slit_scan(
+                blades[name], direction, start, stop, gaps)
+            yield from bps.mv(blades[name], open_pos)
+            current = None
+    except (RequestAbort, RequestStop):
+        raise
+    except Exception as exc:
+        status, reason = 'failed', _mcm_describe(exc)
+        if current == 'initial':
+            # nothing scanned, nothing re-zeroed: restore initial positions
+            for name, mtr in blades.items():
+                try:
+                    yield from bps.mv(mtr, initial[name])
+                except (RequestAbort, RequestStop):
+                    raise
+                except Exception as rexc:
+                    restore_errors.append(f'{name}: {_mcm_describe(rexc)}')
+        elif current in SAN_BLADES:
+            # failing blade only: back to its open position; scanned blades untouched
+            try:
+                yield from bps.mv(blades[current], SAN_BLADES[current][0])
+            except (RequestAbort, RequestStop):
+                raise
+            except Exception as rexc:
+                restore_errors.append(f'{current}: {_mcm_describe(rexc)}')
+    _san_summary(status, reason, intensity, initial, records, restore_errors)
+    if status == 'failed':
+        raise AlignmentFailure(reason)
     print('*****************************************\n')
     print("Analyzer slits setup finished successfully\n")
 
