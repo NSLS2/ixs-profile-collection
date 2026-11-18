@@ -105,3 +105,5 @@ tests/test_lambda_setup.py
 tests/test_xrayeye.py
 tests/test_ccr_setup_plan.py
 docs/ccr_setup.md
+docs/mcm_alignment_scope.md
+tests/test_calculate_max_value.py
