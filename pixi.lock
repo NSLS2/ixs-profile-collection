@@ -2704,7 +2704,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/h5py?source=compressed-mapping
+  - pkg:pypi/h5py?source=hash-mapping
   run_exports: {}
   size: 1353159
   timestamp: 1787108753979
@@ -6863,7 +6863,7 @@ packages:
   license: Apache-2.0
   license_family: Apache
   purls:
-  - pkg:pypi/tornado?source=compressed-mapping
+  - pkg:pypi/tornado?source=hash-mapping
   run_exports: {}
   size: 869730
   timestamp: 1786226754702
@@ -8011,7 +8011,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/bluesky-tiled-plugins?source=compressed-mapping
+  - pkg:pypi/bluesky-tiled-plugins?source=hash-mapping
   run_exports: {}
   size: 67457
   timestamp: 1793717923309
