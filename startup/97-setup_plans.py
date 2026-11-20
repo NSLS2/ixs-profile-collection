@@ -1192,8 +1192,8 @@ def ccr_the_setup():
     x0 = 10
     kxmov = 0
     while abs(x0) > 5 and kxmov < 5:
-        yield from bp.rel_scan([det2], analyzer.cfth, -150, 150, 31)
-        x0 = bec.peaks['cen'].get('det2_current1_mean_value')
+        res = yield from dscan(analyzer.cfth, -150, 150, 31, det2, 1, det_ch=[0])
+        x0 = res[0].cen
         if x0 is None:
             _ccr_fail('C crystal The-peak centre not found')
         # cfth is in urad; convention (sign included) confirmed on hardware
@@ -1227,14 +1227,18 @@ def _ccr_setup_body(s1, s2, s3):
         yield from bps.sleep(1)
         yield from bps.mv(whl, 2, anpd, -145)
         yield from bps.mv(analyzer_slits.top, 0.04, analyzer_slits.bottom, -0.04)
-        yield from bp.rel_scan([det2], anc_xtal.y, -0.3, 0.3, 61)
-        peak_stats = bec.peaks
-        p_max = peak_stats['max']['det2_current1_mean_value'][1]
-        p_min = peak_stats['min']['det2_current1_mean_value'][1]
-        if p_max - p_min < 1.e3:
+        res = yield from dscan(anc_xtal.y, -0.3, 0.3, 61, det2, 1, det_ch=[0])
+        st = res[0]
+        try:
+            dp = st.max[1] - st.min[1]
+        except (TypeError, IndexError):
+            dp = 0
+        if dp < 1.e3:
             _ccr_fail('acyy position maximum not found')
 
-        p_com = peak_stats['com']['det2_current1_mean_value']
+        p_com = st.com
+        if p_com is None:
+            _ccr_fail('acyy centre of mass not found')
         yield from bps.mv(anc_xtal.y, p_com)
         yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1)
 
@@ -1251,9 +1255,9 @@ def _ccr_setup_body(s1, s2, s3):
         if d22cnt < 1.e5:
             _ccr_fail('low intensity on d22. Verify acchi manually')
 
-        yield from bp.rel_scan([det2], analyzer.cchi, -0.15, 0.15, 31)
+        res = yield from dscan(analyzer.cchi, -0.15, 0.15, 31, det2, 1, det_ch=[1])
         yield from bps.mvr(analyzer.cchi, -0.15)
-        x0 = bec.peaks['cen'].get('det2_current2_mean_value')
+        x0 = res[0].cen
         if x0 is None:
             _ccr_fail('C crystal Chi-peak centre not found')
         yield from bps.mv(analyzer.cchi, x0)
@@ -1283,16 +1287,92 @@ def ccr_setup(s1=0, s2=0, s3=0):
 
 
 #*******************************************************************************************************
+WCR_FIELD = 'lambda_det_stats7_total'
+WCR_MIN_INTENSITY = 40000
+WCR_MIN_CONTRAST = 0.6
+WCR_MAX_SHIFT = 5.0
+
+
+def _wcr_validate(x, y, initial_pos, uid):
+    """Fit the wfth scan and validate it; return (x_pos, y_fit, contrast, ymax)."""
+    y = np.asarray(y, dtype=float)
+    ymax, ymin = float(y.max()), float(y.min())
+    contrast = (ymax - ymin) / (ymax + ymin) if (ymax + ymin) != 0 else None
+    try:
+        x_pos, y_fit = calculate_max_value(
+            uid=uid, x='analyzer.wfth', y=WCR_FIELD, sampling=100)
+        x_pos, y_fit = float(x_pos), float(y_fit)
+    except Exception as exc:
+        raise AlignmentFailure(
+            f'Fit failed for analyzer.wfth scan {uid}: {_mcm_describe(exc)}') from exc
+    diag = (f'initial={initial_pos:.3f} max_pos={x_pos:.3f} raw_max={ymax:.4g} '
+            f'raw_min={ymin:.4g} contrast={contrast}')
+    if not ymax > WCR_MIN_INTENSITY:
+        raise AlignmentFailure(
+            f'W crystal maximum intensity {ymax:.4g} not above {WCR_MIN_INTENSITY} ({diag}).')
+    if contrast is None or contrast < WCR_MIN_CONTRAST:
+        raise AlignmentFailure(
+            f'W crystal contrast {contrast} below {WCR_MIN_CONTRAST} ({diag}).')
+    if abs(x_pos - initial_pos) > WCR_MAX_SHIFT:
+        raise AlignmentFailure(
+            f'W crystal maximum {x_pos - initial_pos:+.3f} from initial exceeds '
+            f'+/-{WCR_MAX_SHIFT} ({diag}).')
+    return x_pos, y_fit, contrast, ymax
+
+
 def wcr_setup():
-#   Performs W crystal alignment
-    yield from bps.mv(anpd, -90, whl, 7, analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
-    # yield from set_lambda_exposure(1)
-    # yield from bp.rel_scan([lambda_det], analyzer.wfth, -20, 20, 41)
-    yield from dscan(analyzer.wfth, -20, 20, 41, lambda_det, 1)
-    x_pos = calculate_max_value(x="analyzer.wfth", sampling=100)
-    yield from bps.mvr(analyzer.wfth, -20)
-    yield from bps.mv(analyzer.wfth, x_pos)
-    print('\n')
+    """Align the W crystal (analyzer.wfth) on the intensity maximum.
+
+    Raises AlignmentFailure on failure and restores analyzer.wfth only.
+    """
+    initial_pos = analyzer.wfth.position
+    status, reason, restore_errors = 'success', '', []
+    x_pos = contrast = ymax = uid = None
+    try:
+        yield from bps.mv(anpd, -90, whl, 7, analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1, analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
+        uid_holder = {}
+
+        def _capture(name, doc):
+            uid_holder['uid'] = doc['uid']
+
+        plan = dscan(analyzer.wfth, -20, 20, 41, lambda_det, 1)
+        yield from bpp.subs_wrapper(plan, {'start': [_capture]})
+        uid = uid_holder.get('uid')
+        if uid is None:
+            raise AlignmentFailure('No Start document captured for the analyzer.wfth scan.')
+        try:
+            flush_tiled()
+            table = trc[uid]['primary'].read(['analyzer.wfth', WCR_FIELD])
+            x = table['analyzer.wfth'].values
+            y = table[WCR_FIELD].values
+        except Exception as exc:
+            raise AlignmentFailure(
+                f'Reading analyzer.wfth scan {uid} failed: {_mcm_describe(exc)}') from exc
+        x_pos, _y_fit, contrast, ymax = _wcr_validate(x, y, initial_pos, uid)
+        yield from bps.mvr(analyzer.wfth, -20)
+        yield from bps.mv(analyzer.wfth, x_pos)
+    except (RequestAbort, RequestStop):
+        raise
+    except Exception as exc:
+        status, reason = 'failed', _mcm_describe(exc)
+        try:
+            yield from bps.mv(analyzer.wfth, initial_pos)
+        except (RequestAbort, RequestStop):
+            raise
+        except Exception as rexc:
+            restore_errors.append(f'analyzer.wfth: {_mcm_describe(rexc)}')
+    try:
+        final = analyzer.wfth.position
+    except Exception as exc:
+        final = f'unreadable ({exc!r})'
+    print('\n' + '*' * 60)
+    print(f'W crystal setup: {status.upper()}' + (f' - {reason}' if reason else ''))
+    print(f'  initial: {initial_pos}  final: {final}')
+    print(f'  max position: {x_pos}  raw max: {ymax}  contrast: {contrast}  uid: {uid}')
+    print(f'  restore_errors: {restore_errors}')
+    print('*' * 60 + '\n')
+    if status == 'failed':
+        raise AlignmentFailure(reason)
     print('W crystal alignment finished\n')
 
 

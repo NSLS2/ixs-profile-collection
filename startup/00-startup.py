@@ -5,6 +5,8 @@ EpicsSignalBase.set_defaults(timeout=10, connection_timeout=10)  # new style
 import nslsii # type: ignore
 import os
 
+os.environ["OPHYD_ASYNC_PRESERVE_DETECTOR_STATE"] = "YES"
+
 nslsii.configure_base(
     get_ipython().user_ns, # type: ignore
     None,

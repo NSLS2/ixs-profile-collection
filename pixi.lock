@@ -138,8 +138,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libbrotlienc-1.2.0-h018ffa1_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libcap-2.78-h084b8d7_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libcblas-3.11.0-9_h0358290_openblas.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/libclang-cpp22.1-22.1.8-default_h12ff6da_7.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/libclang13-22.1.8-default_h96bbd2b_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libcrc32c-1.1.2-h9c3ff4c_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libcups-2.3.3-h7a8fb5f_6.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libcurl-8.21.0-ha042cf0_5.conda
@@ -180,7 +178,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libjxl-0.12.0-heb2dce7_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/liblapack-3.11.0-9_h47877c9_openblas.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/liblapacke-3.11.0-9_h6ae95b6_openblas.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/libllvm22-22.1.8-hf7376ad_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/liblzma-5.8.3-hb03c661_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libnghttp2-1.68.1-h74cf4be_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libnsl-2.0.1-hb9d3cd8_1.conda
@@ -188,7 +185,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libogg-1.3.5-hd0c01bc_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libopenblas-0.3.34-pthreads_h94d23a6_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libopencv-5.0.0-qt6_hbd3298f_603.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/libopengl-1.7.0-ha4b6fd6_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libopentelemetry-cpp-1.27.0-h3133023_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libopentelemetry-cpp-headers-1.27.0-ha770c72_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libopenvino-2026.2.1-h1f0fae8_1.conda
@@ -242,14 +238,12 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libxkbcommon-1.13.2-h51789e4_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libxml2-16-2.15.3-hca6bf5a_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libxml2-2.15.3-h49c6c72_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/libxslt-1.1.43-h711ed8c_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.2-h25fd6f3_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libzopfli-1.0.3-h9c3ff4c_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/llvmlite-0.49.0-py312ha7fb451_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/lz4-4.4.5-py312h3d67a73_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/lz4-c-1.10.0-hee9eb32_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/markupsafe-3.0.3-py312h8a5da7c_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/matplotlib-3.10.9-py312h7900ff3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/matplotlib-base-3.10.9-py312he3d6523_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpc-1.4.0-he0a73b1_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpfr-4.2.2-ha2cb11d_1.conda
@@ -299,7 +293,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pyepics-3.5.10-py312h7900ff3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pyerfa-2.0.1.5-py310h32771cd_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pymongo-4.17.0-py312h1289d80_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/pyside6-6.11.2-py312hf143aa3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pytango-10.3.1-np2py312hc9d1799_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.13-h8ab3286_1_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-blosc2-4.11.0-py312h707a488_0.conda
@@ -398,7 +391,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/backoff-2.2.1-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/backports-1.0-pyhd8ed1ab_5.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/backports.tarfile-1.2.0-pyhcf101f3_2.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-1.15.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-base-1.15.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-httpserver-0.0.12-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-kafka-0.10.0-pyhd8ed1ab_1.conda
@@ -531,7 +523,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/opentelemetry-sdk-1.44.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/opentelemetry-semantic-conventions-0.65b0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ophyd-1.11.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/ophyd-async-0.13.7-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/ophyd-async-0.21.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-26.3-pyhc364b38_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pamela-1.2.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/parsimonious-0.11.0-pyhd8ed1ab_0.conda
@@ -647,6 +639,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/zarr-3.3.0-pyhc364b38_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zict-3.0.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-4.1.0-pyhcf101f3_0.conda
+      - pypi: git+https://github.com/jwlodek/pdftools.git?rev=bump-ophyd-async-version#f073bd3486c31cd2cbf51bc22181d7b81131e113
       - pypi: https://files.pythonhosted.org/packages/67/d8/8af47ecca80c365d5ffcdce6fae78ec71921052189c1486ba9dbac7a36f4/pvxslibs-1.3.2-cp312-cp312-manylinux2014_x86_64.whl
   terminal:
     channels:
@@ -885,7 +878,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/lz4-4.4.5-py312h3d67a73_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/lz4-c-1.10.0-hee9eb32_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/markupsafe-3.0.3-py312h8a5da7c_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/matplotlib-3.10.9-py312h7900ff3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/matplotlib-base-3.10.9-py312he3d6523_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpc-1.4.0-he0a73b1_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpfr-4.2.2-ha2cb11d_1.conda
@@ -1034,7 +1026,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/backoff-2.2.1-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/backports-1.0-pyhd8ed1ab_5.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/backports.tarfile-1.2.0-pyhcf101f3_2.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-1.15.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-base-1.15.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-kafka-0.10.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-queueserver-0.0.25-pyhd8ed1ab_0.conda
@@ -1165,7 +1156,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/opentelemetry-sdk-1.44.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/opentelemetry-semantic-conventions-0.65b0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ophyd-1.11.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/ophyd-async-0.13.7-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/ophyd-async-0.21.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-26.3-pyhc364b38_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/parsimonious-0.11.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/parso-0.8.7-pyhcf101f3_0.conda
@@ -1280,6 +1271,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/zarr-3.3.0-pyhc364b38_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zict-3.0.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-4.1.0-pyhcf101f3_0.conda
+      - pypi: git+https://github.com/jwlodek/pdftools.git?rev=bump-ophyd-async-version#f073bd3486c31cd2cbf51bc22181d7b81131e113
       - pypi: https://files.pythonhosted.org/packages/67/d8/8af47ecca80c365d5ffcdce6fae78ec71921052189c1486ba9dbac7a36f4/pvxslibs-1.3.2-cp312-cp312-manylinux2014_x86_64.whl
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda
@@ -2704,7 +2696,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/h5py?source=compressed-mapping
+  - pkg:pypi/h5py?source=hash-mapping
   run_exports: {}
   size: 1353159
   timestamp: 1787108753979
@@ -5280,21 +5272,6 @@ packages:
   run_exports: {}
   size: 26057
   timestamp: 1772445297924
-- conda: https://conda.anaconda.org/conda-forge/linux-64/matplotlib-3.10.9-py312h7900ff3_0.conda
-  sha256: cdd59bb1a52b09979f11c68909d53120b2e749edd1992853a74e1604db19c8b0
-  md5: 579c6a324b197594fabc9240bddf2d8b
-  depends:
-  - matplotlib-base >=3.10.9,<3.10.10.0a0
-  - pyside6 >=6.7.2
-  - python >=3.12,<3.13.0a0
-  - python_abi 3.12.* *_cp312
-  - tornado >=5
-  license: PSF-2.0
-  license_family: PSF
-  purls: []
-  run_exports: {}
-  size: 17831
-  timestamp: 1777000588302
 - conda: https://conda.anaconda.org/conda-forge/linux-64/matplotlib-base-3.10.9-py312he3d6523_0.conda
   sha256: c7e133837376e53e6a52719c205a3067c42f05769bc3e8307417f8d817dfc63e
   md5: 7d499b5b6d150f133800dc3a582771c7
@@ -6863,7 +6840,7 @@ packages:
   license: Apache-2.0
   license_family: Apache
   purls:
-  - pkg:pypi/tornado?source=compressed-mapping
+  - pkg:pypi/tornado?source=hash-mapping
   run_exports: {}
   size: 869730
   timestamp: 1786226754702
@@ -7864,25 +7841,6 @@ packages:
   run_exports: {}
   size: 35739
   timestamp: 1767290467820
-- conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-1.15.0-pyhd8ed1ab_0.conda
-  sha256: d46d4b79fcdc4892fff1d0ca7b5eabcecdf752c20402fdcc5969f5dabe9ae2dd
-  md5: faaeddf65103c64154cd63b3539bca21
-  depends:
-  - bluesky-base >=1.15.0,<1.15.1.0a0
-  - databroker
-  - doct
-  - ipython
-  - lmfit
-  - matplotlib
-  - ophyd
-  - python >=3.10
-  - pyzmq
-  license: BSD-3-Clause
-  license_family: BSD
-  purls: []
-  run_exports: {}
-  size: 8185
-  timestamp: 1776282530475
 - conda: https://conda.anaconda.org/conda-forge/noarch/bluesky-base-1.15.0-pyhd8ed1ab_0.conda
   sha256: 38deaad881e8c1ba535babccf20d01398df13f8bb84bf0e103d65c063284a3b4
   md5: 6a621bab88f24e180883248f0909ca61
@@ -8011,7 +7969,7 @@ packages:
   license: BSD-3-Clause
   license_family: BSD
   purls:
-  - pkg:pypi/bluesky-tiled-plugins?source=compressed-mapping
+  - pkg:pypi/bluesky-tiled-plugins?source=hash-mapping
   run_exports: {}
   size: 67457
   timestamp: 1793717923309
@@ -9928,17 +9886,17 @@ packages:
   run_exports: {}
   size: 217502
   timestamp: 1780613273481
-- conda: https://conda.anaconda.org/conda-forge/noarch/ophyd-async-0.13.7-pyhd8ed1ab_0.conda
-  sha256: 572dcce8f84fd070002ca99f57f138d98dc8480263e7148229cb35ec19b0b7aa
-  md5: cc58afb89fedd9bd009ccecf65ca4976
+- conda: https://conda.anaconda.org/conda-forge/noarch/ophyd-async-0.21.4-pyhd8ed1ab_0.conda
+  sha256: 912a95832c065625118e4d3eb631dd34b1894d5a8edcdccc0041a4d064332ce4
+  md5: 0e1a0e5bdc1c3f0e2c48a85bfb13b7af
   depends:
   - aioca >=2.0
-  - bluesky >=1.13.1rc2
+  - bluesky-base >=1.13.1rc2
   - colorlog
   - event-model >=1.23
   - h5py
   - numpy
-  - p4p >=4.2.0
+  - p4p >=4.2.2
   - pydantic >=2.0
   - pydantic-numpy
   - pytango >=10.0.2
@@ -9952,8 +9910,8 @@ packages:
   purls:
   - pkg:pypi/ophyd-async?source=hash-mapping
   run_exports: {}
-  size: 137910
-  timestamp: 1763905699159
+  size: 188457
+  timestamp: 1794402780336
 - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-26.3-pyhc364b38_0.conda
   sha256: c432626b16768b8dab228bfb706f7060c2d462a21c516d240f68f2f902b5a044
   md5: 936687ed80f295a1f5dbcf8bd34c252c
@@ -11652,6 +11610,14 @@ packages:
   run_exports: {}
   size: 24190
   timestamp: 1779159948016
+- pypi: git+https://github.com/jwlodek/pdftools.git?rev=bump-ophyd-async-version#f073bd3486c31cd2cbf51bc22181d7b81131e113
+  name: pdftools
+  version: 0.1.dev28+gf073bd348
+  requires_dist:
+  - bluesky
+  - ophyd-async>=0.21.4
+  - tiled[client]
+  requires_python: '>=3.11'
 - pypi: https://files.pythonhosted.org/packages/67/d8/8af47ecca80c365d5ffcdce6fae78ec71921052189c1486ba9dbac7a36f4/pvxslibs-1.3.2-cp312-cp312-manylinux2014_x86_64.whl
   name: pvxslibs
   version: 1.3.2
