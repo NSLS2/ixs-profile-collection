@@ -1148,14 +1148,69 @@ def LocalBumpSetup(silent=False):
 
 
 #*******************************************************************************************************
-class CCRSetupError(RuntimeError):
-    """Raised when the C crystal alignment cannot proceed or fails."""
+CCR_THE_FWHM = (110.0, 130.0)      # cfth units (urad)
+CCR_THE_MIN_CONTRAST = 0.8
+CCR_THE_MIN_INTENSITY = 3.2e6
+CCR_Y_MIN_CONTRAST = 0.85
+CCR_Y_MIN_INTENSITY = 3.0e6
+CCR_CHI_MIN_CONTRAST = 0.8
+CCR_CHI_MIN_INTENSITY = 1.0e6
 
 
 def _ccr_fail(msg):
     print('*************************************')
     print(f'Error: {msg}. Execution aborted\n')
-    raise CCRSetupError(msg)
+    raise AlignmentFailure(msg)
+
+
+def _ccr_contrast(stats):
+    try:
+        ymax, ymin = stats.max[1], stats.min[1]
+        if (ymax + ymin) != 0:
+            return (ymax - ymin) / (ymax + ymin)
+    except (TypeError, IndexError):
+        pass
+    return None
+
+
+def _ccr_validate(label, stats, min_contrast, min_intensity, fwhm_range=None):
+    """Return (cen, fwhm, contrast); raise AlignmentFailure with diagnostics."""
+    cen, fwhm = stats.cen, getattr(stats, 'fwhm', None)
+    contrast = _ccr_contrast(stats)
+    ymax = None
+    try:
+        ymax = stats.max[1]
+    except (TypeError, IndexError):
+        pass
+    diag = f'cen={cen} fwhm={fwhm} contrast={contrast} max={ymax}'
+    if cen is None or ymax is None or contrast is None or (
+            fwhm_range is not None and fwhm is None):
+        _ccr_fail(f'{label} scan returned invalid results ({diag})')
+    if not ymax > min_intensity:
+        _ccr_fail(f'{label} maximum intensity {ymax:.3e} not above '
+                  f'{min_intensity:.1e} ({diag})')
+    if fwhm_range is not None and not fwhm_range[0] <= fwhm <= fwhm_range[1]:
+        _ccr_fail(f'{label} FWHM {fwhm:.2f} outside '
+                  f'[{fwhm_range[0]}, {fwhm_range[1]}] ({diag})')
+    if not contrast > min_contrast:
+        _ccr_fail(f'{label} contrast {contrast:.2f} not above '
+                  f'{min_contrast} ({diag})')
+    return cen, fwhm, contrast
+
+
+def _ccr_the_validate(stats):
+    return _ccr_validate('C crystal The', stats, CCR_THE_MIN_CONTRAST,
+                         CCR_THE_MIN_INTENSITY, CCR_THE_FWHM)
+
+
+def _ccr_y_validate(stats):
+    return _ccr_validate('C crystal Y', stats, CCR_Y_MIN_CONTRAST,
+                         CCR_Y_MIN_INTENSITY)
+
+
+def _ccr_chi_validate(stats):
+    return _ccr_validate('C crystal Chi', stats, CCR_CHI_MIN_CONTRAST,
+                         CCR_CHI_MIN_INTENSITY)
 
 
 def _ccr_check_hrm():
@@ -1188,14 +1243,12 @@ def ccr_setup_post():
 
 #*******************************************************************************************************
 def ccr_the_setup():
-#   Performs C crystal theta alignment; raises CCRSetupError if not converged
+#   Performs C crystal theta alignment; raises AlignmentFailure if not converged
     x0 = 10
     kxmov = 0
     while abs(x0) > 5 and kxmov < 5:
         res = yield from dscan(analyzer.cfth, -150, 150, 31, det2, 1, det_ch=[0])
-        x0 = res[0].cen
-        if x0 is None:
-            _ccr_fail('C crystal The-peak centre not found')
+        x0, _, _ = _ccr_the_validate(res[0])
         # cfth is in urad; convention (sign included) confirmed on hardware
         x_deg = -np.rad2deg(1.e-6*x0)
         yield from bps.mvr(anc_xtal.the, x_deg)
@@ -1228,18 +1281,8 @@ def _ccr_setup_body(s1, s2, s3):
         yield from bps.mv(whl, 2, anpd, -145)
         yield from bps.mv(analyzer_slits.top, 0.04, analyzer_slits.bottom, -0.04)
         res = yield from dscan(anc_xtal.y, -0.3, 0.3, 61, det2, 1, det_ch=[0])
-        st = res[0]
-        try:
-            dp = st.max[1] - st.min[1]
-        except (TypeError, IndexError):
-            dp = 0
-        if dp < 1.e3:
-            _ccr_fail('acyy position maximum not found')
-
-        p_com = st.com
-        if p_com is None:
-            _ccr_fail('acyy centre of mass not found')
-        yield from bps.mv(anc_xtal.y, p_com)
+        p_cen, _, _ = _ccr_y_validate(res[0])
+        yield from bps.mv(anc_xtal.y, p_cen)
         yield from bps.mv(analyzer_slits.top, 0.1, analyzer_slits.bottom, -0.1)
 
     # C crystal Chi alignment
@@ -1257,9 +1300,7 @@ def _ccr_setup_body(s1, s2, s3):
 
         res = yield from dscan(analyzer.cchi, -0.15, 0.15, 31, det2, 1, det_ch=[1])
         yield from bps.mvr(analyzer.cchi, -0.15)
-        x0 = res[0].cen
-        if x0 is None:
-            _ccr_fail('C crystal Chi-peak centre not found')
+        x0, _, _ = _ccr_chi_validate(res[0])
         yield from bps.mv(analyzer.cchi, x0)
         yield from bps.mv(analyzer_slits.outboard, 1, analyzer_slits.inboard, -1)
 
