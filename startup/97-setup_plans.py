@@ -1,13 +1,18 @@
+import os
 import bluesky.plans as bp
 import bluesky.plan_stubs as bps
 import bluesky.preprocessors as bpp
 from bluesky.utils import RequestAbort, RequestStop
+from ophyd import Device, EpicsSignal, EpicsSignalRO, Component as Cpt
+from ophyd.areadetector import EpicsSignalWithRBV
 import numpy as np
 import pandas as pd
 import lmfit
 from bluesky.callbacks import LiveFit
 from bluesky.callbacks.mpl_plotting import LiveGrid
 from tabulate import tabulate
+from utils.beamline_setup import (
+    Step, beamline_setup_plan, print_step_table, beamline_setup_usage)
 from utils.mcm_alignment import (
     McmAlignConfig, CorrectionLimitError, HRM_IN, HRM_OUT, CONVERGED, CORRECT,
     classify_hrm_state, hrm_measurement_settings, decide_analyzer_move,
@@ -207,8 +212,10 @@ def _ugap_validate(stats, initial_gap):
     return xmax
 
 
-def ugap_setup():
+def ugap_setup(det=None, det_ch=(4,)):
     """Move the ivu22 gap to the intensity maximum. Raises AlignmentFailure on failure.
+
+    det/det_ch select the scan detector and channels (default: tm1, channel 4).
 
     Failure restores the gap to its initial value and aborts the calling plan.
     """
@@ -216,7 +223,8 @@ def ugap_setup():
     status, reason, restore_errors = 'success', '', []
     xmax = None
     try:
-        res = yield from dscan(ivu22, -20, 20, 21, tm1, 1, det_ch=[4])
+        res = yield from dscan(ivu22, -20, 20, 21, tm1 if det is None else det, 1,
+                               det_ch=list(det_ch))
         # print("scan finished")
         xmax = _ugap_validate(res[0], initial_gap)
         print("Validation passed", xmax)
@@ -1030,121 +1038,203 @@ def calculate_max_value(uid=-1, x="hrmE", y="lambda_det_stats7_total", delta=1, 
 
 
 #*******************************************************************************************************
-def LocalBumpSetup(silent=False):
-    """
-    Adjusts the e-beam local bump, i.e. horizontal & vertical positions of the x-ray beam on the XBPM1 screen
-    Beam position at the XBPM2 on screen X=1245, Y=1066 with the CRL in
+# XBPM1 (BPM1 Y-foil) positions and e-beam bump settings
+YAG_IN_POS, YAG_TOL = 49.0, 0.01        # mm, YAG screen in the beam
+FOIL_OUT_POS, FOIL_OUT_TOL = 0.0, 0.1   # mm, foil out of the beam
+BUMP_CENTROID_X, BUMP_CENTROID_Y = 387, 904
+BUMP_CENTROID_TOL = 3.0                 # pixels, both axes
+BUMP_MAX_ANGLE = 0.01                   # mrad (= 10 urad)
+BUMP_MIN_IMAGE_MAX = 2000
+CAM1_SETTLE_S = 1.0                     # let stats refresh after (re)starting
+# (attribute path on cam1, value, tolerance)
+CAM1_SETTINGS = (
+    ('cam.acquire_time', 0.0002, 1e-6),
+    ('cam.acquire_period', 0.5, 1e-3),
+    ('cam.num_images', 1, 0),
+    ('cam.image_mode', 2, 0),
+    ('stats1.enable', 1, 0),
+    ('stats1.compute_statistics', 1, 0),
+    ('stats1.compute_centroid', 1, 0),
+    ('stats1.centroid_threshold', 1000, 1e-6),
+)
 
-    """
-    
+
+def _cam1_signal(path):
+    obj = cam1
+    for part in path.split('.'):
+        obj = getattr(obj, part)
+    return obj
+
+
+def _cam1_apply_settings():
+    for path, value, _ in CAM1_SETTINGS:
+        yield from bps.mv(_cam1_signal(path), value)
+
+
+def _cam1_verify_settings():
+    """Read every camera setting back. Raise AlignmentFailure on any mismatch."""
+    bad = []
+    for path, value, tol in CAM1_SETTINGS:
+        try:
+            got = _cam1_signal(path).get()
+            if abs(float(got) - value) > tol:
+                bad.append(f'{path}={got} (expected {value})')
+        except Exception as exc:
+            bad.append(f'{path} unreadable ({exc!r})')
+    if bad:
+        raise AlignmentFailure('XBPM1 camera settings not as required: ' + '; '.join(bad))
+
+
+def _cam1_stop():
+    """Stop the XBPM1 camera acquisition and verify it by readback."""
+    yield from bps.mv(cam1.cam.acquire, 0)
+    if cam1.cam.acquire.get() != 0:
+        raise AlignmentFailure('XBPM1 camera acquisition did not stop.')
+
+
+def _xbpm1_yag_in():
+    yield from bps.mv(bpm1_diag, YAG_IN_POS)
+    pos = bpm1_diag.position
+    if abs(pos - YAG_IN_POS) > YAG_TOL:
+        raise AlignmentFailure(
+            f'XBPM1 YAG position {pos:.4f} mm, required {YAG_IN_POS} +/-{YAG_TOL} mm.')
+
+
+def _xbpm1_out():
+    yield from bps.mv(bpm1_diag, FOIL_OUT_POS)
+    pos = bpm1_diag.position
+    if abs(pos - FOIL_OUT_POS) > FOIL_OUT_TOL:
+        raise AlignmentFailure(
+            f'XBPM1 foil position {pos:.4f} mm, required {FOIL_OUT_POS} +/-{FOIL_OUT_TOL} mm.')
+
+
+def _bump_nudge(plane, d_angle, ask_text, silent, result):
+    """Apply one e-beam angle correction (mrad). Raises if above the limit."""
+    if abs(d_angle) >= BUMP_MAX_ANGLE:
+        raise AlignmentFailure(
+            f'Calculated {plane} e-beam shift {1.e3*d_angle:0.1f} urad exceeds the '
+            f'limit of {1.e3*BUMP_MAX_ANGLE:0.0f} urad. Correction not applied.')
+    print(f"Calculated {plane} e-beam shift {1.e3*d_angle:0.1f} urad")
+    answer = 'yes' if silent else input(ask_text)
+    if answer != 'yes':
+        print('*****************************************')
+        print('Correction was canceled\n')
+        result['corrections'][plane] = 'canceled'
+        return
+    if plane == 'horizontal':
+        pos = strg_ring_orb_fb.xa_rbv.read()['srofb_xa_rbv']['value']
+        strg_ring_orb_fb.nudge_increment.set(d_angle)
+        strg_ring_orb_fb.horz_plane_nudge.set(1)
+    else:
+        pos = strg_ring_orb_fb.xy_rbv.read()['srofb_xy_rbv']['value']
+        strg_ring_orb_fb.nudge_increment.set(d_angle)
+        strg_ring_orb_fb.vert_plane_nudge.set(1)
+    yield from sleep(2)
+    print('*****************************************')
+    print(f'{plane.capitalize()} angle correction was applied. '
+          f'Expected new value {1.e3*(pos + d_angle):0.1f} urad\n')
+    print(strg_ring_orb_fb.nudge_status.alarm_status)
+    result['corrections'][plane] = d_angle
+
+
+def _local_bump_body(silent, keep_in_beam, state, result):
+    yield from _xbpm1_yag_in()
+    state['camera_started'] = True
+    yield from _cam1_apply_settings()
+    _cam1_verify_settings()          # before any ring correction
+    cam1.cam.acquire.set(1)
+    yield from bps.sleep(CAM1_SETTLE_S)
+
+    Imax = cam1.stats1.max_value.get()
+    if Imax < BUMP_MIN_IMAGE_MAX:
+        raise AlignmentFailure(
+            f'Low XBPM1 image intensity: max {Imax} < {BUMP_MIN_IMAGE_MAX}.')
+
+    centr = cam1.stats1.centroid.get()
+    cenX, cenY = centr[1], centr[0]
+    result['centroid_before'] = {'x': cenX, 'y': cenY}
+    print(f'centroid X = {cenX:.2f}, target X = {BUMP_CENTROID_X}')
+    print(f'centroid Y = {cenY:.2f}, target Y = {BUMP_CENTROID_Y}\n')
+
     cond1 = strg_ring_orb_fb.uofb_pv.read()['srofb_uofb_pv']['value']
     cond2 = strg_ring_orb_fb.id_bump_pv.read()['srofb_id_bump_pv']['value']
     cond3 = strg_ring_orb_fb.nudge_pv.read()['srofb_nudge_pv']['value']
-    pos3 = 0
-    pos5 = 49
-    cenX_target = 387
-    cenY_target = 904
-    max_dThe = 0.01  # mrad (= 10 urad)
+    problems = [text for ok, text in (
+        (cond1 == 2, 'The UOFB is disabled'),
+        (cond2 == 1, 'The ID Bump is disabled'),
+        (cond3 == 1, 'The Nudge is disabled')) if not ok]
+    if problems:
+        within = (abs(cenX - BUMP_CENTROID_X) <= BUMP_CENTROID_TOL
+                  and abs(cenY - BUMP_CENTROID_Y) <= BUMP_CENTROID_TOL)
+        text = '; '.join(problems)
+        if not within:
+            raise AlignmentFailure(
+                f'{text}, and the XBPM1 centroid ({cenX:.1f}, {cenY:.1f}) is not within '
+                f'+/-{BUMP_CENTROID_TOL} px of the target '
+                f'({BUMP_CENTROID_X}, {BUMP_CENTROID_Y}).')
+        print('****************** WARNING ******************')
+        print(f'{text}. Centroid is within +/-{BUMP_CENTROID_TOL} px of the target; '
+              'no correction needed.\n')
+        result['feedback_warning'] = text
+        return
 
-    if cond1 != 2:
-        print("****************** WARNING ******************")
-        print("The UOFB is disabled. Operation is terminated")
-        return
-    if cond2 != 1:
-        print("****************** WARNING ******************")
-        print("The ID Bump is disabled. Operation is terminated")
-        return
-    if cond3 != 1:
-        print("****************** WARNING ******************")
-        print("The Nudge is disabled. Operation is terminated")
-        return
-
-    yield from bps.mv(bpm1_diag, pos5)
-    cam1.cam.acquire_time.set(0.0002)
-    cam1.cam.acquire_period.set(0.5)
-    cam1.cam.num_images.set(1)
-    cam1.cam.image_mode.set(2)
-    cam1.cam.acquire.set(1)
-    cam1.stats1.enable.set(1)
-    cam1.stats1.compute_statistics.set(1)
-    cam1.stats1.compute_centroid.set(1)
-    Imax = cam1.stats1.max_value.get()
-    if Imax < 2000:
-        print('********************************')
-        print('Low image intensity')
-        print('Execution is terminated')
-        return
-    
-    cam1.stats1.centroid_threshold.set(1000)
-    centr = cam1.stats1.centroid.get()
-    print(f'centroid X = {centr[1]:.2f}, target X = {cenX_target}\n')
-    cenX = centr[1]
-    dXc = cenX - cenX_target
-    dThe = 1.e-3*dXc/6.0
-    if abs(dThe) >= max_dThe:
-        print("****************** WARNING ******************")
-        print(f"Calculated horizontal e-beam shift {1.e3*dThe:0.1f} urad exceeds the limit of {1.e3*max_dThe:0.0f} urad. Horizontal correction skipped\n")
-    else:
-        print(f"Calculated horizontal e-beam shift {1.e3*dThe:0.1f} urad")
-        if not silent:
-            input_opts = input('Do you want to put it in (yes/no): ')
-        else:
-            input_opts = 'yes'
-        
-        if input_opts == 'yes':
-            xpos = strg_ring_orb_fb.xa_rbv.read()['srofb_xa_rbv']['value']
-            valx = 1.e3*(xpos + dThe)
-            strg_ring_orb_fb.nudge_increment.set(dThe)
-            strg_ring_orb_fb.horz_plane_nudge.set(1)
-            yield from sleep(2)
-            print('*****************************************')
-            print(f'Horizontal angle correction was applied. Expected new value {valx:0.1f} urad\n')
-            print(strg_ring_orb_fb.nudge_status.alarm_status)
-        else:
-            print('*****************************************')
-            print('Correction was canceled\n')
+    yield from _bump_nudge('horizontal', 1.e-3*(cenX - BUMP_CENTROID_X)/6.0,
+                           'Do you want to put it in (yes/no): ', silent, result)
 
     crl_y_pos = crl.read()['crl_y']['value']
     if crl_y_pos < 1:
-        print('\n')
-        print('Error: CRL is in the x-ray beam. Vertical beam correction is canceled.\n')
-        return
-    
-    print(f'centroid Y = {centr[0]:.2f}, target Y = {cenY_target}\n')
-    cenY = centr[0]
-    dYc = cenY - cenY_target
-    dThe = -1.e-3*dYc/5.0
-    if abs(dThe) >= max_dThe:
-        print("****************** WARNING ******************")
-        print(f"Calculated vertical e-beam shift {1.e3*dThe:0.1f} urad exceeds the limit of {1.e3*max_dThe:0.0f} urad. Vertical correction skipped\n")
+        print('Note: CRL is in the x-ray beam. Vertical beam correction skipped.\n')
+        result['corrections']['vertical'] = 'skipped (CRL in the beam)'
     else:
-        print(f"Calculated vertical e-beam shift {1.e3*dThe:0.1f} urad")
-        if not silent:
-            input_opts = input('Do you want to put it in (yes/no): ')
-        else:
-            input_opts = 'yes'
-        
-        if input_opts == 'yes':
-            ypos = strg_ring_orb_fb.xy_rbv.read()['srofb_xy_rbv']['value']
-            valy = 1.e3*(ypos + dThe)
-            strg_ring_orb_fb.nudge_increment.set(dThe)
-            strg_ring_orb_fb.vert_plane_nudge.set(1)
-            yield from sleep(2)
-            print('*****************************************')
-            print(f'Vertical angle correction was applied. Expected new value {valy:0.1f} urad\n')
-            print(strg_ring_orb_fb.nudge_status.alarm_status)
-        else:
-            print('*****************************************')
-            print('Correction was canceled\n')
+        yield from _bump_nudge('vertical', -1.e-3*(cenY - BUMP_CENTROID_Y)/5.0,
+                               'Do you want to put it in (yes/no): ', silent, result)
 
-    if not silent:
-        update_opts = input('Do you want to move the XBPM1 back (yes/no): ')
-    else:
-        update_opts = 'yes'
-    
-    if update_opts == 'yes':
-        cam1.cam.acquire.set(0)
-        yield from bps.mv(bpm1_diag, pos3)
+
+def LocalBumpSetup(silent=False, keep_in_beam=False):
+    """
+    Adjusts the e-beam local bump, i.e. horizontal & vertical positions of the x-ray beam on the XBPM1 screen
+    (centroid targets X=387, Y=904 px, +/-3 px).
+
+    Raises AlignmentFailure for: YAG position error, camera setting mismatch, low
+    image intensity, a correction above 10 urad, or disabled UOFB / ID bump / nudge
+    when the centroid is not within +/-3 px of the target. A CRL in the beam skips
+    only the vertical correction.
+
+    silent       no prompts.
+    keep_in_beam on success leave the YAG in and the camera acquiring (the caller
+                 must take the image and stop the camera). On failure the camera is
+                 always stopped and the foil moved out.
+    Returns a dict with the centroid and the applied corrections.
+    """
+    state = {'camera_started': False, 'ok': False}
+    result = {'corrections': {}}
+
+    def cleanup():
+        if state['ok'] and keep_in_beam:
+            return
+        if state['ok'] and not silent:
+            if input('Do you want to move the XBPM1 back (yes/no): ') != 'yes':
+                return
+        for step_plan in ((_cam1_stop() if state['camera_started'] else None),
+                          _xbpm1_out()):
+            if step_plan is None:
+                continue
+            try:
+                yield from step_plan
+            except (RequestAbort, RequestStop):
+                raise
+            except Exception as exc:
+                if state['ok']:
+                    raise
+                # do not mask the original failure
+                print(f'LocalBumpSetup cleanup problem: {exc!r}')
+
+    def body():
+        yield from _local_bump_body(silent, keep_in_beam, state, result)
+        state['ok'] = True
+
+    yield from bpp.finalize_wrapper(body(), cleanup())
+    return result
 
 
 #*******************************************************************************************************
@@ -1430,6 +1520,24 @@ def hrm_out():
 
 
 #*******************************************************************************************************
+def _hrm_peak(label, stats):
+    """Return the peak centre; raise AlignmentFailure if no valid peak was found."""
+    com, cen, fwhm = stats.com, stats.cen, stats.fwhm
+    diag = f'com={com} cen={cen} fwhm={fwhm}'
+    if com is None or cen is None or fwhm is None or not fwhm > 0:
+        raise AlignmentFailure(f'HRM {label} crystal: invalid peak statistics ({diag}).')
+    if abs(com - cen)/fwhm > 0.3:
+        raise AlignmentFailure(f'HRM {label} crystal peak not found ({diag}).')
+    return cen
+
+
+def _hrm_crystal_scan(label, motor, start, stop, det, channel, d_motor, d_value):
+    """Scan one HRM crystal angle with dscan, move to the peak, then set the D motor."""
+    res = yield from dscan(motor, start, stop, 51, det, 0.5, det_ch=[channel])
+    cen = _hrm_peak(label, res[0])
+    yield from bps.mv(motor, cen, d_motor, d_value)
+
+
 def hrm_setup():
 #   Performs HRM crystals alignment
     det4.em_range.set(0)
@@ -1446,53 +1554,12 @@ def hrm_setup():
     yield from bps.mv(hrm2.d2, 1, hrm2.d4, 0.7)
     yield from bps.mv(hrm2.d3, 2, hrm2.d5, 2)
     
-    # 1st crystal alignment
-    yield from bp.rel_scan([det4], hrm2.uth, -0.05, 0.05, 51)
-    peak_stats = bec.peaks
-    x_com = peak_stats['com']['det4_current2_mean_value']
-    x_cen = peak_stats['cen']['det4_current2_mean_value']
-    x_fwhm = peak_stats['fwhm']['det4_current2_mean_value']
-    if abs(x_com-x_cen)/x_fwhm > 0.3:
-        print('\n')
-        print('Error: 1st crystal peak not found. Execution terminated.\n')
-        return
-    yield from bps.mv(hrm2.uth, x_cen, hrm2.d2, 0)
-
-    # 2nd crystal alignment
-    yield from bp.rel_scan([det4], hrm2.uif, -70, 70, 51)
-    peak_stats = bec.peaks
-    x_com = peak_stats['com']['det4_current3_mean_value']
-    x_cen = peak_stats['cen']['det4_current3_mean_value']
-    x_fwhm = peak_stats['fwhm']['det4_current3_mean_value']
-    if abs(x_com-x_cen)/x_fwhm > 0.3:
-        print('\n')
-        print('Error: 2nd crystal peak not found. Execution terminated.\n')
-        return
-    yield from bps.mv(hrm2.uif, x_cen, hrm2.d3, 0)
-
-    # 3rd crystal alignment
-    yield from bp.rel_scan([det4], hrm2.dth, -0.01, 0.01, 51)
-    peak_stats = bec.peaks
-    x_com = peak_stats['com']['det4_current4_mean_value']
-    x_cen = peak_stats['cen']['det4_current4_mean_value']
-    x_fwhm = peak_stats['fwhm']['det4_current4_mean_value']
-    if abs(x_com-x_cen)/x_fwhm > 0.3:
-        print('\n')
-        print('Error: 3rd crystal peak not found. Execution terminated.\n')
-        return
-    yield from bps.mv(hrm2.dth, x_cen, hrm2.d4, 0)
-
-    # 4th crystal alignment
-    yield from bp.rel_scan([det5], hrm2.dif, -70, 70, 51)
-    peak_stats = bec.peaks
-    x_com = peak_stats['com']['det5_current1_mean_value']
-    x_cen = peak_stats['cen']['det5_current1_mean_value']
-    x_fwhm = peak_stats['fwhm']['det5_current1_mean_value']
-    if abs(x_com-x_cen)/x_fwhm > 0.3:
-        print('\n')
-        print('Error: 4th crystal peak not found. Execution terminated.\n')
-        return
-    yield from bps.mv(hrm2.dif, x_cen, hrm2.d5, 0)
+    # 1st..4th crystal alignment. det_ch indexes det.hints['fields']
+    # (det4: current1..4 -> 0..3; det5: current1 -> 0).
+    yield from _hrm_crystal_scan('1st', hrm2.uth, -0.05, 0.05, det4, 1, hrm2.d2, 0)
+    yield from _hrm_crystal_scan('2nd', hrm2.uif, -70, 70, det4, 2, hrm2.d3, 0)
+    yield from _hrm_crystal_scan('3rd', hrm2.dth, -0.01, 0.01, det4, 3, hrm2.d4, 0)
+    yield from _hrm_crystal_scan('4th', hrm2.dif, -70, 70, det5, 0, hrm2.d5, 0)
 
 
 #*******************************************************************************************************
@@ -1637,3 +1704,278 @@ def Beamline_Setup_1():
         yield from hrm_out()
     
     print("Beamline setup 1 is completed successfully")
+
+#*******************************************************************************************************
+# Beamline_Setup: production sequence run by the framework in utils/beamline_setup.py.
+# Not validated on hardware. Steps not yet implemented (lambda tdy, HRM/MCM matching,
+# ID gap re-optimisation with det5, energy resolution check) are NOT in the table.
+BEAMLINE_SETUP_REPORT_DIR = '/nsls2/data/ixs/legacy/beamline_setup_reports'
+BPM1_TIFF_PREFIX = 'XF:10IDA-BI{BPM1-Cam:1}TIFF1:'
+BPM1_IMAGE_DIR = '/nsls2/data/ixs/legacy/Xbpm1/'
+BPM1_IMAGE_NAME = 'bpm1'
+BPM1_IMAGE_TEMPLATE = '%s%s_%3.3d.tif'
+BPM1_FRAME_WAIT_S = 1.0     # frames reach the TIFF plugin only after it is enabled
+BPM1_FILE_WAIT_S = 5.0
+
+
+class Bpm1Tiff(Device):
+    """TIFF file plugin of the XBPM1 camera (created only when the image is taken)."""
+    enable = Cpt(EpicsSignalWithRBV, 'EnableCallbacks')
+    file_path = Cpt(EpicsSignalWithRBV, 'FilePath', string=True)
+    file_name = Cpt(EpicsSignalWithRBV, 'FileName', string=True)
+    file_template = Cpt(EpicsSignalWithRBV, 'FileTemplate', string=True)
+    write_mode = Cpt(EpicsSignalWithRBV, 'FileWriteMode')
+    auto_save = Cpt(EpicsSignalWithRBV, 'AutoSave')
+    auto_increment = Cpt(EpicsSignalWithRBV, 'AutoIncrement')
+    write_file = Cpt(EpicsSignal, 'WriteFile')
+    full_name = Cpt(EpicsSignalRO, 'FullFileName_RBV', string=True)
+    write_message = Cpt(EpicsSignalRO, 'WriteMessage', string=True)
+    unique_id = Cpt(EpicsSignalRO, 'UniqueId_RBV')
+
+
+def _bpm1_tiff_setup(tiff):
+    """Apply and verify the TIFF settings. Raises RuntimeError on a mismatch."""
+    yield from bps.mv(tiff.file_path, BPM1_IMAGE_DIR, tiff.file_name, BPM1_IMAGE_NAME,
+                      tiff.file_template, BPM1_IMAGE_TEMPLATE, tiff.write_mode, 0,
+                      tiff.auto_save, 0, tiff.auto_increment, 1)
+    bad = []
+    if str(tiff.file_path.get()).rstrip('/') != BPM1_IMAGE_DIR.rstrip('/'):
+        bad.append(f'file_path={tiff.file_path.get()!r}')
+    if tiff.file_name.get() != BPM1_IMAGE_NAME:
+        bad.append(f'file_name={tiff.file_name.get()!r}')
+    if tiff.file_template.get() != BPM1_IMAGE_TEMPLATE:
+        bad.append(f'file_template={tiff.file_template.get()!r}')
+    for label, sig, want in (('write_mode', tiff.write_mode, 0),
+                             ('auto_save', tiff.auto_save, 0),
+                             ('auto_increment', tiff.auto_increment, 1)):
+        if int(sig.get()) != want:
+            bad.append(f'{label}={sig.get()} (expected {want})')
+    if bad:
+        raise RuntimeError('TIFF settings not as required: ' + '; '.join(bad))
+
+
+def bpm1_orbit_image(report_dir=BEAMLINE_SETUP_REPORT_DIR):
+    """Read back the orbit and save the last XBPM1 camera frame (camera still acquiring).
+
+    Raises AlignmentFailure if the camera settings are not as required. A failure
+    to save the image only records image_path=None and an image_note. The TIFF
+    callbacks are restored and the camera acquisition is always stopped afterwards.
+    Returns a JSON-safe dict for the report.
+    """
+    state = {'tiff': None, 'enable_prev': None, 'camera_touched': True, 'ok': False}
+    result = {}
+
+    def body():
+        result['orbit_x_angle_rbv'] = float(
+            strg_ring_orb_fb.xa_rbv.read()['srofb_xa_rbv']['value'])
+        result['orbit_y_angle_rbv'] = float(
+            strg_ring_orb_fb.xy_rbv.read()['srofb_xy_rbv']['value'])
+        result['uofb'] = int(strg_ring_orb_fb.uofb_pv.get())
+        result['id_bump'] = int(strg_ring_orb_fb.id_bump_pv.get())
+        result['nudge'] = int(strg_ring_orb_fb.nudge_pv.get())
+        result['nudge_status'] = str(strg_ring_orb_fb.nudge_status.get())
+        _cam1_verify_settings()
+        centr = cam1.stats1.centroid.get()
+        cx, cy = float(centr[1]), float(centr[0])
+        result.update(
+            centroid_x=cx, centroid_y=cy,
+            target_x=BUMP_CENTROID_X, target_y=BUMP_CENTROID_Y,
+            centroid_deviation={'x': cx - BUMP_CENTROID_X, 'y': cy - BUMP_CENTROID_Y},
+            image_max=float(cam1.stats1.max_value.get()),
+            image_path=None, image_path_relative=None, image_note='')
+        try:
+            tiff = Bpm1Tiff(BPM1_TIFF_PREFIX, name='bpm1_tiff')
+            tiff.wait_for_connection(timeout=5)
+            state['tiff'] = tiff
+            yield from _bpm1_tiff_setup(tiff)
+            state['enable_prev'] = tiff.enable.get()
+            yield from bps.mv(tiff.enable, 1)
+            yield from bps.sleep(BPM1_FRAME_WAIT_S)
+            try:
+                result['frame_unique_id'] = int(tiff.unique_id.get())
+            except Exception:
+                result['frame_unique_id'] = None
+            yield from bps.mv(tiff.write_file, 1)
+            full = str(tiff.full_name.get())
+            if not full:
+                raise RuntimeError('IOC reported no file name '
+                                   f'(WriteMessage: {tiff.write_message.get()!r})')
+            result['image_path'] = full
+            result['image_path_relative'] = os.path.relpath(full, report_dir)
+            for _ in range(int(BPM1_FILE_WAIT_S / 0.5) + 1):
+                if os.path.exists(full):
+                    break
+                yield from bps.sleep(0.5)
+            else:
+                result['image_note'] = 'file not visible from this host'
+        except (RequestAbort, RequestStop):
+            raise
+        except Exception as exc:
+            result['image_path'] = result['image_path_relative'] = None
+            result['image_note'] = f'image not saved: {exc!r}'
+            print(f'WARNING: XBPM1 {result["image_note"]}')
+        state['ok'] = True
+
+    def cleanup():
+        problems = []
+        tiff = state['tiff']
+        if tiff is not None and state['enable_prev'] is not None:
+            try:
+                yield from bps.mv(tiff.enable, state['enable_prev'])
+            except (RequestAbort, RequestStop):
+                raise
+            except Exception as exc:
+                problems.append(f'TIFF callbacks not restored: {exc!r}')
+        try:
+            yield from _cam1_stop()
+            result['camera_stopped'] = True
+        except (RequestAbort, RequestStop):
+            raise
+        except Exception as exc:
+            result['camera_stopped'] = False
+            problems.append(f'camera not stopped: {exc!r}')
+        if problems:
+            if state['ok']:
+                raise AlignmentFailure('; '.join(problems))
+            print('bpm1_orbit_image cleanup problem: ' + '; '.join(problems))
+
+    yield from bpp.finalize_wrapper(body(), cleanup())
+    return result
+
+
+def _no_prompt(*args, **kwargs):
+    raise RuntimeError('prompt requested in silent mode')
+
+
+def _alignment_scan_step(keyword):
+    """alignment_scan wrapper: its precondition failures become AlignmentFailure."""
+    def factory():
+        failed = []
+        for check in _SCAN_REGISTRY[keyword]['checks']:
+            ok, msg = check()
+            if not ok:
+                failed.append(msg)
+        if failed:
+            raise AlignmentFailure(f'alignment_scan({keyword!r}) conditions not met: '
+                                   + ' '.join(failed))
+        yield from alignment_scan(keyword)
+    return factory
+
+
+def beamline_setup_step_table(report_dir=BEAMLINE_SETUP_REPORT_DIR, interactive=True,
+                              dcm_warmup_s=150, crl_warmup_s=150,
+                              orbit_settle_s=120, hrm_warmup_s=1800):
+    """Return the production step table (list of Step). Moves nothing."""
+    run = {'crl_was_out': None}
+
+    def crl_out_step():
+        run['crl_was_out'] = abs(crl.y.position - CRL_OUT_POS) <= CRL_TOL
+        yield from crl_out()
+
+    def wait(seconds, label):
+        def factory():
+            print(f'{label}: waiting {seconds} s')
+            yield from bps.sleep(seconds)
+            return {'waited_s': seconds}
+        return factory
+
+    def dcm_warmup():
+        seconds = 0 if run['crl_was_out'] is True else dcm_warmup_s
+        print(f'DCM warm-up: waiting {seconds} s '
+              f'(CRL already out: {run["crl_was_out"]})')
+        yield from bps.sleep(seconds)
+        return {'waited_s': seconds, 'crl_was_out': run['crl_was_out']}
+
+    def bump():
+        res = yield from LocalBumpSetup(silent=not interactive, keep_in_beam=True)
+        return res
+
+    def image():
+        res = yield from bpm1_orbit_image(report_dir)
+        return res
+
+    def mcm_step():
+        ask = input if interactive else _no_prompt
+        res = yield from mcm_setup(interactive=interactive, ask=ask)
+        if res['status'] == 'failed':
+            raise AlignmentFailure(res['reason'])
+        if res['status'] == 'aborted':
+            raise OperatorAbort(res['reason'])
+        return {'status': res['status'], 'axes': res['axes'],
+                'final_positions': res['final_positions']}
+
+    def ccr_step():
+        yield from ccr_setup(1, 1, 0)
+
+    entries = [
+        ('XBPM1 foil out [bpm1_diag -> 0]', 'auto', _xbpm1_out),
+        ('HRM out [hrm_out]', 'auto', hrm_out),
+        ('CRL out [crl_out]', 'auto', crl_out_step),
+        ('DCM warm-up wait', 'auto', dcm_warmup),
+        ('DCM setup [dcm_setup]', 'auto', dcm_setup),
+        ('ID gap setup [ugap_setup]', 'auto', ugap_setup),
+        ('DCM alignment scan', 'optional', _alignment_scan_step('dcm')),
+        ('E-beam local bump, XBPM1 on YAG [LocalBumpSetup]', 'auto', bump),
+        ('Orbit settle wait', 'auto', wait(orbit_settle_s, 'Orbit settle')),
+        ('XBPM1 orbit readback and image', 'auto', image),
+        ('XBPM1 foil out [bpm1_diag -> 0]', 'auto', _xbpm1_out),
+        ('CRL in [crl_in]', 'auto', crl_in),
+        ('CRL warm-up wait', 'auto', wait(crl_warmup_s, 'CRL warm-up')),
+        ('DCM setup [dcm_setup]', 'auto', dcm_setup),
+        ('CRL y setup [crl_setup]', 'auto', crl_setup),
+        ('DCM alignment scan (CRL in)', 'optional', _alignment_scan_step('dcm')),
+        ('MCM alignment [mcm_setup]', 'auto', mcm_step),
+        ('MCM alignment scan', 'optional', _alignment_scan_step('mcm')),
+        ('Analyzer slits setup [san_setup]', 'auto', san_setup),
+        ('C crystal setup [ccr_setup 1 1 0]', 'auto', ccr_step),
+        ('CCR alignment scan', 'optional', _alignment_scan_step('ccr')),
+        ('W crystal setup [wcr_setup]', 'auto', wcr_setup),
+        ('WCR alignment scan', 'optional', _alignment_scan_step('wcr')),
+        ('HRM in [hrm_in]', 'auto', hrm_in),
+        ('HRM warm-up wait', 'auto', wait(hrm_warmup_s, 'HRM warm-up')),
+        ('HRM setup [hrm_setup]', 'auto', hrm_setup),
+        ('HRM alignment scan', 'optional', _alignment_scan_step('hrm')),
+    ]
+    table, n = [], 0
+    for name, kind, factory in entries:
+        if kind == 'optional':
+            table.append(Step(f'{n}a', name, kind, factory))
+        else:
+            n += 1
+            table.append(Step(str(n), name, kind, factory))
+    return table
+
+
+def Beamline_Setup(start=1, stop=None, interactive=True, optional_scans=False,
+                   confirm=input, report_dir=BEAMLINE_SETUP_REPORT_DIR,
+                   first_run=True, dcm_warmup_s=150, crl_warmup_s=150,
+                   orbit_settle_s=120, hrm_warmup_s=1800):
+    """Automatic beamline alignment. Usage: RE(Beamline_Setup()).
+
+    first_run=True (default) requires interactive=True: every step is confirmed.
+    start/stop only select a range of steps (not a validated resume).
+    See Beamline_Setup_usage() and Beamline_Setup_table().
+    """
+    if first_run and not interactive:
+        raise ValueError('first_run=True requires interactive=True '
+                         '(pass first_run=False for a silent run).')
+    waits = (dcm_warmup_s, crl_warmup_s, orbit_settle_s, hrm_warmup_s)
+    if not all(isinstance(w, (int, float)) and not isinstance(w, bool) and w >= 0
+               for w in waits):
+        raise ValueError('wait durations must be numbers >= 0')
+    table = beamline_setup_step_table(report_dir, interactive, dcm_warmup_s,
+                                      crl_warmup_s, orbit_settle_s, hrm_warmup_s)
+    return beamline_setup_plan(
+        table, start=start, stop=stop, interactive=interactive,
+        optional_scans=optional_scans, confirm=confirm, report_dir=report_dir,
+        failure_types=(AlignmentFailure,), abort_types=(OperatorAbort,))
+
+
+def Beamline_Setup_table(start=1, stop=None, optional_scans=False):
+    """Print the Beamline_Setup step table. Runs nothing."""
+    return print_step_table(beamline_setup_step_table(), start, stop, optional_scans)
+
+
+def Beamline_Setup_usage():
+    """Print how to use Beamline_Setup."""
+    return beamline_setup_usage()
