@@ -435,10 +435,8 @@ def format_step_table(step_table, start=1, stop=None, optional_scans=False):
 
 def print_step_table(step_table, start=1, stop=None, optional_scans=False,
                      printer=print):
-    """Print the step table. Runs nothing. Returns the text."""
-    text = format_step_table(step_table, start, stop, optional_scans)
-    printer(text)
-    return text
+    """Print the step table. Runs nothing. Returns None (see format_step_table)."""
+    printer(format_step_table(step_table, start, stop, optional_scans))
 
 
 USAGE = """\
@@ -470,6 +468,5 @@ Statuses: completed failed cancelled interrupted skipped not_run
 
 
 def beamline_setup_usage(printer=print):
-    """Print the usage text. Returns it."""
+    """Print the usage text. Returns None (the text is the module constant USAGE)."""
     printer(USAGE)
-    return USAGE

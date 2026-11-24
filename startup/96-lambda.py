@@ -59,6 +59,17 @@ for j in range(1, 8):
 lambda_det.stats7.total.kind = 'hinted'
 
 
+# Slim detector on the same IOC with only stats4.total hinted. Used by
+# lam_det_y_setup() so that lambda_det keeps stats7.total as its default
+# channel. Never put lambda_det and lambda_det_ch4 in the same dets list.
+class LambdaCh4(SingleTriggerV33, LambdaDetector):
+    stats4 = Cpt(StatsPluginV33, 'Stats4:', read_attrs=['total'])
+
+
+lambda_det_ch4 = LambdaCh4('XF:10IDC-BI{Lambda-Cam:1}', name='lambda_det_ch4')
+lambda_det_ch4.stats4.total.kind = 'hinted'
+
+
 ## Section for testing of lambda flex
 # lambda_flex = Lambda('XF:10ID1-ES{XSPD-Det:1}', name='lambda_flex')
 

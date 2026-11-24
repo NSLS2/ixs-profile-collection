@@ -1507,6 +1507,75 @@ def wcr_setup():
     print('W crystal alignment finished\n')
 
 
+LAMY_MIN_INTENSITY = 4.0e4
+LAMY_MIN_CONTRAST = 0.6
+LAMY_FWHM_MIN, LAMY_FWHM_MAX = 0.2, 0.36
+
+
+def _lam_det_y_validate(stats, initial_pos):
+    """Return (cen, fwhm, contrast, ymax); raise AlignmentFailure with diagnostics."""
+    fwhm, cen = stats.fwhm, stats.cen
+    ymax = ymin = contrast = None
+    try:
+        ymax, ymin = stats.max[1], stats.min[1]
+        if (ymax + ymin) != 0:
+            contrast = (ymax - ymin) / (ymax + ymin)
+    except (TypeError, IndexError):
+        pass
+    diag = (f'initial={initial_pos:.4f} cen={cen} fwhm={fwhm} max={ymax} '
+            f'min={ymin} contrast={contrast}')
+    if fwhm is None or cen is None or contrast is None or ymax is None:
+        raise AlignmentFailure(f'lam_det_y scan returned invalid results ({diag}).')
+    if not ymax > LAMY_MIN_INTENSITY:
+        raise AlignmentFailure(
+            f'lam_det_y maximum intensity {ymax:.4g} not above {LAMY_MIN_INTENSITY:.1e} ({diag}).')
+    if not contrast > LAMY_MIN_CONTRAST:
+        raise AlignmentFailure(
+            f'lam_det_y contrast {contrast:.3f} not above {LAMY_MIN_CONTRAST} ({diag}).')
+    if not LAMY_FWHM_MIN <= fwhm <= LAMY_FWHM_MAX:
+        raise AlignmentFailure(
+            f'lam_det_y FWHM {fwhm:.3f} outside [{LAMY_FWHM_MIN}, {LAMY_FWHM_MAX}] ({diag}).')
+    return float(cen), float(fwhm), float(contrast), float(ymax)
+
+
+def lam_det_y_setup():
+    """Center lam_det_y on the Lambda stats4 intensity peak.
+
+    Raises AlignmentFailure on failure and restores lam_det_y to its initial
+    position.
+    """
+    initial_pos = lam_det_y.position
+    status, reason, restore_errors = 'success', '', []
+    cen = fwhm = contrast = ymax = None
+    try:
+        yield from set_lambda_exposure(1)
+        res = yield from dscan(lam_det_y, -0.4, 0.4, 41, lambda_det_ch4, 1)
+        cen, fwhm, contrast, ymax = _lam_det_y_validate(res[0], initial_pos)
+        yield from bps.mv(lam_det_y, cen)
+    except (RequestAbort, RequestStop):
+        raise
+    except Exception as exc:
+        status, reason = 'failed', _mcm_describe(exc)
+        try:
+            yield from bps.mv(lam_det_y, initial_pos)
+        except (RequestAbort, RequestStop):
+            raise
+        except Exception as rexc:
+            restore_errors.append(f'lam_det_y: {_mcm_describe(rexc)}')
+    try:
+        final = lam_det_y.position
+    except Exception as exc:
+        final = f'unreadable ({exc!r})'
+    print('\n' + '*' * 60)
+    print(f'lam_det_y setup: {status.upper()}' + (f' - {reason}' if reason else ''))
+    print(f'  initial: {initial_pos}  final: {final}')
+    print(f'  cen: {cen}  fwhm: {fwhm}  contrast: {contrast}  max: {ymax}')
+    print(f'  restore_errors: {restore_errors}')
+    print('*' * 60 + '\n')
+    if status == 'failed':
+        raise AlignmentFailure(reason)
+
+
 #*******************************************************************************************************
 def hrm_in():
 #   Moves HRM into the x-ray beam
@@ -1973,9 +2042,9 @@ def Beamline_Setup(start=1, stop=None, interactive=True, optional_scans=False,
 
 def Beamline_Setup_table(start=1, stop=None, optional_scans=False):
     """Print the Beamline_Setup step table. Runs nothing."""
-    return print_step_table(beamline_setup_step_table(), start, stop, optional_scans)
+    print_step_table(beamline_setup_step_table(), start, stop, optional_scans)
 
 
 def Beamline_Setup_usage():
     """Print how to use Beamline_Setup."""
-    return beamline_setup_usage()
+    beamline_setup_usage()

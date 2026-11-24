@@ -73,5 +73,6 @@ whl = EpicsMotor('XF:10IDD-OP{Abs:1-Ax:Wheel}Mtr', name='whl', labels=('whl',))
 anapd = EpicsMotor('XF:10IDD-ES{Ez4:8-Ax:3}Mtr', name='anapd', labels=('anapd',))
 anpd = EpicsMotor('XF:10IDD-ES{Ez4:5-Ax:1}Mtr', name='anpd', labels=('anpd',))
 airpad = EpicsSignal("XF:10IDD-CT{IOC-MC:12}AirOn-cmd", name="airpad")
+lam_det_y = EpicsMotor('XF:10IDD-OP{Det:1-Ax:Y}Mtr', name='lam_det_y', labels=('lam_det_y',))
 
 # name_you_want = EpicsMotor(PVNAME_BASE, name='name_you_want')
