@@ -1589,6 +1589,17 @@ def hrm_out():
 
 
 #*******************************************************************************************************
+# Per-crystal acceptance limits: (min max intensity, min contrast, FWHM range or None).
+# Intensity and contrast must be strictly above the limit; FWHM range is inclusive
+# and in motor units.
+HRM_THRESHOLDS = {
+    '1st': (3.0e6, 0.9, None),
+    '2nd': (2.0e6, 0.9, (30.0, 32.0)),
+    '3rd': (0.8e5, 0.9, None),
+    '4th': (7.0e3, 0.9, (29.0, 32.0)),
+}
+
+
 def _hrm_peak(label, stats):
     """Return the peak centre; raise AlignmentFailure if no valid peak was found."""
     com, cen, fwhm = stats.com, stats.cen, stats.fwhm
@@ -1597,11 +1608,14 @@ def _hrm_peak(label, stats):
         raise AlignmentFailure(f'HRM {label} crystal: invalid peak statistics ({diag}).')
     if abs(com - cen)/fwhm > 0.3:
         raise AlignmentFailure(f'HRM {label} crystal peak not found ({diag}).')
+    min_intensity, min_contrast, fwhm_range = HRM_THRESHOLDS[label]
+    cen, _fwhm, _contrast = _ccr_validate(
+        f'HRM {label} crystal', stats, min_contrast, min_intensity, fwhm_range)
     return cen
 
 
 def _hrm_crystal_scan(label, motor, start, stop, det, channel, d_motor, d_value):
-    """Scan one HRM crystal angle with dscan, move to the peak, then set the D motor."""
+    """Scan one HRM crystal angle with dscan, validate, move to the peak, then set the D motor."""
     res = yield from dscan(motor, start, stop, 51, det, 0.5, det_ch=[channel])
     cen = _hrm_peak(label, res[0])
     yield from bps.mv(motor, cen, d_motor, d_value)
