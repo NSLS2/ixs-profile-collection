@@ -63,10 +63,13 @@ lambda_det.stats7.total.kind = 'hinted'
 # lam_det_y_setup() so that lambda_det keeps stats7.total as its default
 # channel. Never put lambda_det and lambda_det_ch4 in the same dets list.
 class LambdaCh4(SingleTriggerV33, LambdaDetector):
+    cv1 = Cpt(PluginCV, 'CV1:')
+    roi4 = Cpt(ROIPlugin, 'ROI4:')
     stats4 = Cpt(StatsPluginV33, 'Stats4:', read_attrs=['total'])
 
 
 lambda_det_ch4 = LambdaCh4('XF:10IDC-BI{Lambda-Cam:1}', name='lambda_det_ch4')
+lambda_det_ch4.stats4.kind = 'normal'
 lambda_det_ch4.stats4.total.kind = 'hinted'
 
 
